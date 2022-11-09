@@ -29,7 +29,7 @@ vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. 
                                     // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2019, 1, 3};
 
-string filePath = "../UtilityTools/extractTools/data/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/extractTools/data/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
@@ -101,7 +101,7 @@ vector<string> formatDay(vector<int>);
 bool dirExists(string filePath);
 
 /* function to read the data from a passed grib file */
-void readData(FILE f);
+void readData(FILE*);
 
 /* function to map the data in the station's values array to the station's map */
 void mapData(string, string);
@@ -147,7 +147,7 @@ int main(int argc, char*argv[]){
             }
 
             // if file was successfully opened, read the data
-            readData(*f);
+            readData(f);
             mapData(strCurrentDay.at(3), hour);
 
             //close the file, deallocate resources
@@ -168,7 +168,12 @@ int main(int argc, char*argv[]){
         }
     }
 
-
+    for(int i =0; i<numStations;i++){
+        // delete each station's value array
+        delete [] stationArr[i].values;
+    }
+    delete [] objparamArr;
+    delete [] stationArr;
 
     return 0;
 }
@@ -186,7 +191,7 @@ void handleInput(int argc, char* argv[]){
         numStations = 5;
         
         
-        objparamArr[numParams];
+        objparamArr = new Parameter[numParams];
         Parameter sv, sws, gph, temp, mslp, gph1k, sp, stemp, gm, temp2m, 
                   ptemp2m, sphum2m, dewtemp2m, rhum2m, wspd10m, sfv, sshnf, slhnf, iblsli, lcc,
                   sdswrf, sdlwrd, suswrf, sulwrf, svbdsf, svddsf, srh3km, vucs, izp, htfp;
@@ -221,35 +226,36 @@ void handleInput(int argc, char* argv[]){
         izp.layer = 125, izp.name = "Pressure", izp.paramId = 54, izp.shortName = "pres", izp.units = "Pa";
         htfp.layer = 128, htfp.name = "Pressure", htfp.paramId = 54, htfp.shortName = "pres", htfp.units = "Pa";
 
-        objparamArr[0] = sv; objparamArr[1] = sws; objparamArr[2] = gph; objparamArr[3] = temp; objparamArr[4] = mslp;
-        objparamArr[5] = gph1k; objparamArr[6] = sp; objparamArr[7] = stemp; objparamArr[8] = gm; objparamArr[9] = temp2m;
-        objparamArr[10] = ptemp2m; objparamArr[11] = sphum2m; objparamArr[12] = dewtemp2m; objparamArr[13] = rhum2m; objparamArr[14] = wspd10m;
-        objparamArr[15] = sfv; objparamArr[16] = sshnf; objparamArr[17] = slhnf; objparamArr[18] = iblsli; objparamArr[19] = lcc;
-        objparamArr[20] = sdswrf; objparamArr[21] =sdlwrd; objparamArr[22] = suswrf; objparamArr[23] = sulwrf; objparamArr[24] = svbdsf;
-        objparamArr[25] = svddsf; objparamArr[26] = srh3km; objparamArr[27] = vucs; objparamArr[28] = izp; objparamArr[29] = htfp;
+        *(objparamArr) = sv; *(objparamArr+1) = sws; *(objparamArr+2) = gph; *(objparamArr+3) = temp; *(objparamArr+4) = mslp;
+        *(objparamArr+5) = gph1k; *(objparamArr+6) = sp; *(objparamArr+7) = stemp; *(objparamArr+8) = gm; *(objparamArr+9) = temp2m;
+        *(objparamArr+10) = ptemp2m; *(objparamArr+11) = sphum2m; *(objparamArr+12) = dewtemp2m; *(objparamArr+13) = rhum2m; *(objparamArr+14) = wspd10m;
+        *(objparamArr+15) = sfv; *(objparamArr+16) = sshnf; *(objparamArr+17) = slhnf; *(objparamArr+18) = iblsli; *(objparamArr+19) = lcc;
+        *(objparamArr+20) = sdswrf; *(objparamArr+21) =sdlwrd; *(objparamArr+22) = suswrf; *(objparamArr+23) = sulwrf; *(objparamArr+24) = svbdsf;
+        *(objparamArr+25) = svddsf; *(objparamArr+26) = srh3km; *(objparamArr+27) = vucs; *(objparamArr+28) = izp; *(objparamArr+29) = htfp;
 
         int layer =0;
         for (int i = 0; i<numParams; i++){
             layer = objparamArr[i].layer;
             blnParamArr[layer] = true;
-        }
+        }        
 
-        stationArr[numStations];
+        stationArr = new Station[numStations];
 
         Station bmtn, ccla, farm, huey, lxgn;
         bmtn.name = "BMTN";bmtn.lat = 36.91973;bmtn.lon = -82.90619;
-        stationArr[0] = bmtn;
+        *(stationArr+0) = bmtn;
         ccla.name = "CCLA";ccla.lat = 37.67934; ccla.lon = -85.97877;
-        stationArr[1] = ccla;
+        *(stationArr+1) = ccla;
         farm.name = "FARM"; farm.lat = 36.93; farm.lon = -86.47;
-        stationArr[2] = farm;
+        *(stationArr+2) = farm;
         huey.name = "HUEY"; huey.lat = 38.96701; huey.lon = -84.72165;
-        stationArr[3] = huey;
+        *(stationArr+3) = huey;
         lxgn.name = "LXGN"; lxgn.lat = 37.97496; lxgn.lon = -84.53354;
+        *(stationArr+4) = lxgn;
 
         // initialize the pointer array for each station to be of the length of the number of params
         for (int i=0; i<numStations;i++){
-            stationArr[i].values[numParams];
+            stationArr[i].values = new double[numParams];
         }
     }
 }
@@ -370,10 +376,12 @@ bool dirExists(string filePath){
 }
 
 
-void readData(FILE f){
+/// @brief 
+/// @param f 
+void readData(FILE *f){
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
-    codes_grib_multi_support_on(NULL);
+    // codes_grib_multi_support_on(NULL);
 
     codes_handle * h = NULL; // use to unpack each layer of the file
 
@@ -390,7 +398,7 @@ void readData(FILE f){
 
     double *lats, *lons, *values; // lats, lons, and values returned from extracted grib file
 
-    while((h=codes_handle_new_from_file(0, &f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
+    while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
@@ -432,7 +440,7 @@ void readData(FILE f){
                 int closestPoint = 0;
                 for (int i = 0; i<numStations; i++){
                     Station station = stationArr[i];
-
+                    closestPoint=0;
                     for (int j = 0; j<numberOfPoints; j++){
                         if (values[j] != missing){
 
@@ -456,12 +464,12 @@ void readData(FILE f){
                 Station station = stationArr[i];
                 int index = 0;
                 for (int j =0; j<numParams;j++){
-                    if(objparamArr[numParams].layer == msg_count){
+                    if(objparamArr[j].layer == msg_count){
                         index = j;
                         break;
                     }
                 }
-                station.values[index] = values[station.closestPoint]; 
+                *(station.values+index) = values[station.closestPoint]; 
 
             }
 
@@ -480,6 +488,7 @@ void mapData(string date, string hour){
         Station station = stationArr[i];
         station.dataMap.insert({hourlyDate, station.values});
     }
+
 }
 
 
