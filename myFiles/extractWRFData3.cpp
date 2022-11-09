@@ -176,7 +176,7 @@ int main(int argc, char*argv[]){
     delete [] stationArr;
 
     return 0;
-}
+ }
 
 void handleInput(int argc, char* argv[]){
     
@@ -437,23 +437,23 @@ void readData(FILE *f){
                 ////////////////////////
 
                 // loop through each station and find the indexes of the 4 point nearest to the station
-                int closestPoint = 0;
+                int closestPoint_1 = 0;
                 for (int i = 0; i<numStations; i++){
-                    Station station = stationArr[i];
-                    closestPoint=0;
+                    Station *station = &stationArr[i];
+                    closestPoint_1=0;
                     for (int j = 0; j<numberOfPoints; j++){
                         if (values[j] != missing){
-
+                    
                             // find the point on the grib file that is closest to the latitude and longitude of the station
-                            if((pow((lats[j] - station.lat), 2) + pow((lons[j]-station.lon), 2)) <= (pow((lats[closestPoint] - station.lat), 2) + pow((lons[closestPoint] - station.lon), 2))){
+                            if((pow((lats[j] - station->lat), 2) + pow((lons[j]-station->lon), 2)) <= (pow((lats[closestPoint_1] - station->lat), 2) + pow((lons[closestPoint_1] - station->lon), 2))){
                                 // this is the closest point
-                                closestPoint = j;
+                                closestPoint_1 = j;
                             }
 
                         }
                     }
                     // set the station's closest point
-                    station.closestPoint = closestPoint;
+                    station->closestPoint = closestPoint_1;
                 }          
                 flag = false;
             }
@@ -461,7 +461,7 @@ void readData(FILE *f){
             // we've got the index of the closest lats and lons, now we just have to map them to each station's values arr
             // figuring out which index of each station's parameter array to put the values at 
             for (int i=0; i<numStations; i++){
-                Station station = stationArr[i];
+                Station *station = &stationArr[i];
                 int index = 0;
                 for (int j =0; j<numParams;j++){
                     if(objparamArr[j].layer == msg_count){
@@ -469,7 +469,7 @@ void readData(FILE *f){
                         break;
                     }
                 }
-                *(station.values+index) = values[station.closestPoint]; 
+                *(station->values+index) = values[station->closestPoint]; 
 
             }
 
@@ -485,8 +485,8 @@ void readData(FILE *f){
 void mapData(string date, string hour){
     string hourlyDate = date + hour;
     for (int i = 0; i<numStations; i++){
-        Station station = stationArr[i];
-        station.dataMap.insert({hourlyDate, station.values});
+        Station *station = &stationArr[i];
+        station->dataMap.insert({hourlyDate, station->values});
     }
 
 }
