@@ -21,8 +21,17 @@ g++ -Wall extractWRFData3.cpp -leccodes
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <map>
+#include <time.h>
 #define MAX_VAL_LEN 1024
 using namespace std;
+
+/* Timing variables */
+struct timespec startExtract; 
+struct timespec endExtract;
+struct timespec startTotal;
+struct timespec endTotal;
+double extractTime;
+double totalTime;
 
 vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. End Day is NOT inclusive. 
                                     // when passing a single day, pass the day after beginDay for endDay
@@ -107,6 +116,8 @@ void readData(FILE*);
 void mapData(string, string);
 
 int main(int argc, char*argv[]){
+    clock_gettime(CLOCK_MONOTONIC, &startTotal);
+
     handleInput(argc, argv);
     convertLatLons();
 
@@ -147,6 +158,7 @@ int main(int argc, char*argv[]){
             }
 
             // if file was successfully opened, read the data
+            printf("Now reading from file: %s\n", filePath2.c_str());
             readData(f);
             mapData(strCurrentDay.at(3), hour);
 
@@ -162,9 +174,15 @@ int main(int argc, char*argv[]){
     // print out all the elements in all the station's data maps
     for (int i=0; i<numStations;i++){
         Station station = stationArr[i];
-        cout << "\nSTATION: " << station.name << endl;
+        cout << "\n\nSTATION: " << station.name << endl;
         for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
-            cout << itr->first << '\t' << itr->second << endl;
+            cout << itr->first << '\t';
+            for (int i = 0; i<numParams; i++){
+                 cout << *itr->second << " ";
+                 itr->second ++;
+
+            }
+            cout << endl;
         }
     }
 
@@ -174,6 +192,12 @@ int main(int argc, char*argv[]){
     }
     delete [] objparamArr;
     delete [] stationArr;
+
+    clock_gettime(CLOCK_MONOTONIC, &endTotal);
+    totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
+    totalTime+= (endTotal.tv_sec - startTotal.tv_sec) / 1000000.0;
+    printf("\n\nRuntime in ms:: %f\n", totalTime);
+    printf("Extract Time in ms:: %f\n", extractTime);
 
     return 0;
  }
@@ -376,9 +400,9 @@ bool dirExists(string filePath){
 }
 
 
-/// @brief 
-/// @param f 
 void readData(FILE *f){
+    clock_gettime(CLOCK_MONOTONIC, &startExtract);
+
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
     // codes_grib_multi_support_on(NULL);
@@ -428,7 +452,11 @@ void readData(FILE *f){
             // all the lats,lons, and values from this layer of the grib file are now stored, now match them
             // to their respective stations
 
-            
+            clock_gettime(CLOCK_MONOTONIC, &endExtract);
+            double thisTime= (endExtract.tv_sec - startExtract.tv_sec) * 1000.0;
+            thisTime+= (endExtract.tv_sec - startExtract.tv_sec) / 1000000.0;
+            extractTime = thisTime;
+
             // if it is the first time, extract the index
             if (flag == true){
                 
