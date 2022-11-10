@@ -201,7 +201,7 @@ int main(int argc, char*argv[]){
 
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
-    totalTime+= (endTotal.tv_sec - startTotal.tv_sec) / 1000000.0;
+    totalTime+= (endTotal.tv_nsec - startTotal.tv_nsec) / 1000000.0;
     printf("\n\nRuntime in ms:: %f\n", totalTime);
     printf("Extract Time in ms:: %f\n", extractTime);
     printf("Time to find index: %f\n\n", matchTime);
@@ -408,7 +408,6 @@ bool dirExists(string filePath){
 
 
 void readData(FILE *f){
-    clock_gettime(CLOCK_MONOTONIC, &startExtract);
 
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
@@ -431,6 +430,7 @@ void readData(FILE *f){
 
     while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
+        clock_gettime(CLOCK_MONOTONIC, &startExtract);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
 
@@ -461,8 +461,8 @@ void readData(FILE *f){
 
             clock_gettime(CLOCK_MONOTONIC, &endExtract);
             double thisTime= (endExtract.tv_sec - startExtract.tv_sec) * 1000.0;
-            thisTime+= (endExtract.tv_sec - startExtract.tv_sec) / 1000000.0;
-            extractTime = thisTime;
+            thisTime+= (endExtract.tv_nsec - startExtract.tv_nsec) / 1000000.0;
+            extractTime += thisTime;
 
             // if it is the first time, extract the index
             if (flag == true){
@@ -506,7 +506,7 @@ void readData(FILE *f){
                 flag = false;
                 clock_gettime(CLOCK_MONOTONIC, &endMatching);
                 double timeeeeee = (endMatching.tv_sec - startMatching.tv_sec) * 1000.0;
-                timeeeeee+=(endMatching.tv_sec - startMatching.tv_sec) / 1000000.0;
+                timeeeeee+=(endMatching.tv_nsec - startMatching.tv_nsec) / 1000000.0;
                 matchTime+= timeeeeee;
             }
 
