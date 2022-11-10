@@ -28,9 +28,12 @@ using namespace std;
 /* Timing variables */
 struct timespec startExtract; 
 struct timespec endExtract;
+struct timespec startMatching;
+struct timespec endMatching;
 struct timespec startTotal;
 struct timespec endTotal;
 double extractTime;
+double matchTime;
 double totalTime;
 
 vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. End Day is NOT inclusive. 
@@ -111,6 +114,9 @@ bool dirExists(string filePath);
 
 /* function to read the data from a passed grib file */
 void readData(FILE*);
+
+/* shorthand function for calculating the index of the closest point in the grib file to the lat and lon of a given station*/
+static bool indexofClosestPoint(double*, double*,float,float, int, int);
 
 /* function to map the data in the station's values array to the station's map */
 void mapData(string, string);
@@ -198,6 +204,7 @@ int main(int argc, char*argv[]){
     totalTime+= (endTotal.tv_sec - startTotal.tv_sec) / 1000000.0;
     printf("\n\nRuntime in ms:: %f\n", totalTime);
     printf("Extract Time in ms:: %f\n", extractTime);
+    printf("Time to find index: %f\n\n", matchTime);
 
     return 0;
  }
@@ -459,31 +466,48 @@ void readData(FILE *f){
 
             // if it is the first time, extract the index
             if (flag == true){
+                clock_gettime(CLOCK_MONOTONIC, &startMatching);
+
                 
                 ////////////////////////
                 // NEEDS OPTIMIZATION //
                 ////////////////////////
 
-                // loop through each station and find the indexes of the 4 point nearest to the station
-                int closestPoint_1 = 0;
-                for (int i = 0; i<numStations; i++){
-                    Station *station = &stationArr[i];
-                    closestPoint_1=0;
-                    for (int j = 0; j<numberOfPoints; j++){
-                        if (values[j] != missing){
+                // // loop through each station and find the indexes of the 4 point nearest to the station
+                // int closestPoint_1 = 0;
+                // for (int i = 0; i<numStations; i++){
+                //     Station *station = &stationArr[i];
+                //     closestPoint_1=0;
+                //     for (int j = 0; j<numberOfPoints; j++){
+                //         if (values[j] != missing){
                     
-                            // find the point on the grib file that is closest to the latitude and longitude of the station
-                            if((pow((lats[j] - station->lat), 2) + pow((lons[j]-station->lon), 2)) <= (pow((lats[closestPoint_1] - station->lat), 2) + pow((lons[closestPoint_1] - station->lon), 2))){
-                                // this is the closest point
-                                closestPoint_1 = j;
-                            }
+                //             // find the point on the grib file that is closest to the latitude and longitude of the station
+                //             if((pow((lats[j] - station->lat), 2) + pow((lons[j]-station->lon), 2)) <= (pow((lats[closestPoint_1] - station->lat), 2) + pow((lons[closestPoint_1] - station->lon), 2))){
+                //                 // this is the closest point
+                //                 closestPoint_1 = j;
+                //             }
 
-                        }
+                //         }
+                //     }
+                //     // set the station's closest point
+                //     station->closestPoint = closestPoint_1;
+                // }          
+                for(int i=0; i<numStations; i++){
+                    Station *station = &stationArr[i];
+                    // using a front to back algorithm
+                    int front = 0, back = numberOfPoints-1, closestPoint = 0;
+                    while (front <= back){
+                        if(indexofClosestPoint(lats, lons, station->lat, station->lon, front, closestPoint)) closestPoint = front;
+                        if(indexofClosestPoint(lats, lons, station->lat, station->lon, back, closestPoint)) closestPoint = back;
+                        front++;back--;
                     }
-                    // set the station's closest point
-                    station->closestPoint = closestPoint_1;
-                }          
+                    station->closestPoint = closestPoint;
+                }
                 flag = false;
+                clock_gettime(CLOCK_MONOTONIC, &endMatching);
+                double timeeeeee = (endMatching.tv_sec - startMatching.tv_sec) * 1000.0;
+                timeeeeee+=(endMatching.tv_sec - startMatching.tv_sec) / 1000000.0;
+                matchTime+= timeeeeee;
             }
 
             // we've got the index of the closest lats and lons, now we just have to map them to each station's values arr
@@ -508,6 +532,11 @@ void readData(FILE *f){
         codes_handle_delete(h);
     }
 
+}
+
+static bool indexofClosestPoint(double* lats, double* lons, float stationLat, float stationLon, int i, int prevClosestidx){
+    bool isCloser = (pow((lats[i] - stationLat), 2) + pow((lons[i]-stationLon), 2)) <= (pow((lats[prevClosestidx] - stationLat), 2) + pow((lons[prevClosestidx] - stationLon), 2));
+    return isCloser;
 }
 
 void mapData(string date, string hour){

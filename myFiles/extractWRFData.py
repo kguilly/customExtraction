@@ -94,9 +94,9 @@ class extractor():
             for (l_lt, l_ln), l_info in zip(self.loc, self.loc_info):
                 #if it is first time, extract index
                 if(flag == 1):
-                    l_lt_m = np.full_like(lt, l_lt)
+                    l_lt_m = np.full_like(lt, l_lt) # make an array of shape (grib lats) and fill with (station lats)
                     l_ln_m = np.full_like(ln, l_ln)
-                    dis_mat = (lt-l_lt_m)**2+(ln-l_ln_m)**2
+                    dis_mat = (lt-l_lt_m)**2+(ln-l_ln_m)**2 # find the closest point
                     p_lt, p_ln = np.unravel_index(dis_mat.argmin(), dis_mat.shape)
                     p_lt_dic[l_info].append(p_lt)
                     p_ln_dic[l_info].append(p_ln)                
