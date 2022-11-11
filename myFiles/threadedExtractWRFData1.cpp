@@ -1,13 +1,12 @@
 /*
-This file will extract a given list of parameters from a given list of lattitudes
-and longitudes from WRF GRIB2 files
+This implementation comes off the back of extractWRFData3.cpp. Will thread
+each hour into its own threading function. First attempt will use pthreads,
+as PTHREADs is a C library, matching ECCodes as a C library, as well as there
+being an example included in the eccodes library 
 
-Its functionality is based on extractWRFData.py by Dr. Purushottam Sigdel as well as
-grib_keys_iterator.c and grib_get_data.c found in the examples of the eccodes library. 
 
 Compile:
-g++ -Wall extractWRFData3.cpp -leccodes
-
+g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthreads
 
 */
 
@@ -22,6 +21,7 @@ g++ -Wall extractWRFData3.cpp -leccodes
 #include <sys/stat.h>
 #include <map>
 #include <time.h>
+#include <pthread.h>
 #define MAX_VAL_LEN 1024
 using namespace std;
 
@@ -36,7 +36,7 @@ double extractTime;
 double matchTime;
 double totalTime;
 
-vector<int> beginDay = {2019, 1, 1}; // arrays for the begin days and end days. End Day is NOT inclusive. 
+vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. End Day is NOT inclusive. 
                                     // when passing a single day, pass the day after beginDay for endDay
                                     // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2019, 1, 3};
@@ -75,6 +75,12 @@ struct Parameter{
     string name; // given
 };
 
+// Struct for passing one to many arguments into individual threading functions 
+// Currently not in use, only need a single argument for the moment
+struct threadArgs{
+    FILE*f;
+};
+
 Station *stationArr; 
 Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 in 
                           // the academic paper "Regional Weather Forecasting via Neural
@@ -83,13 +89,13 @@ Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 i
 bool blnParamArr[149]; // this will be used to quickly index whether a parameter needs to be 
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
+threadArgs *threadArgsArr;
 
 int numStations, numParams;
 
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 string hours[] = {"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
                        "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"};
-
 
 // function to handle arguments passed. Will either build the Station array and/or paramter array
 // based off of the arguments passed or will build them with default values
@@ -113,7 +119,7 @@ vector<string> formatDay(vector<int>);
 bool dirExists(string filePath);
 
 /* function to read the data from a passed grib file */
-void readData(FILE*);
+void *readData(void*);
 
 /* shorthand function for calculating the index of the closest point in the grib file to the lat and lon of a given station*/
 static bool indexofClosestPoint(double*, double*,float,float, int, int);
@@ -127,7 +133,6 @@ int main(int argc, char*argv[]){
     handleInput(argc, argv);
     convertLatLons();
 
-    FILE* f = NULL; // use to open the file
 
 
     // validate the dates passed
@@ -148,12 +153,15 @@ int main(int argc, char*argv[]){
             exit(1);
         }
 
-        for(string hour: hours){
-            // concatentate the full fledged file path
+        // Thread the hours 
+        pthread_t threads[24];
+        for(int i=0;i<24;i++){
+            string hour = hours[i];
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
             string filePath2 = filePath1 + fileName;
-
-            // try to open the file
+            
+            FILE* f = NULL; // use to open the file
+            //try to open the file
             try{
                 f = fopen(filePath2.c_str(), "rb");
                 if(!f) throw(filePath2);
@@ -162,17 +170,19 @@ int main(int argc, char*argv[]){
                 printf("Error: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
                 continue;
             }
-
-            // if file was successfully opened, read the data
+            // MAKE THIS CORRECT, may change pointer locations with each iteration of the loop
+            // threadArgsArr[i].*f = &f;
+            // if the file was successfully opened, thread the data to read it 
             printf("Now reading from file: %s\n", filePath2.c_str());
-            readData(f);
-            mapData(strCurrentDay.at(3), hour);
-
-            //close the file, deallocate resources
-            fclose(f);
+            pthread_create(&threads[i], NULL, &readData, (void*)f);
 
         }
-        
+        for(int i=0;i<24;i++){
+            pthread_join(threads[i], NULL);
+        }
+        for (string hour:hours){
+            mapData(strCurrentDay.at(3), hour);
+        }        
         intcurrentDay = getNextDay(intcurrentDay);
     }
 
@@ -209,7 +219,7 @@ int main(int argc, char*argv[]){
     return 0;
  }
 
-void handleInput(int argc, char* argv[]){
+ void handleInput(int argc, char* argv[]){
     
     // NOT FINISHED. DO NOT PASS ARGS
     if(argc > 1){
@@ -407,8 +417,9 @@ bool dirExists(string filePath){
 }
 
 
-void readData(FILE *f){
-
+void *readData(void *args){
+    sched_yield();
+    FILE*f = (FILE*)args;
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
     // codes_grib_multi_support_on(NULL);
@@ -440,20 +451,20 @@ void readData(FILE *f){
             lats = (double*)malloc(numberOfPoints * sizeof(double));
             if(!lats){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-                return;
+                exit(0);
             }
             lons = (double*)malloc(numberOfPoints * sizeof(double));
             if (!lons){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
                 free(lats);
-                return;
+                exit(0);
             }
             values = (double*)malloc(numberOfPoints * sizeof(double));
             if(!values){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
                 free(lats);
                 free(lons);
-                return;
+                exit(0);
             }
             CODES_CHECK(codes_grib_get_data(h, lats,lons,values), 0);
             // all the lats,lons, and values from this layer of the grib file are now stored, now match them
@@ -472,7 +483,7 @@ void readData(FILE *f){
                 ////////////////////////
                 // NEEDS OPTIMIZATION //
                 ////////////////////////
-
+              /*
                 // // loop through each station and find the indexes of the 4 point nearest to the station
                 // int closestPoint_1 = 0;
                 // for (int i = 0; i<numStations; i++){
@@ -491,7 +502,9 @@ void readData(FILE *f){
                 //     }
                 //     // set the station's closest point
                 //     station->closestPoint = closestPoint_1;
-                // }          
+                // }        
+              */  
+                
                 for(int i=0; i<numStations; i++){
                     Station *station = &stationArr[i];
                     // using a front to back algorithm
@@ -530,7 +543,10 @@ void readData(FILE *f){
             free(values);
         }
         codes_handle_delete(h);
+
     }
+    fclose(f);
+    pthread_exit(NULL);
 
 }
 
@@ -547,5 +563,3 @@ void mapData(string date, string hour){
     }
 
 }
-
-
