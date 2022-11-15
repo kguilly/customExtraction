@@ -10,6 +10,8 @@ g++ -Wall extractWRFData3.cpp -leccodes
 
 
 */
+// THIS VERSION IS STILL BUGGY
+// values for all days repeat from day to day, hour to hour
 
 #include <stdio.h>
 #include <stdlib.h>

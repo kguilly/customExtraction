@@ -6,7 +6,7 @@ being an example included in the eccodes library
 
 
 Compile:
-g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthreads
+g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 
 */
 
@@ -79,6 +79,8 @@ struct Parameter{
 // Currently not in use, only need a single argument for the moment
 struct threadArgs{
     FILE*f;
+    string fileName;
+    string pathName;
 };
 
 Station *stationArr; 
@@ -89,7 +91,6 @@ Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 i
 bool blnParamArr[149]; // this will be used to quickly index whether a parameter needs to be 
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
-threadArgs *threadArgsArr;
 
 int numStations, numParams;
 
@@ -142,6 +143,8 @@ int main(int argc, char*argv[]){
         exit(1);
     }
     vector<int> intcurrentDay = beginDay;
+
+    // for each day
     while(checkDateRange(intcurrentDay, endDay)){
         vector<string> strCurrentDay = formatDay(intcurrentDay);
 
@@ -154,27 +157,23 @@ int main(int argc, char*argv[]){
         }
 
         // Thread the hours 
+        // pthread_t threads = malloc(24*sizeof(pthread_t)); // allocate threads for all 24 hours
         pthread_t threads[24];
-        for(int i=0;i<24;i++){
+        FILE* f[24]; // use to open the file
+        threadArgs *threadArg;
+        for(int i=0;i<24;i++){ // for each hour, thread the file and filename
+            f[i] = NULL;
             string hour = hours[i];
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
             string filePath2 = filePath1 + fileName;
             
-            FILE* f = NULL; // use to open the file
-            //try to open the file
-            try{
-                f = fopen(filePath2.c_str(), "rb");
-                if(!f) throw(filePath2);
-            }
-            catch(string file){
-                printf("Error: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
-                continue;
-            }
-            // MAKE THIS CORRECT, may change pointer locations with each iteration of the loop
-            // threadArgsArr[i].*f = &f;
-            // if the file was successfully opened, thread the data to read it 
-            printf("Now reading from file: %s\n", filePath2.c_str());
-            pthread_create(&threads[i], NULL, &readData, (void*)f);
+            // place the arguments to pass to the thread function in the hour's struct 
+            threadArg = (threadArgs*)malloc(sizeof(struct threadArgs)); // goes free at the end of readData
+            (*threadArg).f = f[i];
+            (*threadArg).fileName = fileName;
+            (*threadArg).pathName = filePath2;
+
+            pthread_create(&threads[i], NULL, &readData, (void*)threadArg);
 
         }
         for(int i=0;i<24;i++){
@@ -183,6 +182,7 @@ int main(int argc, char*argv[]){
         for (string hour:hours){
             mapData(strCurrentDay.at(3), hour);
         }        
+        
         intcurrentDay = getNextDay(intcurrentDay);
     }
 
@@ -418,8 +418,21 @@ bool dirExists(string filePath){
 
 
 void *readData(void *args){
-    sched_yield();
-    FILE*f = (FILE*)args;
+    struct threadArgs *threadArg = (struct threadArgs*)args;
+
+    FILE*f = (*threadArg).f;
+    string filePath2 = (*threadArg).pathName;
+    string fileName = (*threadArg).fileName;
+
+    //try to open the file
+    try{
+        f = fopen(filePath2.c_str(), "rb");
+        if(!f) throw(filePath2);
+    }
+    catch(string file){
+        printf("Error: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
+        return nullptr;
+    }
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
     // codes_grib_multi_support_on(NULL);
@@ -546,6 +559,7 @@ void *readData(void *args){
 
     }
     fclose(f);
+    free(threadArg);
     pthread_exit(NULL);
 
 }
