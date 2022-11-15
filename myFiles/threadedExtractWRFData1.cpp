@@ -22,6 +22,7 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 #include <map>
 #include <time.h>
 #include <pthread.h>
+#include <cassert>
 #define MAX_VAL_LEN 1024
 using namespace std;
 
@@ -134,8 +135,6 @@ int main(int argc, char*argv[]){
     handleInput(argc, argv);
     convertLatLons();
 
-
-
     // validate the dates passed
     bool boolDateRange = checkDateRange(beginDay, endDay);
     if (boolDateRange == false){
@@ -160,7 +159,8 @@ int main(int argc, char*argv[]){
         // pthread_t threads = malloc(24*sizeof(pthread_t)); // allocate threads for all 24 hours
         pthread_t threads[24];
         FILE* f[24]; // use to open the file
-        threadArgs *threadArg;
+        threadArgs *threadArg[24];
+        int threaderr; // keep track if the threading runs into an error
         for(int i=0;i<24;i++){ // for each hour, thread the file and filename
             f[i] = NULL;
             string hour = hours[i];
@@ -168,12 +168,16 @@ int main(int argc, char*argv[]){
             string filePath2 = filePath1 + fileName;
             
             // place the arguments to pass to the thread function in the hour's struct 
-            threadArg = (threadArgs*)malloc(sizeof(struct threadArgs)); // goes free at the end of readData
-            (*threadArg).f = f[i];
-            (*threadArg).fileName = fileName;
-            (*threadArg).pathName = filePath2;
+            threadArg[i] = (threadArgs*)malloc(sizeof(struct threadArgs)); // goes free at the end of readData
+            (*threadArg[i]).f = f[i];
+            (*threadArg[i]).fileName = fileName;
+            (*threadArg[i]).pathName = filePath2;
 
-            pthread_create(&threads[i], NULL, &readData, (void*)threadArg);
+            threaderr = pthread_create(&threads[i], NULL, &readData, (void*)threadArg[i]);
+            if(threaderr){
+                assert(0);
+                return 1;
+            }
 
         }
         for(int i=0;i<24;i++){
@@ -420,6 +424,9 @@ bool dirExists(string filePath){
 void *readData(void *args){
     struct threadArgs *threadArg = (struct threadArgs*)args;
 
+    //TESTING
+    //cout << "entered threading function " << endl;
+
     FILE*f = (*threadArg).f;
     string filePath2 = (*threadArg).pathName;
     string fileName = (*threadArg).fileName;
@@ -454,10 +461,11 @@ void *readData(void *args){
 
     while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
-        clock_gettime(CLOCK_MONOTONIC, &startExtract);
+        assert(h);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
 
+            clock_gettime(CLOCK_MONOTONIC, &startExtract);
             // extract the data
             CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
