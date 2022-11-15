@@ -7,10 +7,10 @@
             "args": [
                 
                 "${file}",
+                "-pthread",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}",
-                "-leccodes",
-                "lpthread"
+                "-leccodes"
             ],
             "options": {
                 "cwd": "${fileDirname}"
