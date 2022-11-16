@@ -156,24 +156,37 @@ int main(int argc, char*argv[]){
         }
 
         // Thread the hours 
-        // pthread_t threads = malloc(24*sizeof(pthread_t)); // allocate threads for all 24 hours
-        pthread_t threads[24];
-        FILE* f[24]; // use to open the file
-        threadArgs *threadArg[24];
+        // allocate the threads and do some error checking
+        pthread_t *threads = (pthread_t*)malloc(24 * sizeof(pthread_t)); // will be freed at the end of this iteration
+        if(!threads){
+            fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(24*sizeof(pthread_t)));
+            exit(0);
+        }
+        FILE* f[24]; // use to open the file for each hour
+
+        // allocate the structs and do some error checking
+        
+
         int threaderr; // keep track if the threading runs into an error
-        for(int i=0;i<24;i++){ // for each hour, thread the file and filename
+        for(int i=0;i<1;i++){ // for each hour, thread the file and filename
             f[i] = NULL;
             string hour = hours[i];
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
             string filePath2 = filePath1 + fileName;
             
             // place the arguments to pass to the thread function in the hour's struct 
-            threadArg[i] = (threadArgs*)malloc(sizeof(struct threadArgs)); // goes free at the end of readData
-            (*threadArg[i]).f = f[i];
-            (*threadArg[i]).fileName = fileName;
-            (*threadArg[i]).pathName = filePath2;
+            threadArgs arg;
+            arg.f = f[i];
+            arg.fileName = fileName;
+            arg.pathName = filePath2;
+            threadArgs *threadArg = (threadArgs*)malloc(sizeof(threadArgs));
+            if(!threadArg){
+                fprintf(stderr, "error: unable to allocate %ld bytes for thread structs.\n", (long)(24*sizeof(threadArgs)));
+                exit(0);
+            }
+            *threadArg = arg;
 
-            threaderr = pthread_create(&threads[i], NULL, &readData, (void*)threadArg[i]);
+            threaderr = pthread_create(&threads[i], NULL, &readData, threadArg);
             if(threaderr){
                 assert(0);
                 return 1;
@@ -183,10 +196,11 @@ int main(int argc, char*argv[]){
         for(int i=0;i<24;i++){
             pthread_join(threads[i], NULL);
         }
+
         for (string hour:hours){
             mapData(strCurrentDay.at(3), hour);
         }        
-        
+        free(threads);
         intcurrentDay = getNextDay(intcurrentDay);
     }
 
@@ -422,15 +436,17 @@ bool dirExists(string filePath){
 
 
 void *readData(void *args){
-    struct threadArgs *threadArg = (struct threadArgs*)args;
+    struct threadArgs threadArg = *(struct threadArgs*)args;
 
     //TESTING
     //cout << "entered threading function " << endl;
 
-    FILE*f = (*threadArg).f;
-    string filePath2 = (*threadArg).pathName;
-    string fileName = (*threadArg).fileName;
+    FILE*f = (threadArg).f;
+    string filePath2 = (threadArg).pathName;
+    string fileName = (threadArg).fileName;
 
+
+    cout << "Opening file: " << filePath2 << endl;
     //try to open the file
     try{
         f = fopen(filePath2.c_str(), "rb");
@@ -567,7 +583,7 @@ void *readData(void *args){
 
     }
     fclose(f);
-    free(threadArg);
+    free(args);
     pthread_exit(NULL);
 
 }
