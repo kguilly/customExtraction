@@ -37,10 +37,16 @@ double extractTime;
 double matchTime;
 double totalTime;
 
-vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. End Day is NOT inclusive. 
+vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                     // when passing a single day, pass the day after beginDay for endDay
                                     // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2019, 1, 3};
+
+vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
+                                 // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
+                                 // accepts hours from 0 to 23 (IS INCLUSIVE)
+
+int intHourRange; 
 
 string filePath = "/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/extractTools/data/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
@@ -96,11 +102,11 @@ bool blnParamArr[149]; // this will be used to quickly index whether a parameter
 int numStations, numParams;
 
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
-string hours[] = {"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
-                       "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"};
+string *hours;
 
 // function to handle arguments passed. Will either build the Station array and/or paramter array
-// based off of the arguments passed or will build them with default values
+// based off of the arguments passed or will build them with default values. Will also construct
+// the hour array based on passed beginning and end hours
 void handleInput(int, char**);
 
 /* function to convert the lats and lons from the passed representation to the 
@@ -133,6 +139,7 @@ int main(int argc, char*argv[]){
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
 
     handleInput(argc, argv);
+
     convertLatLons();
 
     // validate the dates passed
@@ -157,18 +164,18 @@ int main(int argc, char*argv[]){
 
         // Thread the hours 
         // allocate the threads and do some error checking
-        pthread_t *threads = (pthread_t*)malloc(24 * sizeof(pthread_t)); // will be freed at the end of this iteration
+        pthread_t *threads = (pthread_t*)malloc(intHourRange * sizeof(pthread_t)); // will be freed at the end of this iteration
         if(!threads){
-            fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(24*sizeof(pthread_t)));
+            fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(intHourRange*sizeof(pthread_t)));
             exit(0);
         }
-        FILE* f[24]; // use to open the file for each hour
+        FILE* f[intHourRange]; // use to open the file for each hour
 
         // allocate the structs and do some error checking
         
 
         int threaderr; // keep track if the threading runs into an error
-        for(int i=0;i<1;i++){ // for each hour, thread the file and filename
+        for(int i=0;i<intHourRange;i++){ // for each hour, thread the file and filename
             f[i] = NULL;
             string hour = hours[i];
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
@@ -181,7 +188,7 @@ int main(int argc, char*argv[]){
             arg.pathName = filePath2;
             threadArgs *threadArg = (threadArgs*)malloc(sizeof(threadArgs));
             if(!threadArg){
-                fprintf(stderr, "error: unable to allocate %ld bytes for thread structs.\n", (long)(24*sizeof(threadArgs)));
+                fprintf(stderr, "error: unable to allocate %ld bytes for thread structs.\n", (long)(intHourRange*sizeof(threadArgs)));
                 exit(0);
             }
             *threadArg = arg;
@@ -193,12 +200,12 @@ int main(int argc, char*argv[]){
             }
 
         }
-        for(int i=0;i<24;i++){
+        for(int i=0;i<intHourRange;i++){
             pthread_join(threads[i], NULL);
         }
 
-        for (string hour:hours){
-            mapData(strCurrentDay.at(3), hour);
+        for (int i=0;i<intHourRange;i++){
+            mapData(strCurrentDay.at(3), *(hours+i));
         }        
         free(threads);
         intcurrentDay = getNextDay(intcurrentDay);
@@ -226,6 +233,7 @@ int main(int argc, char*argv[]){
     }
     delete [] objparamArr;
     delete [] stationArr;
+    free(hours);
 
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
@@ -315,6 +323,37 @@ int main(int argc, char*argv[]){
         // initialize the pointer array for each station to be of the length of the number of params
         for (int i=0; i<numStations;i++){
             stationArr[i].values = new double[numParams];
+        }
+
+
+        // build the hour array
+        // make sure correct values have been passed to the hour array 
+        try{
+            intHourRange = arrHourRange.at(1) - arrHourRange.at(0)+1;
+            if(intHourRange < 1) throw(intHourRange);
+        }catch(exception e){
+            fprintf(stderr, "Error, problems with hour range.");
+            exit(0);
+        }
+
+        hours = (string*)malloc(intHourRange*sizeof(string));
+        if(!hours){
+            fprintf(stderr, "Error, unable to allocate hours");
+            exit(0);
+        }
+        
+        int endHour = arrHourRange.at(1);
+        int beginHour = arrHourRange.at(0);
+        int index=0;
+        for(int hour = beginHour; hour<=endHour;hour++){
+            if(hour < 10){ // put a 0 in front then insert in the hours arr
+                string strHour = "0"+to_string(hour);
+                hours[index++] = strHour;
+            }
+            else{ // just convert to a string and insert into the hours arr
+                string strHour = to_string(hour);
+                hours[index++] = strHour;
+            }
         }
     }
 }
@@ -584,7 +623,7 @@ void *readData(void *args){
     }
     fclose(f);
     free(args);
-    pthread_exit(NULL);
+    pthread_exit(0);
 
 }
 
