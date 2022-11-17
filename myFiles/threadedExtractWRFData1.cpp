@@ -23,6 +23,7 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 #include <time.h>
 #include <pthread.h>
 #include <cassert>
+#include "semaphore.h"
 #define MAX_VAL_LEN 1024
 using namespace std;
 
@@ -104,6 +105,8 @@ int numStations, numParams;
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 string *hours;
 
+sem_t hProtection;
+
 // function to handle arguments passed. Will either build the Station array and/or paramter array
 // based off of the arguments passed or will build them with default values. Will also construct
 // the hour array based on passed beginning and end hours
@@ -136,6 +139,12 @@ static bool indexofClosestPoint(double*, double*,float,float, int, int);
 void mapData(string, string);
 
 int main(int argc, char*argv[]){
+
+    if(sem_init(&hProtection, 0, 1) == -1){
+        perror("sem_init");
+        exit(EXIT_FAILURE);
+    }
+
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
 
     handleInput(argc, argv);
@@ -207,7 +216,7 @@ int main(int argc, char*argv[]){
         for (int i=0;i<intHourRange;i++){
             mapData(strCurrentDay.at(3), *(hours+i));
         }        
-        free(threads);
+        std::free(threads);
         intcurrentDay = getNextDay(intcurrentDay);
     }
 
@@ -233,7 +242,7 @@ int main(int argc, char*argv[]){
     }
     delete [] objparamArr;
     delete [] stationArr;
-    free(hours);
+    std::free(hours);
 
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
@@ -241,6 +250,11 @@ int main(int argc, char*argv[]){
     printf("\n\nRuntime in ms:: %f\n", totalTime);
     printf("Extract Time in ms:: %f\n", extractTime);
     printf("Time to find index: %f\n\n", matchTime);
+
+    if(sem_destroy(&hProtection)==-1){
+        perror("sem_destroy");
+        exit(EXIT_FAILURE);
+    }
 
     return 0;
  }
@@ -514,8 +528,10 @@ void *readData(void *args){
 
     double *lats, *lons, *values; // lats, lons, and values returned from extracted grib file
 
+    sem_wait(&hProtection);
     while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
+        sem_post(&hProtection);
         assert(h);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
@@ -532,14 +548,14 @@ void *readData(void *args){
             lons = (double*)malloc(numberOfPoints * sizeof(double));
             if (!lons){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-                free(lats);
+                std::free(lats);
                 exit(0);
             }
             values = (double*)malloc(numberOfPoints * sizeof(double));
             if(!values){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-                free(lats);
-                free(lons);
+                std::free(lats);
+                std::free(lons);
                 exit(0);
             }
             CODES_CHECK(codes_grib_get_data(h, lats,lons,values), 0);
@@ -614,15 +630,17 @@ void *readData(void *args){
 
             }
 
-            free(lats);
-            free(lons);
-            free(values);
+            std::free(lats);
+            std::free(lons);
+            std::free(values);
+            
         }
         codes_handle_delete(h);
 
     }
+    sem_post(&hProtection);
     fclose(f);
-    free(args);
+    std::free(args);
     pthread_exit(0);
 
 }
