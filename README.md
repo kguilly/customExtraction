@@ -21,3 +21,10 @@
         $sudo apt install cmake
         ```
 2. Clone / Download zip file of the [customExtraction repository]()
+
+
+### This version of the README is based on another [tutorial for installing ECCODES](https://gist.github.com/MHBalsmeier/a01ad4e07ecf467c90fad2ac7719844a)
+may need to install aec
+need to change the link provided to not include the ?api=v2
+ls
+
