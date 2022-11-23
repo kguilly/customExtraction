@@ -1,7 +1,7 @@
 # README
 ### This project aims to extract WRF GRIB1 and GRIB2 files for selected parameters in selected locations across the United States using a C/C++ implementation of the ECCODES library
 ### **Note:** This README is written for debian linux systems. ECCODES does not directly support windows systems, however community support can be found [here](https://github.com/moonpyk/eccodes-build-windows)
-#### The opening part of this README is based on a [tutorial for installing ECCODES](https://gist.github.com/MHBalsmeier/a01ad4e07ecf467c90fad2ac7719844a)
+#### The opening part of this README is based on a previous [tutorial for installing ECCODES](https://gist.github.com/MHBalsmeier/a01ad4e07ecf467c90fad2ac7719844a)
 1. Prepare your system
    - From the command line, install the necessary prerequisite libraries with the following comand
       ```
