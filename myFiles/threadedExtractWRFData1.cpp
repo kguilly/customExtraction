@@ -498,8 +498,8 @@ void *readData(void *args){
     string filePath2 = (threadArg).pathName;
     string fileName = (threadArg).fileName;
 
-
-    cout << "Opening file: " << filePath2 << endl;
+    printf("\nOpening File: %s", filePath2.c_str());
+    // cout << "Opening file: " << filePath2 << endl;
     //try to open the file
     try{
         f = fopen(filePath2.c_str(), "rb");
