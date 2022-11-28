@@ -6,3 +6,14 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+
+# files added by me
+myFiles/a.out
+myFiles/extractWRFData3
+myFiles/grib_print_data.o
+myFiles/test1
+myFiles/threadedExtractWRFData1
+
+gribFiles/a.out
+gribFiles/grib_get_data.o
+gribFiles/output-10-14.zip
