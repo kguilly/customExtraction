@@ -13,6 +13,10 @@ myFiles/extractWRFData3
 myFiles/grib_print_data.o
 myFiles/test1
 myFiles/threadedExtractWRFData1
+myFiles/coutLines.py
+myFiles/threadingTest.cpp
+myFiles/test1.cpp
+myFiles/importGribTest.cpp
 
 gribFiles/a.out
 gribFiles/grib_get_data.o
