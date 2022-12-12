@@ -1,3 +1,0 @@
-/home/kalebg/Documents/GitHub/customExtraction/myFiles/cmake-build-debug/CMakeFiles/myFiles.dir
-/home/kalebg/Documents/GitHub/customExtraction/myFiles/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/kalebg/Documents/GitHub/customExtraction/myFiles/cmake-build-debug/CMakeFiles/rebuild_cache.dir
