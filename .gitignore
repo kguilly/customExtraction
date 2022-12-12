@@ -8,6 +8,7 @@
 /dataSources.local.xml
 
 # files added by me
+a.out
 myFiles/a.out
 myFiles/extractWRFData3
 myFiles/grib_print_data.o
