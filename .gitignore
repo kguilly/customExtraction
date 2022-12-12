@@ -1,1 +1,20 @@
-.idea
+.idea/
+.vscode/
+a.out
+
+#myFiles directory
+myFiles/a.out
+myFiles/extractWRFData3
+myFiles/grib_print_data.o
+myFiles/test1
+myFiles/threadedExtractWRFData1
+myFiles/coutLines.py
+myFiles/threadingTest.cpp
+myFiles/test1.cpp
+myFiles/importGribTest.cpp
+myFiles/.idea/
+myFiles/cmake-build-debug/
+
+gribFiles/a.out
+gribFiles/grib_get_data.o
+gribFiles/output-10-14.zip
