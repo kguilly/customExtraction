@@ -27,9 +27,9 @@ class extractor():
         #self.data_path = "N:/weather/WRF/"
         #self.write_data_path = "E:/extract_weather_parameter/Data/WRF/"
         self.data_path = "/home/kalebg/Desktop/School/Y4S1/REU/customExtraction/UtilityTools/extractTools/data/"  # data source (grib file location)
-        self.write_data_path = "WRF_Data/" # path to store extracted data
-        self.start_date = date(2019,1,1)  # start date
-        self.end_date = date(2019, 1,2)   # end date
+        self.write_data_path = "/home/kalebg/Desktop/WRF_Data/" # path to store extracted data
+        self.start_date = date(2019,1,2)  # start date
+        self.end_date = date(2019, 1,3)   # end date
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date - start_date).days)):

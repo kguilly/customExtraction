@@ -3,27 +3,29 @@ This file will extract a given list of parameters from a given list of lattitude
 and longitudes from WRF GRIB2 files
 
 Its functionality is based on extractWRFData.py by Dr. Purushottam Sigdel as well as
-grib_keys_iterator.c and grib_get_data.c found in the examples of the eccodes library. 
+grib_keys_iterator.c and grib_get_data.c found in the examples of the eccodes library.
+
 
 Compile:
-g++ -Wall extractWRFData3.cpp -leccodes
-
+g++ -Wall extractWRFData.cpp -leccodes 
 
 */
-// THIS VERSION IS STILL BUGGY
-// values for all days repeat from day to day, hour to hour
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <filesystem>
 #include "eccodes.h"
 #include <time.h>
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include <vector> 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <map>
 #include <time.h>
+#include <cassert>
+#include "semaphore.h"
 #define MAX_VAL_LEN 1024
 using namespace std;
 
@@ -38,14 +40,21 @@ double extractTime;
 double matchTime;
 double totalTime;
 
-vector<int> beginDay = {2019, 1, 1}; // arrays for the begin days and end days. End Day is NOT inclusive. 
+vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                     // when passing a single day, pass the day after beginDay for endDay
                                     // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2019, 1, 3};
 
+vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
+                                 // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
+                                 // accepts hours from 0 to 23 (IS INCLUSIVE)
+
+int intHourRange; 
+
 string filePath = "/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/extractTools/data/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
+string writePath = "/home/kalebg/Desktop/WRFData/";   //path to write extracted data to
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
 // paper: "Regional Weather Forecasting via Neural Networks with Near-Surface Observational and Atmospheric Numerical Data."
@@ -55,7 +64,7 @@ struct Station{
     float lon;
     double *values; // holds the values of the parameters. Index of this array will 
                     // correspond to index if the Parameter array. This will be a single hour's data
-    map<string, double*> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
+    map<string, vector<double>> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
 
     int closestPoint; // index in the grib file of the point closest to the station's lats and lons
     
@@ -77,6 +86,7 @@ struct Parameter{
     string name; // given
 };
 
+
 Station *stationArr; 
 Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 in 
                           // the academic paper "Regional Weather Forecasting via Neural
@@ -89,12 +99,11 @@ bool blnParamArr[149]; // this will be used to quickly index whether a parameter
 int numStations, numParams;
 
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
-string hours[] = {"00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
-                       "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23"};
-
+string *hours;
 
 // function to handle arguments passed. Will either build the Station array and/or paramter array
-// based off of the arguments passed or will build them with default values
+// based off of the arguments passed or will build them with default values. Will also construct
+// the hour array based on passed beginning and end hours
 void handleInput(int, char**);
 
 /* function to convert the lats and lons from the passed representation to the 
@@ -114,23 +123,24 @@ vector<string> formatDay(vector<int>);
 /* function to check if a given directory exists*/
 bool dirExists(string filePath);
 
-/* function to read the data from a passed grib file */
-void readData(FILE*);
-
-/* shorthand function for calculating the index of the closest point in the grib file to the lat and lon of a given station*/
-static bool indexofClosestPoint(double*, double*,float,float, int, int);
+/* function to read the data from a passed grib file
+    After reading the data, the *values array for each station
+    will be filled with the select paramters for a given hour */
+void readData(FILE*, string, string);
 
 /* function to map the data in the station's values array to the station's map */
 void mapData(string, string);
 
+/*function to write the data in the station maps to a .csv file*/
+void writeData(vector<string>, string);
+
 int main(int argc, char*argv[]){
+
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
 
     handleInput(argc, argv);
+
     convertLatLons();
-
-    FILE* f = NULL; // use to open the file
-
 
     // validate the dates passed
     bool boolDateRange = checkDateRange(beginDay, endDay);
@@ -139,6 +149,8 @@ int main(int argc, char*argv[]){
         exit(1);
     }
     vector<int> intcurrentDay = beginDay;
+
+    // for each day
     while(checkDateRange(intcurrentDay, endDay)){
         vector<string> strCurrentDay = formatDay(intcurrentDay);
 
@@ -150,31 +162,19 @@ int main(int argc, char*argv[]){
             exit(1);
         }
 
-        for(string hour: hours){
-            // concatentate the full fledged file path
+        FILE* f[intHourRange]; // use to open the file for each hour
+        
+        for(int i=0;i<intHourRange;i++){ // for each hour, thread the file and filename
+            f[i] = NULL;
+            string hour = hours[i];
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
             string filePath2 = filePath1 + fileName;
-
-            // try to open the file
-            try{
-                f = fopen(filePath2.c_str(), "rb");
-                if(!f) throw(filePath2);
-            }
-            catch(string file){
-                printf("Error: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
-                continue;
-            }
-
-            // if file was successfully opened, read the data
-            printf("Now reading from file: %s\n", filePath2.c_str());
-            readData(f);
+            
+            readData(*f, fileName, filePath2);
             mapData(strCurrentDay.at(3), hour);
+            writeData(strCurrentDay, hour);
 
-            //close the file, deallocate resources
-            fclose(f);
-
-        }
-        
+        }     
         intcurrentDay = getNextDay(intcurrentDay);
     }
 
@@ -185,10 +185,8 @@ int main(int argc, char*argv[]){
         cout << "\n\nSTATION: " << station.name << endl;
         for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
             cout << itr->first << '\t';
-            for (int i = 0; i<numParams; i++){
-                 cout << *itr->second << " ";
-                 itr->second ++;
-
+            for (int i = 0; i<itr->second.size(); i++){
+                 cout << itr->second.at(i) << " ";
             }
             cout << endl;
         }
@@ -200,6 +198,7 @@ int main(int argc, char*argv[]){
     }
     delete [] objparamArr;
     delete [] stationArr;
+    std::free(hours);
 
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
@@ -211,7 +210,7 @@ int main(int argc, char*argv[]){
     return 0;
  }
 
-void handleInput(int argc, char* argv[]){
+ void handleInput(int argc, char* argv[]){
     
     // NOT FINISHED. DO NOT PASS ARGS
     if(argc > 1){
@@ -290,13 +289,44 @@ void handleInput(int argc, char* argv[]){
         for (int i=0; i<numStations;i++){
             stationArr[i].values = new double[numParams];
         }
+
+
+        // build the hour array
+        // make sure correct values have been passed to the hour array 
+        try{
+            intHourRange = arrHourRange.at(1) - arrHourRange.at(0)+1;
+            if(intHourRange < 1) throw(intHourRange);
+        }catch(exception e){
+            fprintf(stderr, "Error, problems with hour range.");
+            exit(0);
+        }
+
+        hours = (string*)malloc(intHourRange*sizeof(string));
+        if(!hours){
+            fprintf(stderr, "Error, unable to allocate hours");
+            exit(0);
+        }
+        
+        int endHour = arrHourRange.at(1);
+        int beginHour = arrHourRange.at(0);
+        int index=0;
+        for(int hour = beginHour; hour<=endHour;hour++){
+            if(hour < 10){ // put a 0 in front then insert in the hours arr
+                string strHour = "0"+to_string(hour);
+                hours[index++] = strHour;
+            }
+            else{ // just convert to a string and insert into the hours arr
+                string strHour = to_string(hour);
+                hours[index++] = strHour;
+            }
+        }
     }
 }
 
 void convertLatLons(){
     for(int i=0; i<numStations;i++){
-        Station station = stationArr[i];
-        station.lon = (station.lon +360); // circle, going clockwise vs counterclockwise
+        Station *station = &stationArr[i];
+        station->lon = (station->lon +360); // circle, going clockwise vs counterclockwise
     }
 }
 
@@ -409,8 +439,19 @@ bool dirExists(string filePath){
 }
 
 
-void readData(FILE *f){
+void readData(FILE* f, string fileName, string filePath2){
 
+    printf("\nOpening File: %s", filePath2.c_str());
+    // cout << "Opening file: " << filePath2 << endl;
+    //try to open the file
+    try{
+        f = fopen(filePath2.c_str(), "rb");
+        if(!f) throw(filePath2);
+    }
+    catch(string file){
+        printf("Error: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
+        return;
+    }
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
     // codes_grib_multi_support_on(NULL);
@@ -432,30 +473,31 @@ void readData(FILE *f){
 
     while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
-        clock_gettime(CLOCK_MONOTONIC, &startExtract);
+        assert(h);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
 
+            clock_gettime(CLOCK_MONOTONIC, &startExtract);
             // extract the data
             CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
             lats = (double*)malloc(numberOfPoints * sizeof(double));
             if(!lats){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-                return;
+                exit(0);
             }
             lons = (double*)malloc(numberOfPoints * sizeof(double));
             if (!lons){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-                free(lats);
-                return;
+                std::free(lats);
+                exit(0);
             }
             values = (double*)malloc(numberOfPoints * sizeof(double));
             if(!values){
                 fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-                free(lats);
-                free(lons);
-                return;
+                std::free(lats);
+                std::free(lons);
+                exit(0);
             }
             CODES_CHECK(codes_grib_get_data(h, lats,lons,values), 0);
             // all the lats,lons, and values from this layer of the grib file are now stored, now match them
@@ -470,38 +512,14 @@ void readData(FILE *f){
             if (flag == true){
                 clock_gettime(CLOCK_MONOTONIC, &startMatching);
 
-                
-                ////////////////////////
-                // NEEDS OPTIMIZATION //
-                ////////////////////////
-
-                // // loop through each station and find the indexes of the 4 point nearest to the station
-                // int closestPoint_1 = 0;
-                // for (int i = 0; i<numStations; i++){
-                //     Station *station = &stationArr[i];
-                //     closestPoint_1=0;
-                //     for (int j = 0; j<numberOfPoints; j++){
-                //         if (values[j] != missing){
-                    
-                //             // find the point on the grib file that is closest to the latitude and longitude of the station
-                //             if((pow((lats[j] - station->lat), 2) + pow((lons[j]-station->lon), 2)) <= (pow((lats[closestPoint_1] - station->lat), 2) + pow((lons[closestPoint_1] - station->lon), 2))){
-                //                 // this is the closest point
-                //                 closestPoint_1 = j;
-                //             }
-
-                //         }
-                //     }
-                //     // set the station's closest point
-                //     station->closestPoint = closestPoint_1;
-                // }          
                 for(int i=0; i<numStations; i++){
                     Station *station = &stationArr[i];
-                    // using a front to back algorithm
-                    int front = 0, back = numberOfPoints-1, closestPoint = 0;
-                    while (front <= back){
-                        if(indexofClosestPoint(lats, lons, station->lat, station->lon, front, closestPoint)) closestPoint = front;
-                        if(indexofClosestPoint(lats, lons, station->lat, station->lon, back, closestPoint)) closestPoint = back;
-                        front++;back--;
+                    int closestPoint = 0;
+                    for(int j=0; j<numberOfPoints;j++){
+                        double distance = pow(lats[j] - station->lat, 2) + pow(lons[j]-station->lon, 2);
+                        double closestDistance = pow(lats[closestPoint] - station->lat, 2) + pow(lons[closestPoint] - station->lon, 2);
+                        // if the distance calculated on this iteration is closer than the distance calculated on the closest point, then change the closest point to this iteration
+                        if(distance < closestDistance) closestPoint = j;
                     }
                     station->closestPoint = closestPoint;
                 }
@@ -527,27 +545,92 @@ void readData(FILE *f){
 
             }
 
-            free(lats);
-            free(lons);
-            free(values);
+            std::free(lats);
+            std::free(lons);
+            std::free(values);
+            
         }
         codes_handle_delete(h);
+
     }
+    fclose(f);
 
 }
 
-static bool indexofClosestPoint(double* lats, double* lons, float stationLat, float stationLon, int i, int prevClosestidx){
-    bool isCloser = (pow((lats[i] - stationLat), 2) + pow((lons[i]-stationLon), 2)) <= (pow((lats[prevClosestidx] - stationLat), 2) + pow((lons[prevClosestidx] - stationLon), 2));
-    return isCloser;
-}
 
 void mapData(string date, string hour){
     string hourlyDate = date + hour;
     for (int i = 0; i<numStations; i++){
         Station *station = &stationArr[i];
-        station->dataMap.insert({hourlyDate, station->values});
+        // we can't directly insert the pointer to the data into the dataMap, so we need to insert a copy of the array
+        std::vector<double> valuesCpy(numParams);
+        for(int j=0; j<numParams; j++){
+            valuesCpy[j] = *(station->values+j);
+        }
+        station->dataMap.insert({hourlyDate, valuesCpy});
     }
 
 }
 
+void writeData(vector<string> strCurrentDay, string hour){
+    // if the path does not exist, make the path
+    if(!dirExists(writePath)){
+        if(mkdir(writePath.c_str(), 0777) == -1){
+            cerr << "Error: " << strerror(errno) << endl;
+        }
+    }
 
+    // make the directory structure: years/days/stationData
+    //                              ex. 2019/20190101/BMTN.20190101.csv
+
+    // for each year, make a folder
+    string yearWritePath = writePath+strCurrentDay.at(0)+"/";
+    if(!dirExists(yearWritePath)){
+        if(mkdir(yearWritePath.c_str(),0777)==-1){
+            cerr << "Error: " << strerror(errno) << endl;
+        }
+    }
+    // for each day, make a folder
+    string dayWritePath = yearWritePath + strCurrentDay.at(3) + "/";
+    if(!dirExists(dayWritePath)){
+        if(mkdir(dayWritePath.c_str(), 0777)==-1){
+            cerr << "Error: " << strerror(errno) << endl;
+        }
+    }
+    // for each station, make a file
+    for(int i=0; i<numStations; i++){
+        Station *station = &stationArr[i];
+        string fullFilePath = dayWritePath + station->name + "." + strCurrentDay.at(3) + ".csv";
+        // if the file does not already exist, make it
+        if(!std::filesystem::exists(fullFilePath)){
+            ofstream outfile(fullFilePath);
+            outfile.close();
+
+            // give the new file the appropriate headers
+            ofstream outfile;
+            outfile.open(fullFilePath, std::ios_base::app);
+            outfile << "year, month, day, hour, ";
+            
+            // append the name of each parameter to the headings of the files
+            for(int j=0;j<numParams;j++){
+                outfile << " " << objparamArr[j].name << ",";
+            }
+            outfile << "\n";
+            outfile.close();
+        }
+
+        // now append the data gathereed for the hour into the file
+        ofstream outfile;
+        outfile.open(fullFilePath, std::ios_base::app);
+        // append the year,                         month,                      day,                         hour, 
+        outfile << strCurrentDay.at(0) << "," << strCurrentDay.at(1) << "," << strCurrentDay.at(2) << "," << hour << ",";
+
+        // iterate through the vector at the yearMonthDayHour and append to the file
+        
+        
+        outfile << "\n";
+        outfile.close() ;   
+    }
+
+
+}
