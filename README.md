@@ -66,7 +66,7 @@
       g++ threadedExtractWRFData1.cpp -leccodes -lpthread
       ./a.out
       ```
-      *OR*
+      *OR, for non-threaded*
       ```
       g++ extractWRFData3.cpp -leccodes -o outFile
       ./outFile.out
