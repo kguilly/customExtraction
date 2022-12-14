@@ -56,11 +56,11 @@ struct Station{
     string name;
     float lat;
     float lon;
-    double *values; // holds the values of the parameters. Index of this array will 
+    double **values; // holds the values of the parameters. Index of this array will 
                     // correspond to index if the Parameter array. This will be a single hour's data
     map<string, double*> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
 
-    int closestPoint; // index in the grib file of the point closest to the station's lats and lons
+    int *closestPoint; // index in the grib file of the point closest to the station's lats and lons
     
     // NOT IMPLEMENTED YET
     // the next values will store the index of the parameters around the station that are returned by the GRIB file
@@ -86,7 +86,9 @@ struct threadArgs{
     FILE*f;
     string fileName;
     string pathName;
+    int threadIndex;
 };
+
 
 Station *stationArr; 
 Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 in 
@@ -201,6 +203,7 @@ int main(int argc, char*argv[]){
             arg.f = f[i];
             arg.fileName = fileName;
             arg.pathName = filePath2;
+            arg.threadIndex = i;
             threadArgs *threadArg = (threadArgs*)malloc(sizeof(threadArgs));
             if(!threadArg){
                 fprintf(stderr, "error: unable to allocate %ld bytes for thread structs.\n", (long)(intHourRange*sizeof(threadArgs)));
@@ -240,7 +243,12 @@ int main(int argc, char*argv[]){
     }
 
     for(int i =0; i<numStations;i++){
+        // delete each station's closest point array
+        delete [] stationArr[i].closestPoint;
         // delete each station's value array
+        for(int j=0; j<intHourRange;j++){
+            delete [] stationArr[i].values[j];
+        }
         delete [] stationArr[i].values;
     }
     delete [] objparamArr;
@@ -251,8 +259,6 @@ int main(int argc, char*argv[]){
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
     totalTime+= (endTotal.tv_nsec - startTotal.tv_nsec) / 1000000.0;
     printf("\n\nRuntime in ms:: %f\n", totalTime);
-    printf("Extract Time in ms:: %f\n", extractTime);
-    printf("Time to find index: %f\n\n", matchTime);
 
     if(sem_destroy(&hProtection)==-1){
         perror("sem_destroy");
@@ -494,7 +500,12 @@ int main(int argc, char*argv[]){
 
         // initialize the pointer array for each station to be of the length of the number of params
         for (int i=0; i<numStations;i++){
-            stationArr[i].values = new double[numParams];
+            //ALSO: initialize closestPoint array
+            stationArr[i].closestPoint = new int[intHourRange];
+            stationArr[i].values = new double*[intHourRange];
+            for(int j=0; j<intHourRange; j++){
+                stationArr[i].values[j] = new double[numParams];
+            }
         }
 
 
@@ -655,6 +666,7 @@ void *readData(void *args){
     FILE*f = (threadArg).f;
     string filePath2 = (threadArg).pathName;
     string fileName = (threadArg).fileName;
+    int threadIndex = (threadArg).threadIndex;
 
     printf("\nOpening File: %s", filePath2.c_str());
     // cout << "Opening file: " << filePath2 << endl;
@@ -694,7 +706,7 @@ void *readData(void *args){
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
 
-            clock_gettime(CLOCK_MONOTONIC, &startExtract);
+        
             // extract the data
             CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
@@ -720,57 +732,21 @@ void *readData(void *args){
             // all the lats,lons, and values from this layer of the grib file are now stored, now match them
             // to their respective stations
 
-            clock_gettime(CLOCK_MONOTONIC, &endExtract);
-            double thisTime= (endExtract.tv_sec - startExtract.tv_sec) * 1000.0;
-            thisTime+= (endExtract.tv_nsec - startExtract.tv_nsec) / 1000000.0;
-            extractTime += thisTime;
 
             // if it is the first time, extract the index
             if (flag == true){
-                clock_gettime(CLOCK_MONOTONIC, &startMatching);
-
                 
-                ////////////////////////
-                // NEEDS OPTIMIZATION //
-                ////////////////////////
-              /*
-                // // loop through each station and find the indexes of the 4 point nearest to the station
-                // int closestPoint_1 = 0;
-                // for (int i = 0; i<numStations; i++){
-                //     Station *station = &stationArr[i];
-                //     closestPoint_1=0;
-                //     for (int j = 0; j<numberOfPoints; j++){
-                //         if (values[j] != missing){
-                    
-                //             // find the point on the grib file that is closest to the latitude and longitude of the station
-                //             if((pow((lats[j] - station->lat), 2) + pow((lons[j]-station->lon), 2)) <= (pow((lats[closestPoint_1] - station->lat), 2) + pow((lons[closestPoint_1] - station->lon), 2))){
-                //                 // this is the closest point
-                //                 closestPoint_1 = j;
-                //             }
-
-                //         }
-                //     }
-                //     // set the station's closest point
-                //     station->closestPoint = closestPoint_1;
-                // }        
-              */  
-                
-                for(int i=0; i<numStations; i++){
+                for(int i =0; i<numStations; i++){
                     Station *station = &stationArr[i];
-                    // using a front to back algorithm
-                    int front = 0, back = numberOfPoints-1, closestPoint = 0;
-                    while (front <= back){
-                        if(indexofClosestPoint(lats, lons, station->lat, station->lon, front, closestPoint)) closestPoint = front;
-                        if(indexofClosestPoint(lats, lons, station->lat, station->lon, back, closestPoint)) closestPoint = back;
-                        front++;back--;
+                    int closestPoint = 0;
+                    for (int j=0; j<numberOfPoints;j++){
+                        double distance = pow(lats[j]- station->lat, 2) + pow(lons[j]-station->lon, 2);
+                        double closestDistance = pow(lats[closestPoint] - station->lat, 2) + pow(lons[closestPoint] - station->lon,2);
+                        if(distance < closestDistance) closestPoint = j;
                     }
-                    station->closestPoint = closestPoint;
+                    station->closestPoint[threadIndex] = closestPoint;
                 }
                 flag = false;
-                clock_gettime(CLOCK_MONOTONIC, &endMatching);
-                double timeeeeee = (endMatching.tv_sec - startMatching.tv_sec) * 1000.0;
-                timeeeeee+=(endMatching.tv_nsec - startMatching.tv_nsec) / 1000000.0;
-                matchTime+= timeeeeee;
             }
 
             // we've got the index of the closest lats and lons, now we just have to map them to each station's values arr
@@ -784,8 +760,9 @@ void *readData(void *args){
                         break;
                     }
                 }
-                *(station->values+index) = values[station->closestPoint]; 
-
+                double dblCurrentValue = values[station->closestPoint[threadIndex]];
+                //*(station->values+index) = &dblCurrentValue; 
+                station->values[threadIndex][index] = dblCurrentValue;
             }
 
             std::free(lats);
@@ -801,11 +778,6 @@ void *readData(void *args){
     std::free(args);
     pthread_exit(0);
 
-}
-
-static bool indexofClosestPoint(double* lats, double* lons, float stationLat, float stationLon, int i, int prevClosestidx){
-    bool isCloser = (pow((lats[i] - stationLat), 2) + pow((lons[i]-stationLon), 2)) <= (pow((lats[prevClosestidx] - stationLat), 2) + pow((lons[prevClosestidx] - stationLon), 2));
-    return isCloser;
 }
 
 void mapData(string date, string hour){
