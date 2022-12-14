@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
 
     //if (argc != 2) usage(argv[0]);
 
-    f = fopen("/home/kalebg/Desktop/School/Y4S1/REU/customExtraction/UtilityTools/extractTools/data/2019/20190101/hrrr.20190101.00.00.grib2", "rb");
+    f = fopen("/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/extractTools/data/2019/20190101/hrrr.20190101.00.00.grib2", "rb");
     // if (!f) {
     //     perror(argv[1]);
     //     exit(1);
