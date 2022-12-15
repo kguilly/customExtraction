@@ -58,7 +58,7 @@ struct Station{
     float lon;
     double **values; // holds the values of the parameters. Index of this array will 
                     // correspond to index if the Parameter array. This will be a single hour's data
-    map<string, double*> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
+    map<string, vector<double>> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
 
     int *closestPoint; // index in the grib file of the point closest to the station's lats and lons
     
@@ -87,6 +87,8 @@ struct threadArgs{
     string fileName;
     string pathName;
     int threadIndex;
+    string hour;
+    vector<string> strCurrentDay;
 };
 
 
@@ -134,7 +136,7 @@ void *readData(void*);
 
 
 /* function to map the data in the station's values array to the station's map */
-void mapData(string, string);
+void mapData(string, string, int);
 
 /* function to write the data in the staion maps to a .csv file */
 void* writeData(void*);
@@ -204,6 +206,8 @@ int main(int argc, char*argv[]){
             arg.fileName = fileName;
             arg.pathName = filePath2;
             arg.threadIndex = i;
+            arg.hour = hour;
+            arg.strCurrentDay = strCurrentDay;
             threadArgs *threadArg = (threadArgs*)malloc(sizeof(threadArgs));
             if(!threadArg){
                 fprintf(stderr, "error: unable to allocate %ld bytes for thread structs.\n", (long)(intHourRange*sizeof(threadArgs)));
@@ -225,6 +229,35 @@ int main(int argc, char*argv[]){
         intcurrentDay = getNextDay(intcurrentDay);
     }
 
+    // the data maps are finished being built, now its time to write the maps to csv files
+    // since each station has their own map, we can thread the stations without having to 
+    // use semaphores. 
+    struct writeThreadArgs{ //this is clumsily implemented, when making changes, keep in mind
+                            // that this structure also needs to be changed in the writeData func
+        Station* station;
+    };
+    pthread_t *writeThreads = (pthread_t*)malloc(numStations * sizeof(pthread_t)); // will be freed at the end of this iteration
+    if(!writeThreads){
+        fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(numStations*sizeof(pthread_t)));
+        exit(0);
+    }
+    int threaderr;
+    for(int i=0; i<numStations;i++){
+        writeThreadArgs *arg;
+        arg->station = &stationArr[i];
+        threaderr= pthread_create(&writeThreads[i], NULL, &writeData, arg);
+        if(threaderr){
+            assert(0);
+            return 1;
+        }
+
+    }
+    for(int i=0;i<numStations;i++){
+        pthread_join(writeThreads[i], NULL);
+    }
+    std::free(writeThreads);
+
+
 
 
     // print out all the elements in all the station's data maps
@@ -233,10 +266,8 @@ int main(int argc, char*argv[]){
         cout << "\n\nSTATION: " << station.name << endl;
         for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
             cout << itr->first << '\t';
-            for (int i = 0; i<numParams; i++){
-                 cout << *itr->second << " ";
-                 itr->second ++;
-
+            for (int i = 0; i<itr->second.size(); i++){
+                 cout << itr->second.at(i) << " ";
             }
             cout << endl;
         }
@@ -667,6 +698,8 @@ void *readData(void *args){
     string filePath2 = (threadArg).pathName;
     string fileName = (threadArg).fileName;
     int threadIndex = (threadArg).threadIndex;
+    string hour = (threadArg).hour;
+    vector<string> strCurrentDay = (threadArg).strCurrentDay;
 
     printf("\nOpening File: %s", filePath2.c_str());
     // cout << "Opening file: " << filePath2 << endl;
@@ -776,15 +809,107 @@ void *readData(void *args){
     sem_post(&hProtection);
     fclose(f);
     std::free(args);
+
+    // call the mapData function to map the hour's parameter's to each station's map
+    mapData(strCurrentDay.at(3), hour, threadIndex);
     pthread_exit(0);
 
 }
 
-void mapData(string date, string hour){
+void mapData(string date, string hour, int threadIndex){
     string hourlyDate = date + hour;
     for (int i = 0; i<numStations; i++){
         Station *station = &stationArr[i];
-        station->dataMap.insert({hourlyDate, station->values});
+        // we can't directly insert the pointer to the data into the dataMap, so we need to insert a copy of the array
+        std::vector<double> valuesCpy(numParams);
+        double *valuesCpy_1 = station->values[threadIndex];
+        for(int j=0; j<numParams; j++){
+            valuesCpy[j] = *(valuesCpy_1+j);
+        }
+        sem_wait(&mapProtection[i]);
+        station->dataMap.insert({hourlyDate, valuesCpy});
+        sem_post(&mapProtection[i]);
+    }
+}
+
+void* writeData(void*arg){
+
+    struct writeThreadArg{
+        Station*station;
+    } writeThreadArg = *(struct writeThreadArg*)arg;
+
+    Station*station = (writeThreadArg).station;
+
+    // loop through each key of the file, every time you run into a new day, 
+    // make a new file
+    for(auto itr = station->dataMap.begin(); itr!=station->dataMap.end();++itr){
+        string hourlyDate = itr->first;
+        string hour = std::to_string(hourlyDate[8]) + std::to_string(hourlyDate[9]);
+        string day = std::to_string(hourlyDate[6]) + std::to_string(hourlyDate[7]);
+        string month = std::to_string(hourlyDate[4]) + std::to_string(hourlyDate[5]);
+        string year = std::to_string(hourlyDate[0])+std::to_string(hourlyDate[1]) + std::to_string(hourlyDate[2])+std::to_string(hourlyDate[3]);
     }
 
+
+
+    // if the path does not exist, make the path
+    if(!dirExists(writePath)){
+        if(mkdir(writePath.c_str(), 0777) == -1){
+            cerr << "Error: " << strerror(errno) << endl;
+        }
+    }
+
+    // make the directory structure: years/days/stationData
+    //                              ex. 2019/20190101/BMTN.20190101.csv
+
+    // for each year, make a folder
+    string yearWritePath = writePath+strCurrentDay.at(0)+"/";
+    if(!dirExists(yearWritePath)){
+        if(mkdir(yearWritePath.c_str(),0777)==-1){
+            cerr << "Error: " << strerror(errno) << endl;
+        }
+    }
+    // for each day, make a folder
+    string dayWritePath = yearWritePath + strCurrentDay.at(3) + "/";
+    if(!dirExists(dayWritePath)){
+        if(mkdir(dayWritePath.c_str(), 0777)==-1){
+            cerr << "Error: " << strerror(errno) << endl;
+        }
+    }
+    // for each station, make a file
+    for(int i=0; i<numStations; i++){
+        Station *station = &stationArr[i];
+        string fullFilePath = dayWritePath + station->name + "." + strCurrentDay.at(3) + ".csv";
+        // if the file does not already exist, make it
+        if(!std::filesystem::exists(fullFilePath)){
+
+            // give the new file the appropriate headers
+            ofstream outfile;
+            outfile.open(fullFilePath, std::ios_base::app);
+            outfile << "year, month, day, hour, ";
+            
+            // append the name of each parameter to the headings of the files
+            for(int j=0;j<numParams;j++){
+                outfile << " " << objparamArr[j].name << " (" << objparamArr[j].units << ")" <<",";
+            }
+            outfile << "\n";
+            outfile.close();
+        }
+
+        // now append the data gathereed for the hour into the file
+        ofstream csvFile;
+        csvFile.open(fullFilePath, std::ios_base::app);
+        // append the year,                         month,                      day,                         hour, 
+        csvFile << strCurrentDay.at(0) << "," << strCurrentDay.at(1) << "," << strCurrentDay.at(2) << "," << hour << ",";
+
+        // iterate through the vector at the yearMonthDayHour and append to the file
+        string key = strCurrentDay.at(3) + hour;
+        auto itr = station->dataMap.find(key.c_str());
+        for(int j=0; j<itr->second.size();j++){
+            csvFile << itr->second.at(j) << ",";
+        }
+        
+        csvFile << "\n";
+        csvFile.close() ;   
+    }
 }
