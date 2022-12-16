@@ -12,16 +12,17 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <filesystem>
 #include "eccodes.h"
 #include <time.h>
 #include <iostream>
+#include <fstream>
 #include <cstring>
 #include <vector> 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <map>
 #include <time.h>
-#include <pthread.h>
 #include <cassert>
 #include "semaphore.h"
 #define MAX_VAL_LEN 1024
@@ -32,12 +33,12 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2019, 1, 2}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2019, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                     // when passing a single day, pass the day after beginDay for endDay
                                     // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2019, 1, 3};
 
-vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,2}; // array for the range of hours one would like to extract from
                                  // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                  // accepts hours from 0 to 23 (IS INCLUSIVE)
 
@@ -47,7 +48,7 @@ string filePath = "/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kalebg/Desktop/WRFData/"; // path to write the extracted data to,
+string writePath = "/home/kalebg/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
@@ -90,7 +91,10 @@ struct threadArgs{
     string hour;
     vector<string> strCurrentDay;
 };
-
+struct writeThreadArgs{ //this is clumsily implemented, when making changes, keep in mind
+                        // that this structure also needs to be changed in the writeData func
+    Station* station;
+};
 
 Station *stationArr; 
 Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 in 
@@ -106,13 +110,18 @@ int numStations, numParams;
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 string *hours;
 
-sem_t hProtection;
-sem_t *mapProtection;
+/*Initialization of semaphores to be used for protection*/
+sem_t hProtection; // protect when creating the handle object for each layer
+sem_t *mapProtection; // protect when writing to the maps
+sem_t pathCreationSem; // protect when writeData makes new file paths
+sem_t *valuesProtection; // protect when writing values to the values array
 
 // function to handle arguments passed. Will either build the Station array and/or paramter array
 // based off of the arguments passed or will build them with default values. Will also construct
 // the hour array based on passed beginning and end hours
 void handleInput(int, char**);
+
+void semaphoreInit();
 
 /* function to convert the lats and lons from the passed representation to the 
     way they are represented in the grib file. ONLY WORKS for coordinates in USA*/
@@ -141,6 +150,8 @@ void mapData(string, string, int);
 /* function to write the data in the staion maps to a .csv file */
 void* writeData(void*);
 
+void garbageCollection();
+
 int main(int argc, char*argv[]){
 
 
@@ -148,17 +159,8 @@ int main(int argc, char*argv[]){
 
     handleInput(argc, argv);
 
-    mapProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
-    for(int i=0; i< numStations; i++){
-        if(sem_init(&mapProtection[i], 0, 1)==-1){
-            perror("sem_init");
-            exit(EXIT_FAILURE);
-        }
-    }
-    if(sem_init(&hProtection, 0, 1) == -1){
-        perror("sem_init");
-        exit(EXIT_FAILURE);
-    }
+    semaphoreInit();
+    
     convertLatLons();
 
     // validate the dates passed
@@ -168,7 +170,6 @@ int main(int argc, char*argv[]){
         exit(1);
     }
     vector<int> intcurrentDay = beginDay;
-
     // for each day
     while(checkDateRange(intcurrentDay, endDay)){
         vector<string> strCurrentDay = formatDay(intcurrentDay);
@@ -188,9 +189,10 @@ int main(int argc, char*argv[]){
             fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(intHourRange*sizeof(pthread_t)));
             exit(0);
         }
+        
+         
         FILE* f[intHourRange]; // use to open the file for each hour
-
-        // allocate the structs and do some error checking
+        threadArgs *arrThreadArgs = new threadArgs[intHourRange];
         
 
         int threaderr; // keep track if the threading runs into an error
@@ -200,22 +202,13 @@ int main(int argc, char*argv[]){
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
             string filePath2 = filePath1 + fileName;
             
-            // place the arguments to pass to the thread function in the hour's struct 
-            threadArgs arg;
-            arg.f = f[i];
-            arg.fileName = fileName;
-            arg.pathName = filePath2;
-            arg.threadIndex = i;
-            arg.hour = hour;
-            arg.strCurrentDay = strCurrentDay;
-            threadArgs *threadArg = (threadArgs*)malloc(sizeof(threadArgs));
-            if(!threadArg){
-                fprintf(stderr, "error: unable to allocate %ld bytes for thread structs.\n", (long)(intHourRange*sizeof(threadArgs)));
-                exit(0);
-            }
-            *threadArg = arg;
-
-            threaderr = pthread_create(&threads[i], NULL, &readData, threadArg);
+            arrThreadArgs[i].f = f[i];
+            arrThreadArgs[i].fileName = fileName;
+            arrThreadArgs[i].pathName = filePath2;
+            arrThreadArgs[i].threadIndex = i;
+            arrThreadArgs[i].hour = hour;
+            arrThreadArgs[i].strCurrentDay = strCurrentDay;            
+            threaderr = pthread_create(&threads[i], NULL, &readData, &arrThreadArgs[i]);
             if(threaderr){
                 assert(0);
                 return 1;
@@ -224,38 +217,35 @@ int main(int argc, char*argv[]){
         }
         for(int i=0;i<intHourRange;i++){
             pthread_join(threads[i], NULL);
-        }  
+        }
         std::free(threads);
         intcurrentDay = getNextDay(intcurrentDay);
+        delete [] arrThreadArgs;
     }
 
     // the data maps are finished being built, now its time to write the maps to csv files
     // since each station has their own map, we can thread the stations without having to 
     // use semaphores. 
-    struct writeThreadArgs{ //this is clumsily implemented, when making changes, keep in mind
-                            // that this structure also needs to be changed in the writeData func
-        Station* station;
-    };
     pthread_t *writeThreads = (pthread_t*)malloc(numStations * sizeof(pthread_t)); // will be freed at the end of this iteration
     if(!writeThreads){
         fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(numStations*sizeof(pthread_t)));
         exit(0);
     }
+    writeThreadArgs *arg = new writeThreadArgs[numStations];
     int threaderr;
     for(int i=0; i<numStations;i++){
-        writeThreadArgs *arg;
-        arg->station = &stationArr[i];
-        threaderr= pthread_create(&writeThreads[i], NULL, &writeData, arg);
+        arg[i].station = &stationArr[i];
+        threaderr= pthread_create(&writeThreads[i], NULL, &writeData, &arg[i]);
         if(threaderr){
             assert(0);
             return 1;
         }
-
     }
     for(int i=0;i<numStations;i++){
         pthread_join(writeThreads[i], NULL);
     }
     std::free(writeThreads);
+    delete [] arg;
 
 
 
@@ -266,39 +256,20 @@ int main(int argc, char*argv[]){
         cout << "\n\nSTATION: " << station.name << endl;
         for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
             cout << itr->first << '\t';
-            for (int i = 0; i<itr->second.size(); i++){
+            for (auto i = 0; i<itr->second.size(); i++){
                  cout << itr->second.at(i) << " ";
             }
             cout << endl;
         }
     }
 
-    for(int i =0; i<numStations;i++){
-        // delete each station's closest point array
-        delete [] stationArr[i].closestPoint;
-        // delete each station's value array
-        for(int j=0; j<intHourRange;j++){
-            delete [] stationArr[i].values[j];
-        }
-        delete [] stationArr[i].values;
-    }
-    delete [] objparamArr;
-    delete [] stationArr;
-    std::free(hours);
 
+    garbageCollection();
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
     totalTime+= (endTotal.tv_nsec - startTotal.tv_nsec) / 1000000.0;
     printf("\n\nRuntime in ms:: %f\n", totalTime);
 
-    if(sem_destroy(&hProtection)==-1){
-        perror("sem_destroy");
-        exit(EXIT_FAILURE);
-    }
-    free(mapProtection);
-    for (int i =0; i<numStations; i++){
-        sem_destroy(&mapProtection[i]);
-    }
 
     return 0;
  }
@@ -314,24 +285,24 @@ int main(int argc, char*argv[]){
         // build the default staion array and parameter array
         // potential improvement: for each month, run the file and make new parameter array based off
         //                        of what the file returns
-        numParams = 148;
+        numParams = 135;
         numStations = 6;
         
         
         Parameter refc1, ATT2, veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
                   t14, dpt15, u16, v17, gh18, t19, dpt20, u21, v22, gh23, t24, dpt25, u26, 
-                  v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, ATT36, ATT37, wz38, msla39, gh40,
-                  ATT41, refd42, ATT43, ATT44, ATT45, ATT46, ATT47, ATT48, vo49, vo50, hail51,
-                  hail52, ATT53, ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
+                  v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, /*ATT36, ATT37,*/ wz38, msla39, gh40,
+                  /*ATT41,*/ refd42, /*ATT43, ATT44, ATT45, ATT46, ATT47, ATT48,*/ vo49, vo50, hail51,
+                  hail52, /*ATT53,*/ ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
                   sdwe63, snowc64, sde65, twot66, pt67, twosh68, twod69, twor70, tenu71, tenv72,
-                  tensi73, ATT74, ATT75, cpofp76, prate77, tp78, sdwe79, ATT80, frzr81, ssrun82,
+                  tensi73, /*ATT74, ATT75, */cpofp76, prate77, tp78, sdwe79, ATT80, frzr81, ssrun82,
                   bgrun83, csnow84, cicep85, cfrzr86, crain87, sr88, fricv89, shtfl90, lhtfl91,
                   gflux92, vgtyp93, lftx94, cape95, cin96, pwat97, lcc98, mcc99, hcc100, tcc101,
                   pres102, gh103, gh104, pres105, gh106, ulwrf107, dswrf108, dlwrf109, uswrf110,
                   ulwrf111, vbdsf112, vddsf113, uswrf114, hlcy115, hlcy116, ustm117, vstm118,
                   vucsh119, vvcsh120, vucsh121, vvcsh122, gh123, r124, pres125, gh126, r127,
                   pres128, gh129, gh130, fourlftx131, cape132, cin133, hpbl134, gh135, cape136,
-                  cin137, cape138, cin139, gh140, plpl141, ATT142, lsm143, ci144, sbt123145,
+                  cin137, cape138, cin139, gh140, plpl141, /*ATT142,*/ lsm143, ci144, sbt123145,
                   sbt124146, sbt113147, sbt114148;
 
         refc1.layer = 1, refc1.name = "Maximum/Composite Radar Reflectivity", refc1.units = "dB";
@@ -369,24 +340,24 @@ int main(int argc, char*argv[]){
         dpt33.layer = 33, dpt33.name = "Dew Point Temperature", dpt33.units = "K";
         u34.layer = 34, u34.name = "U component of wind", u34.units = "m s**-1";
         v35.layer = 35, v35.name = "V component of wind", v35.units = "m s**-1";
-        ATT36.layer = 36, ATT36.name = "unkn", ATT37.units = "unkn";
-        ATT37.layer = 37, ATT37.name = "unkn", ATT37.units = "unkn";
+        // ATT36.layer = 36, ATT36.name = "unkn", ATT37.units = "unkn";
+        // ATT37.layer = 37, ATT37.name = "unkn", ATT37.units = "unkn";
         wz38.layer = 38, wz38.name = "Geometric vertical velocity", wz38.units = "m s**-1";
         msla39.layer = 39, msla39.name = "MSLP (MAPS System Reduction)", msla39.units = "Pa";
         gh40.layer = 40, gh40.name = "Geopotential height", gh40.units = "gpm";
-        ATT41.layer = 41, ATT41.name = "unkn", ATT41.units = "unkn";
+        // ATT41.layer = 41, ATT41.name = "unkn", ATT41.units = "unkn";
         refd42.layer = 42, refd42.name = "Derived Radar Reflectivity", refd42.units = "dB";
-        ATT43.layer = 43, ATT43.name = "unkn", ATT43.units = "unkn";
-        ATT44.layer = 44, ATT44.name = "unkn", ATT44.units = "unkn";
-        ATT45.layer = 45, ATT45.name = "unkn", ATT45.units = "unkn";
-        ATT46.layer = 46, ATT46.name = "unkn", ATT46.units = "unkn";
-        ATT47.layer = 47, ATT47.name = "unkn", ATT47.units = "unkn";
-        ATT48.layer = 48, ATT48.name = "unkn", ATT48.units = "unkn";
+        // ATT43.layer = 43, ATT43.name = "unkn", ATT43.units = "unkn";
+        // ATT44.layer = 44, ATT44.name = "unkn", ATT44.units = "unkn";
+        // ATT45.layer = 45, ATT45.name = "unkn", ATT45.units = "unkn";
+        // ATT46.layer = 46, ATT46.name = "unkn", ATT46.units = "unkn";
+        // ATT47.layer = 47, ATT47.name = "unkn", ATT47.units = "unkn";
+        // ATT48.layer = 48, ATT48.name = "unkn", ATT48.units = "unkn";
         vo49.layer = 49, vo49.name = "Vorticity (relative)", vo49.units = "s**-1";
         vo50.layer = 50, vo50.name = "Vorticity (relative)", vo50.units = "s**-1";
         hail51.layer = 51, hail51.name = "Hail", hail51.units = "m";
         hail52.layer = 52, hail52.name = "Hail", hail52.units = "m";
-        ATT53.layer = 53, ATT53.name = "unkn", ATT53.units = "unkn";
+        // ATT53.layer = 53, ATT53.name = "unkn", ATT53.units = "unkn";
         ltng54.layer = 54, ltng54.name = "Lightning", ltng54.units = "dimensionless";
         u55.layer = 55, u55.name = "U component of wind", u55.units = "m s**-1";
         v56.layer = 56, v56.name = "V component of wind", v56.units = "m s**-1";
@@ -407,8 +378,8 @@ int main(int argc, char*argv[]){
         tenu71.layer = 71, tenu71.name = "10 metre U wind component", tenu71.units = "m s**-1";
         tenv72.layer = 72, tenv72.name = "10 metre V wind component", tenv72.units = "m s**-1";
         tensi73.layer = 73, tensi73.name = "10 metre wind speed", tensi73.paramId = 207, tensi73.shortName = "10si", tensi73.units = "m s**-1";
-        ATT74.layer = 74, ATT74.name = "unkn", ATT74.units = "unkn";
-        ATT75.layer = 75, ATT75.name = "unkn", ATT75.units = "unkn";
+        // ATT74.layer = 74, ATT74.name = "unkn", ATT74.units = "unkn";
+        // ATT75.layer = 75, ATT75.name = "unkn", ATT75.units = "unkn";
         cpofp76.layer = 76, cpofp76.name = "Percent frozen precipitation", cpofp76.units = "%";
         prate77.layer = 77, prate77.name = "Precipitation rate", prate77.units = "kg m**-2 s**-1";
         tp78.layer = 78, tp78.name = "Total Precipitation", tp78.units = "kg m**-2";
@@ -475,7 +446,7 @@ int main(int argc, char*argv[]){
         cin139.layer = 139, cin139.name = "Convective inhibition", cin139.units = "J kg**-1";
         gh140.layer = 140, gh140.name = "Geopotential Height", gh140.units = "gpm";
         plpl141.layer = 141, plpl141.name = "Pressure of level from which parcel was lifted", plpl141.units = "Pa";
-        ATT142.layer = 142, ATT142.name = "unkn", ATT142.units = "unkn";
+        // ATT142.layer = 142, ATT142.name = "unkn", ATT142.units = "unkn";
         lsm143.layer = 143, lsm143.name = "Land-sea mask", lsm143.units = "0-1";
         ci144.layer = 144, ci144.name = "Sea ice area fraction", ci144.units = "0-1";
         sbt123145.layer = 145, sbt123145.name = "Simulated Brightness Temperature for GOES 12, Channel 3", sbt123145.units = "K";
@@ -486,18 +457,18 @@ int main(int argc, char*argv[]){
 
         Parameter tempParamarr[numParams] = {refc1, ATT2, veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
                   t14, dpt15, u16, v17, gh18, t19, dpt20, u21, v22, gh23, t24, dpt25, u26, 
-                  v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, ATT37, wz38, msla39, gh40,
-                  ATT41, refd42, ATT43, ATT44, ATT45, ATT46, ATT47, ATT48, vo49, vo50, hail51,
-                  hail52, ATT53, ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
+                  v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, /*ATT37,*/ wz38, msla39, gh40,
+                  /*ATT41,*/ refd42, /*ATT43,*/ /*ATT44,*/ /*ATT45,*/ /*ATT46,*/ /*ATT47,*/ /*ATT48,*/ vo49, vo50, hail51,
+                  hail52, /*ATT53,*/ ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
                   sdwe63, snowc64, sde65, twot66, pt67, twosh68, twod69, twor70, tenu71, tenv72,
-                  tensi73, ATT74, ATT75, cpofp76, prate77, tp78, sdwe79, ATT80, frzr81, ssrun82,
+                  tensi73, /*ATT74,*/ /*ATT75,*/ cpofp76, prate77, tp78, sdwe79, ATT80, frzr81, ssrun82,
                   bgrun83, csnow84, cicep85, cfrzr86, crain87, sr88, fricv89, shtfl90, lhtfl91,
                   gflux92, vgtyp93, lftx94, cape95, cin96, pwat97, lcc98, mcc99, hcc100, tcc101,
                   pres102, gh103, gh104, pres105, gh106, ulwrf107, dswrf108, dlwrf109, uswrf110,
                   ulwrf111, vbdsf112, vddsf113, uswrf114, hlcy115, hlcy116, ustm117, vstm118,
                   vucsh119, vvcsh120, vucsh121, vvcsh122, gh123, r124, pres125, gh126, r127,
                   pres128, gh129, gh130, fourlftx131, cape132, cin133, hpbl134, gh135, cape136,
-                  cin137, cape138, cin139, gh140, plpl141, ATT142, lsm143, ci144, sbt123145,
+                  cin137, cape138, cin139, gh140, plpl141, /*ATT142,*/ lsm143, ci144, sbt123145,
                   sbt124146, sbt113147, sbt114148};
         int itr = 0;
         objparamArr = new Parameter[numParams];
@@ -529,15 +500,6 @@ int main(int argc, char*argv[]){
         lafayette.name = "Lafayette", lafayette.lat = 30.2241, lafayette.lon = -92.03333;
         *(stationArr+5) = lafayette;
 
-        // initialize the pointer array for each station to be of the length of the number of params
-        for (int i=0; i<numStations;i++){
-            //ALSO: initialize closestPoint array
-            stationArr[i].closestPoint = new int[intHourRange];
-            stationArr[i].values = new double*[intHourRange];
-            for(int j=0; j<intHourRange; j++){
-                stationArr[i].values[j] = new double[numParams];
-            }
-        }
 
 
         // build the hour array
@@ -569,7 +531,45 @@ int main(int argc, char*argv[]){
                 hours[index++] = strHour;
             }
         }
+        // initialize the pointer array for each station to be of the length of the number of params
+        // for each station, allocate some memory for each values array
+        // **values = size of hour range
+        // *values[i] = size of numparams
+        for (int i=0; i<numStations;i++){
+            //ALSO: initialize closestPoint array
+            stationArr[i].closestPoint = new int[intHourRange];
+            stationArr[i].values = new double*[intHourRange];
+            for(int j=0; j<intHourRange; j++){
+                stationArr[i].values[j] = new double[numParams];
+            }
+        }
     }
+}
+
+void semaphoreInit(){
+    mapProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
+    for(int i=0; i< numStations; i++){
+        if(sem_init(&mapProtection[i], 0, 1)==-1){
+            perror("sem_init");
+            exit(EXIT_FAILURE);
+        }
+    }
+    if(sem_init(&pathCreationSem, 0, 1)==-1){
+        perror("sem_init");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_init(&hProtection, 0, 1) == -1){
+        perror("sem_init");
+        exit(EXIT_FAILURE);
+    }
+    valuesProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
+    for(int i =0;i<numStations;i++){
+        if(sem_init(&valuesProtection[i], 0, 1)==-1){
+            perror("sem_init");
+            exit(EXIT_FAILURE);
+        }
+    }
+
 }
 
 void convertLatLons(){
@@ -689,20 +689,17 @@ bool dirExists(string filePath){
 
 
 void *readData(void *args){
-    struct threadArgs threadArg = *(struct threadArgs*)args;
-
-    //TESTING
-    //cout << "entered threading function " << endl;
-
-    FILE*f = (threadArg).f;
-    string filePath2 = (threadArg).pathName;
-    string fileName = (threadArg).fileName;
-    int threadIndex = (threadArg).threadIndex;
-    string hour = (threadArg).hour;
-    vector<string> strCurrentDay = (threadArg).strCurrentDay;
+    // struct threadArgs threadArg = *(struct threadArgs*)args;
+    struct threadArgs *threadArg = (struct threadArgs*)args;
+    FILE*f =(*threadArg).f;
+    string filePath2 = (*threadArg).pathName;
+    string fileName = (*threadArg).fileName;
+    int threadIndex = (*threadArg).threadIndex;
+    string hour = (*threadArg).hour;
+    vector<string> strCurrentDay = (*threadArg).strCurrentDay;
 
     printf("\nOpening File: %s", filePath2.c_str());
-    // cout << "Opening file: " << filePath2 << endl;
+
     //try to open the file
     try{
         f = fopen(filePath2.c_str(), "rb");
@@ -710,11 +707,11 @@ void *readData(void *args){
     }
     catch(string file){
         printf("Error: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
-        return nullptr;
+        exit(0);
     }
-    unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
-                                              CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
-    // codes_grib_multi_support_on(NULL);
+    // unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
+    //                                           CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
+    codes_grib_multi_support_on(NULL);
 
     codes_handle * h = NULL; // use to unpack each layer of the file
 
@@ -722,8 +719,8 @@ void *readData(void *args){
     int msg_count = 0;  // KEY: will match with the layer of the passed parameters
     int err = 0;
 
-    char value[MAX_VAL_LEN];
-    size_t vlen = MAX_VAL_LEN;
+    // char value[MAX_VAL_LEN];
+    // size_t vlen = MAX_VAL_LEN;
 
     bool flag = true; 
 
@@ -794,8 +791,9 @@ void *readData(void *args){
                     }
                 }
                 double dblCurrentValue = values[station->closestPoint[threadIndex]];
-                //*(station->values+index) = &dblCurrentValue; 
+                sem_wait(&valuesProtection[i]);
                 station->values[threadIndex][index] = dblCurrentValue;
+                sem_post(&valuesProtection[i]);
             }
 
             std::free(lats);
@@ -808,8 +806,6 @@ void *readData(void *args){
     }
     sem_post(&hProtection);
     fclose(f);
-    std::free(args);
-
     // call the mapData function to map the hour's parameter's to each station's map
     mapData(strCurrentDay.at(3), hour, threadIndex);
     pthread_exit(0);
@@ -834,53 +830,59 @@ void mapData(string date, string hour, int threadIndex){
 
 void* writeData(void*arg){
 
-    struct writeThreadArg{
-        Station*station;
-    } writeThreadArg = *(struct writeThreadArg*)arg;
+    struct writeThreadArgs writeThreadArgs = *(struct writeThreadArgs*)arg;
 
-    Station*station = (writeThreadArg).station;
+    Station*station = (writeThreadArgs).station;
 
+    // the entire file will be written to in one iteration. We will append the strings
+    // of all days together until the next day is reached, at which point we will write out
+    string output;
+    string prevDay = station->dataMap.begin()->first;
+    prevDay = prevDay.substr(6,2);
     // loop through each key of the file, every time you run into a new day, 
     // make a new file
     for(auto itr = station->dataMap.begin(); itr!=station->dataMap.end();++itr){
         string hourlyDate = itr->first;
-        string hour = std::to_string(hourlyDate[8]) + std::to_string(hourlyDate[9]);
-        string day = std::to_string(hourlyDate[6]) + std::to_string(hourlyDate[7]);
-        string month = std::to_string(hourlyDate[4]) + std::to_string(hourlyDate[5]);
-        string year = std::to_string(hourlyDate[0])+std::to_string(hourlyDate[1]) + std::to_string(hourlyDate[2])+std::to_string(hourlyDate[3]);
-    }
+        string hour = hourlyDate.substr(8,2);
+        string day =  hourlyDate.substr(6,2);
+        string month =  hourlyDate.substr(4,2);
+        string year =  hourlyDate.substr(0,4);
 
-
-
-    // if the path does not exist, make the path
-    if(!dirExists(writePath)){
-        if(mkdir(writePath.c_str(), 0777) == -1){
-            cerr << "Error: " << strerror(errno) << endl;
+        // if the path does not exist, make the path
+        if(!dirExists(writePath)){
+            sem_wait(&pathCreationSem);
+            if(mkdir(writePath.c_str(), 0777) == -1){
+                sem_post(&pathCreationSem);
+                cerr << "Error: " << strerror(errno) << endl;
+            }
+            sem_post(&pathCreationSem);
         }
-    }
 
-    // make the directory structure: years/days/stationData
-    //                              ex. 2019/20190101/BMTN.20190101.csv
+        // make the directory structure:    yyyy/yyyymmdd/station.yyyymmdd.csv
+        //                              ex. 2019/20190101/BMTN.20190101.csv
+        // for each year, make a folder
+        string yearWritePath = writePath+year+"/";
+        if(!dirExists(yearWritePath)){
+            sem_wait(&pathCreationSem);
+            if(mkdir(yearWritePath.c_str(),0777)==-1){
+                sem_post(&pathCreationSem);
+                cerr << "Error: " << strerror(errno) << endl;
+            }
+            sem_post(&pathCreationSem);
+        }
+        // for each day, make a folder
+        string dayWritePath = yearWritePath + year+month+day + "/";
+        if(!dirExists(dayWritePath)){
+            sem_wait(&pathCreationSem);
+            if(mkdir(dayWritePath.c_str(), 0777)==-1){
+                sem_post(&pathCreationSem);
+                cerr << "Error: " << strerror(errno) << endl;
+            }
+            sem_post(&pathCreationSem);
+        }
 
-    // for each year, make a folder
-    string yearWritePath = writePath+strCurrentDay.at(0)+"/";
-    if(!dirExists(yearWritePath)){
-        if(mkdir(yearWritePath.c_str(),0777)==-1){
-            cerr << "Error: " << strerror(errno) << endl;
-        }
-    }
-    // for each day, make a folder
-    string dayWritePath = yearWritePath + strCurrentDay.at(3) + "/";
-    if(!dirExists(dayWritePath)){
-        if(mkdir(dayWritePath.c_str(), 0777)==-1){
-            cerr << "Error: " << strerror(errno) << endl;
-        }
-    }
-    // for each station, make a file
-    for(int i=0; i<numStations; i++){
-        Station *station = &stationArr[i];
-        string fullFilePath = dayWritePath + station->name + "." + strCurrentDay.at(3) + ".csv";
-        // if the file does not already exist, make it
+        // check to see if the file for this day and station exists
+        string fullFilePath = dayWritePath + station->name + "." +year+month+day+".csv";
         if(!std::filesystem::exists(fullFilePath)){
 
             // give the new file the appropriate headers
@@ -895,21 +897,67 @@ void* writeData(void*arg){
             outfile << "\n";
             outfile.close();
         }
+        // if we're looking at a new day, take the concatentated output string and write to the file
+        if(prevDay!=day){
+            ofstream csvFile;
+            csvFile.open(fullFilePath, std::ios_base::app);
+            csvFile << output;
 
-        // now append the data gathereed for the hour into the file
-        ofstream csvFile;
-        csvFile.open(fullFilePath, std::ios_base::app);
-        // append the year,                         month,                      day,                         hour, 
-        csvFile << strCurrentDay.at(0) << "," << strCurrentDay.at(1) << "," << strCurrentDay.at(2) << "," << hour << ",";
-
-        // iterate through the vector at the yearMonthDayHour and append to the file
-        string key = strCurrentDay.at(3) + hour;
-        auto itr = station->dataMap.find(key.c_str());
-        for(int j=0; j<itr->second.size();j++){
-            csvFile << itr->second.at(j) << ",";
+            // don't forget to wipe the output string and add the information from the new day
+            // heading will already be included 
+            output = "";
+            prevDay = day;
         }
-        
-        csvFile << "\n";
-        csvFile.close() ;   
+    
+        // if we're looking at the same day, just append the information to the output string
+        output.append(year +","+ month +","+ day + "," + hour + ",");
+        for(auto j=0; j<itr->second.size();j++){
+            output.append(std::to_string(itr->second.at(j))+",");
+        }
+
+        // if the day we're looking at is equal to the last day and the hour is the last hour, then output to the file
+        vector<string> strendDay = formatDay(endDay);
+        string strFormattedDay = year+month+day;
+        string finalHour = hours[intHourRange-1];
+        // since the final day passed is not inclusive, we have to find the next day in order to compare the final day with this day
+        vector<int> intVecCurrentDay = {atoi(year.c_str()), std::atoi(month.c_str()), atoi(day.c_str())};
+        vector<int> intVecNextDay = getNextDay(intVecCurrentDay);
+        vector<string> strNextDay = formatDay(intVecNextDay);
+        if((prevDay == day)&& (strcmp(strNextDay.at(3).c_str(), strendDay.at(3).c_str()) == 0) && (strcmp(hour.c_str(), finalHour.c_str())==0)){
+            ofstream csvFile;
+            csvFile.open(fullFilePath, std::ios_base::app);
+            csvFile << output << "\n";
+            output = "";
+        }
+        output.append("\n");
     }
+    pthread_exit(0);
+}
+
+void garbageCollection(){
+    for(int i =0; i<numStations;i++){
+        // delete each station's closest point array
+        delete [] stationArr[i].closestPoint;
+        // delete each station's value array
+        for(int j=0; j<intHourRange;j++){
+            delete [] stationArr[i].values[j];
+        }
+        delete [] stationArr[i].values;
+    }
+    delete [] objparamArr;
+    delete [] stationArr;
+    std::free(hours);
+    if(sem_destroy(&hProtection)==-1){
+        perror("sem_destroy");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_destroy(&pathCreationSem)==-1){
+        perror("sem_destroy");
+        exit(EXIT_FAILURE);
+    }
+    free(mapProtection);
+    for (int i =0; i<numStations; i++){
+        sem_destroy(&mapProtection[i]);
+    }
+
 }
