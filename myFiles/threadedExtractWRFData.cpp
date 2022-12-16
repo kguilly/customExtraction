@@ -274,7 +274,7 @@ int main(int argc, char*argv[]){
     return 0;
  }
 
- void handleInput(int argc, char* argv[]){
+void handleInput(int argc, char* argv[]){
     
     // NOT FINISHED. DO NOT PASS ARGS
     if(argc > 1){
@@ -285,17 +285,17 @@ int main(int argc, char*argv[]){
         // build the default staion array and parameter array
         // potential improvement: for each month, run the file and make new parameter array based off
         //                        of what the file returns
-        numParams = 135;
-        numStations = 6;
+        numParams = 133;
+        numStations = 2;
         
         
-        Parameter refc1, ATT2, veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
+        Parameter refc1, /*ATT2,*/ veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
                   t14, dpt15, u16, v17, gh18, t19, dpt20, u21, v22, gh23, t24, dpt25, u26, 
                   v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, /*ATT36, ATT37,*/ wz38, msla39, gh40,
                   /*ATT41,*/ refd42, /*ATT43, ATT44, ATT45, ATT46, ATT47, ATT48,*/ vo49, vo50, hail51,
                   hail52, /*ATT53,*/ ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
                   sdwe63, snowc64, sde65, twot66, pt67, twosh68, twod69, twor70, tenu71, tenv72,
-                  tensi73, /*ATT74, ATT75, */cpofp76, prate77, tp78, sdwe79, ATT80, frzr81, ssrun82,
+                  tensi73, /*ATT74, ATT75, */cpofp76, prate77, tp78, sdwe79, /*ATT80,*/ frzr81, ssrun82,
                   bgrun83, csnow84, cicep85, cfrzr86, crain87, sr88, fricv89, shtfl90, lhtfl91,
                   gflux92, vgtyp93, lftx94, cape95, cin96, pwat97, lcc98, mcc99, hcc100, tcc101,
                   pres102, gh103, gh104, pres105, gh106, ulwrf107, dswrf108, dlwrf109, uswrf110,
@@ -306,7 +306,7 @@ int main(int argc, char*argv[]){
                   sbt124146, sbt113147, sbt114148;
 
         refc1.layer = 1, refc1.name = "Maximum/Composite Radar Reflectivity", refc1.units = "dB";
-        ATT2.layer = 2, ATT2.name = "unkn", ATT2.units = "unkn";
+        // ATT2.layer = 2, ATT2.name = "unkn", ATT2.units = "unkn";
         veril3.layer = 3, veril3.name = "Vertically-Integrated Liquid", veril3.units = "kg m**-1";
         vis4.layer = 4, vis4.name = "Visibility", vis4.paramId = 3020, vis4.shortName = "vis", vis4.units = "m";
         refd5.layer = 5, refd5.name = "Derived Radar Reflectivity", refd5.units = "dB";
@@ -384,7 +384,7 @@ int main(int argc, char*argv[]){
         prate77.layer = 77, prate77.name = "Precipitation rate", prate77.units = "kg m**-2 s**-1";
         tp78.layer = 78, tp78.name = "Total Precipitation", tp78.units = "kg m**-2";
         sdwe79.layer = 79, sdwe79.name = "Water equivalent of accumulated snow depth (deprecated)", sdwe79.units = "kg m**-2";
-        ATT80.layer = 80, ATT80.name = "unkn", ATT80.units = "unkn";
+        // ATT80.layer = 80, ATT80.name = "unkn", ATT80.units = "unkn";
         frzr81.layer = 81, frzr81.name = "Freezing Rain", frzr81.units = "kg m**-2";
         ssrun82.layer = 82, ssrun82.name = "Storm surface runoff", ssrun82.units = "kg m**-2";
         bgrun83.layer = 83, bgrun83.name = "Baseflow-groundwater runoff", bgrun83.units = "kg m**-2";
@@ -449,19 +449,19 @@ int main(int argc, char*argv[]){
         // ATT142.layer = 142, ATT142.name = "unkn", ATT142.units = "unkn";
         lsm143.layer = 143, lsm143.name = "Land-sea mask", lsm143.units = "0-1";
         ci144.layer = 144, ci144.name = "Sea ice area fraction", ci144.units = "0-1";
-        sbt123145.layer = 145, sbt123145.name = "Simulated Brightness Temperature for GOES 12, Channel 3", sbt123145.units = "K";
-        sbt124146.layer = 146, sbt124146.name = "Simulated Brightness Temperature for GOES 12, Channel 4", sbt124146.units = "K";
-        sbt113147.layer = 147, sbt113147.name = "Simulated brightness Temperature for GOES 11, Channel 3", sbt113147.units = "K";
-        sbt114148.layer = 148, sbt114148.name = "Simulated Brightness Temperature for GOES 11, Channel 4", sbt114148.units = "K";
+        sbt123145.layer = 145, sbt123145.name = "Simulated Brightness Temperature for GOES 12: Channel 3", sbt123145.units = "K";
+        sbt124146.layer = 146, sbt124146.name = "Simulated Brightness Temperature for GOES 12: Channel 4", sbt124146.units = "K";
+        sbt113147.layer = 147, sbt113147.name = "Simulated brightness Temperature for GOES 11: Channel 3", sbt113147.units = "K";
+        sbt114148.layer = 148, sbt114148.name = "Simulated Brightness Temperature for GOES 11: Channel 4", sbt114148.units = "K";
 
 
-        Parameter tempParamarr[numParams] = {refc1, ATT2, veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
+        Parameter tempParamarr[numParams] = {refc1, /*ATT2,*/ veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
                   t14, dpt15, u16, v17, gh18, t19, dpt20, u21, v22, gh23, t24, dpt25, u26, 
                   v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, /*ATT37,*/ wz38, msla39, gh40,
                   /*ATT41,*/ refd42, /*ATT43,*/ /*ATT44,*/ /*ATT45,*/ /*ATT46,*/ /*ATT47,*/ /*ATT48,*/ vo49, vo50, hail51,
                   hail52, /*ATT53,*/ ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
                   sdwe63, snowc64, sde65, twot66, pt67, twosh68, twod69, twor70, tenu71, tenv72,
-                  tensi73, /*ATT74,*/ /*ATT75,*/ cpofp76, prate77, tp78, sdwe79, ATT80, frzr81, ssrun82,
+                  tensi73, /*ATT74,*/ /*ATT75,*/ cpofp76, prate77, tp78, sdwe79, /*ATT80,*/ frzr81, ssrun82,
                   bgrun83, csnow84, cicep85, cfrzr86, crain87, sr88, fricv89, shtfl90, lhtfl91,
                   gflux92, vgtyp93, lftx94, cape95, cin96, pwat97, lcc98, mcc99, hcc100, tcc101,
                   pres102, gh103, gh104, pres105, gh106, ulwrf107, dswrf108, dlwrf109, uswrf110,
@@ -476,7 +476,6 @@ int main(int argc, char*argv[]){
             *(objparamArr + itr) = param;
             itr++;
         }
-        //objparamArr = tempParamarr;
 
         int layer =0;
         for (int i = 0; i<numParams; i++){
@@ -486,19 +485,19 @@ int main(int argc, char*argv[]){
 
         stationArr = new Station[numStations];
 
-        Station bmtn, ccla, farm, huey, lxgn, lafayette;
+        Station bmtn, lafayette; // ccla, farm, huey, lxgn, 
         bmtn.name = "BMTN";bmtn.lat = 36.91973;bmtn.lon = -82.90619;
         *(stationArr+0) = bmtn;
-        ccla.name = "CCLA";ccla.lat = 37.67934; ccla.lon = -85.97877;
-        *(stationArr+1) = ccla;
-        farm.name = "FARM"; farm.lat = 36.93; farm.lon = -86.47;
-        *(stationArr+2) = farm;
-        huey.name = "HUEY"; huey.lat = 38.96701; huey.lon = -84.72165;
-        *(stationArr+3) = huey;
-        lxgn.name = "LXGN"; lxgn.lat = 37.97496; lxgn.lon = -84.53354;
-        *(stationArr+4) = lxgn;
         lafayette.name = "Lafayette", lafayette.lat = 30.2241, lafayette.lon = -92.03333;
-        *(stationArr+5) = lafayette;
+        *(stationArr+1) = lafayette;
+        // ccla.name = "CCLA";ccla.lat = 37.67934; ccla.lon = -85.97877;
+        // *(stationArr+5) = ccla;
+        // farm.name = "FARM"; farm.lat = 36.93; farm.lon = -86.47;
+        // *(stationArr+2) = farm;
+        // huey.name = "HUEY"; huey.lat = 38.96701; huey.lon = -84.72165;
+        // *(stationArr+3) = huey;
+        // lxgn.name = "LXGN"; lxgn.lat = 37.97496; lxgn.lon = -84.53354;
+        // *(stationArr+4) = lxgn;
 
 
 
@@ -818,10 +817,15 @@ void mapData(string date, string hour, int threadIndex){
         Station *station = &stationArr[i];
         // we can't directly insert the pointer to the data into the dataMap, so we need to insert a copy of the array
         std::vector<double> valuesCpy(numParams);
+        
+        //semaphore to protect reading the values over into the copy
+        sem_wait(&valuesProtection[i]);
         double *valuesCpy_1 = station->values[threadIndex];
         for(int j=0; j<numParams; j++){
             valuesCpy[j] = *(valuesCpy_1+j);
         }
+        sem_post(&valuesProtection[i]);
+
         sem_wait(&mapProtection[i]);
         station->dataMap.insert({hourlyDate, valuesCpy});
         sem_post(&mapProtection[i]);
@@ -837,8 +841,8 @@ void* writeData(void*arg){
     // the entire file will be written to in one iteration. We will append the strings
     // of all days together until the next day is reached, at which point we will write out
     string output;
-    string prevDay = station->dataMap.begin()->first;
-    prevDay = prevDay.substr(6,2);
+    // string prevDay = station->dataMap.begin()->first;
+    // prevDay = prevDay.substr(6,2);
     // loop through each key of the file, every time you run into a new day, 
     // make a new file
     for(auto itr = station->dataMap.begin(); itr!=station->dataMap.end();++itr){
@@ -897,39 +901,23 @@ void* writeData(void*arg){
             outfile << "\n";
             outfile.close();
         }
-        // if we're looking at a new day, take the concatentated output string and write to the file
-        if(prevDay!=day){
-            ofstream csvFile;
-            csvFile.open(fullFilePath, std::ios_base::app);
-            csvFile << output;
-
-            // don't forget to wipe the output string and add the information from the new day
-            // heading will already be included 
-            output = "";
-            prevDay = day;
-        }
     
-        // if we're looking at the same day, just append the information to the output string
+        // append information to the output string
         output.append(year +","+ month +","+ day + "," + hour + ",");
         for(auto j=0; j<itr->second.size();j++){
             output.append(std::to_string(itr->second.at(j))+",");
         }
+        output.append("\n");
 
-        // if the day we're looking at is equal to the last day and the hour is the last hour, then output to the file
-        vector<string> strendDay = formatDay(endDay);
-        string strFormattedDay = year+month+day;
         string finalHour = hours[intHourRange-1];
-        // since the final day passed is not inclusive, we have to find the next day in order to compare the final day with this day
-        vector<int> intVecCurrentDay = {atoi(year.c_str()), std::atoi(month.c_str()), atoi(day.c_str())};
-        vector<int> intVecNextDay = getNextDay(intVecCurrentDay);
-        vector<string> strNextDay = formatDay(intVecNextDay);
-        if((prevDay == day)&& (strcmp(strNextDay.at(3).c_str(), strendDay.at(3).c_str()) == 0) && (strcmp(hour.c_str(), finalHour.c_str())==0)){
+        // if the current hour that we're on is equal to the last hour in the hour range, send the output to the day's file
+        if(strcmp(hour.c_str(), finalHour.c_str())==0){
             ofstream csvFile;
             csvFile.open(fullFilePath, std::ios_base::app);
             csvFile << output << "\n";
             output = "";
+            csvFile.close();
         }
-        output.append("\n");
     }
     pthread_exit(0);
 }
