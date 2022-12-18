@@ -33,28 +33,31 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2019, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2019, 3, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                     // when passing a single day, pass the day after beginDay for endDay
                                     // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2019, 1, 3};
+vector<int> endDay = {2019, 3, 2};
 
-vector<int> arrHourRange = {0,2}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {12,19}; // array for the range of hours one would like to extract from
                                  // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                  // accepts hours from 0 to 23 (IS INCLUSIVE)
 
 int intHourRange; 
 
-string filePath = "/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/extractTools/data/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/home/kaleb/Desktop/SchoolFiles/Y4S1/REU/gribData/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kalebg/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
 // paper: "Regional Weather Forecasting via Neural Networks with Near-Surface Observational and Atmospheric Numerical Data."
 struct Station{
     string name;
+    string state;
+    string county;
+    int fipsCode;
     float lat;
     float lon;
     double **values; // holds the values of the parameters. Index of this array will 
@@ -286,7 +289,7 @@ void handleInput(int argc, char* argv[]){
         // potential improvement: for each month, run the file and make new parameter array based off
         //                        of what the file returns
         numParams = 133;
-        numStations = 2;
+        numStations = 6;
         
         
         Parameter refc1, /*ATT2,*/ veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
@@ -485,19 +488,19 @@ void handleInput(int argc, char* argv[]){
 
         stationArr = new Station[numStations];
 
-        Station bmtn, lafayette; // ccla, farm, huey, lxgn, 
-        bmtn.name = "BMTN";bmtn.lat = 36.91973;bmtn.lon = -82.90619;
+        Station bmtn, ccla, farm, huey, lxgn, lafy;
+        bmtn.name = "BMTN";bmtn.lat = 36.91973;bmtn.lon = -82.90619; bmtn.state = "Kentucky";bmtn.county = "Harlan"; bmtn.fipsCode = 21095;
         *(stationArr+0) = bmtn;
-        lafayette.name = "Lafayette", lafayette.lat = 30.2241, lafayette.lon = -92.03333;
-        *(stationArr+1) = lafayette;
-        // ccla.name = "CCLA";ccla.lat = 37.67934; ccla.lon = -85.97877;
-        // *(stationArr+5) = ccla;
-        // farm.name = "FARM"; farm.lat = 36.93; farm.lon = -86.47;
-        // *(stationArr+2) = farm;
-        // huey.name = "HUEY"; huey.lat = 38.96701; huey.lon = -84.72165;
-        // *(stationArr+3) = huey;
-        // lxgn.name = "LXGN"; lxgn.lat = 37.97496; lxgn.lon = -84.53354;
-        // *(stationArr+4) = lxgn;
+        ccla.name = "CCLA";ccla.lat = 37.67934; ccla.lon = -85.97877; ccla.state = "Kentucky";ccla.county = "Hardin"; ccla.fipsCode = 21157;
+        *(stationArr+1) = ccla;
+        farm.name = "FARM"; farm.lat = 36.93; farm.lon = -86.47; farm.state = "Kentucky"; farm.county = "Warren"; farm.fipsCode = 21227;
+        *(stationArr+2) = farm;
+        huey.name = "HUEY"; huey.lat = 38.96701; huey.lon = -84.72165; huey.state = "Kentucky"; huey.county = "Boone"; huey.fipsCode = 21015;
+        *(stationArr+3) = huey;
+        lxgn.name = "LXGN"; lxgn.lat = 37.97496; lxgn.lon = -84.53354; lxgn.state = "Kentucky"; lxgn.county = "Fayette"; lxgn.fipsCode = 21067;
+        *(stationArr+4) = lxgn;
+        lafy.name = "Lafayette", lafy.lat = 30.216667; lafy.lon = -92.033333; lafy.state = "Louisiana"; lafy.county = "Lafayette"; lafy.fipsCode = 22055;
+        *(stationArr+5) = lafy;
 
 
 
@@ -574,7 +577,7 @@ void semaphoreInit(){
 void convertLatLons(){
     for(int i=0; i<numStations;i++){
         Station station = stationArr[i];
-        if (station.lon < 0) station.lon = (station.lon +360); // circle, going clockwise vs counterclockwise
+        station.lon = (station.lon +360); // circle, going clockwise vs counterclockwise
     }
 }
 
@@ -892,7 +895,7 @@ void* writeData(void*arg){
             // give the new file the appropriate headers
             ofstream outfile;
             outfile.open(fullFilePath, std::ios_base::app);
-            outfile << "year, month, day, hour, ";
+            outfile << "Year, Month, Day, Hour, State, County, Fips Code, ";
             
             // append the name of each parameter to the headings of the files
             for(int j=0;j<numParams;j++){
@@ -903,7 +906,7 @@ void* writeData(void*arg){
         }
     
         // append information to the output string
-        output.append(year +","+ month +","+ day + "," + hour + ",");
+        output.append(year +","+ month +","+ day + "," + hour + "," + station->state + "," + station->county + "," + std::to_string(station->fipsCode) + ",");
         for(auto j=0; j<itr->second.size();j++){
             output.append(std::to_string(itr->second.at(j))+",");
         }
