@@ -1,0 +1,1036 @@
+
+-- GRIB N. 1 --
+centre = kwbc
+paramId = 260390
+shortName = refc
+units = dB
+name = Maximum/Composite radar reflectivity
+
+-- GRIB N. 2 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 3 --
+centre = kwbc
+paramId = 260136
+shortName = veril
+units = kg m**-1
+name = Vertically-integrated liquid
+
+-- GRIB N. 4 --
+centre = kwbc
+paramId = 3020
+shortName = vis
+units = m
+name = Visibility
+
+-- GRIB N. 5 --
+centre = kwbc
+paramId = 260389
+shortName = refd
+units = dB
+name = Derived radar reflectivity
+
+-- GRIB N. 6 --
+centre = kwbc
+paramId = 260389
+shortName = refd
+units = dB
+name = Derived radar reflectivity
+
+-- GRIB N. 7 --
+centre = kwbc
+paramId = 260389
+shortName = refd
+units = dB
+name = Derived radar reflectivity
+
+-- GRIB N. 8 --
+centre = kwbc
+paramId = 260065
+shortName = gust
+units = m s**-1
+name = Wind speed (gust)
+
+-- GRIB N. 9 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 10 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 11 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 12 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 13 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 14 --
+centre = kwbc
+paramId = 130
+shortName = t
+units = K
+name = Temperature
+
+-- GRIB N. 15 --
+centre = kwbc
+paramId = 3017
+shortName = dpt
+units = K
+name = Dew point temperature
+
+-- GRIB N. 16 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 17 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 18 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 19 --
+centre = kwbc
+paramId = 130
+shortName = t
+units = K
+name = Temperature
+
+-- GRIB N. 20 --
+centre = kwbc
+paramId = 3017
+shortName = dpt
+units = K
+name = Dew point temperature
+
+-- GRIB N. 21 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 22 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 23 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 24 --
+centre = kwbc
+paramId = 130
+shortName = t
+units = K
+name = Temperature
+
+-- GRIB N. 25 --
+centre = kwbc
+paramId = 3017
+shortName = dpt
+units = K
+name = Dew point temperature
+
+-- GRIB N. 26 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 27 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 28 --
+centre = kwbc
+paramId = 130
+shortName = t
+units = K
+name = Temperature
+
+-- GRIB N. 29 --
+centre = kwbc
+paramId = 3017
+shortName = dpt
+units = K
+name = Dew point temperature
+
+-- GRIB N. 30 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 31 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 32 --
+centre = kwbc
+paramId = 130
+shortName = t
+units = K
+name = Temperature
+
+-- GRIB N. 33 --
+centre = kwbc
+paramId = 3017
+shortName = dpt
+units = K
+name = Dew point temperature
+
+-- GRIB N. 34 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 35 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 36 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 37 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 38 --
+centre = kwbc
+paramId = 260238
+shortName = wz
+units = m s**-1
+name = Geometric vertical velocity
+
+-- GRIB N. 39 --
+centre = kwbc
+paramId = 260323
+shortName = mslma
+units = Pa
+name = MSLP (MAPS System Reduction)
+
+-- GRIB N. 40 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 41 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 42 --
+centre = kwbc
+paramId = 260389
+shortName = refd
+units = dB
+name = Derived radar reflectivity
+
+-- GRIB N. 43 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 44 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 45 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 46 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 47 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 48 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 49 --
+centre = kwbc
+paramId = 138
+shortName = vo
+units = s**-1
+name = Vorticity (relative)
+
+-- GRIB N. 50 --
+centre = kwbc
+paramId = 138
+shortName = vo
+units = s**-1
+name = Vorticity (relative)
+
+-- GRIB N. 51 --
+centre = kwbc
+paramId = 260027
+shortName = hail
+units = m
+name = Hail
+
+-- GRIB N. 52 --
+centre = kwbc
+paramId = 260027
+shortName = hail
+units = m
+name = Hail
+
+-- GRIB N. 53 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 54 --
+centre = kwbc
+paramId = 260391
+shortName = ltng
+units = dimensionless
+name = Lightning
+
+-- GRIB N. 55 --
+centre = kwbc
+paramId = 131
+shortName = u
+units = m s**-1
+name = U component of wind
+
+-- GRIB N. 56 --
+centre = kwbc
+paramId = 132
+shortName = v
+units = m s**-1
+name = V component of wind
+
+-- GRIB N. 57 --
+centre = kwbc
+paramId = 134
+shortName = sp
+units = Pa
+name = Surface pressure
+
+-- GRIB N. 58 --
+centre = kwbc
+paramId = 228002
+shortName = orog
+units = m
+name = Orography
+
+-- GRIB N. 59 --
+centre = kwbc
+paramId = 130
+shortName = t
+units = K
+name = Temperature
+
+-- GRIB N. 60 --
+centre = kwbc
+paramId = 260025
+shortName = asnow
+units = m
+name = Total snowfall
+
+-- GRIB N. 61 --
+centre = kwbc
+paramId = 260187
+shortName = mstav
+units = %
+name = Moisture availability
+
+-- GRIB N. 62 --
+centre = kwbc
+paramId = 260189
+shortName = cnwat
+units = kg m**-2
+name = Plant canopy surface water
+
+-- GRIB N. 63 --
+centre = kwbc
+paramId = 260056
+shortName = sdwe
+units = kg m**-2
+name = Water equivalent of accumulated snow depth (deprecated)
+
+-- GRIB N. 64 --
+centre = kwbc
+paramId = 260038
+shortName = snowc
+units = %
+name = Snow cover
+
+-- GRIB N. 65 --
+centre = kwbc
+paramId = 3066
+shortName = sde
+units = m
+name = Snow depth
+
+-- GRIB N. 66 --
+centre = kwbc
+paramId = 167
+shortName = 2t
+units = K
+name = 2 metre temperature
+
+-- GRIB N. 67 --
+centre = kwbc
+paramId = 3
+shortName = pt
+units = K
+name = Potential temperature
+
+-- GRIB N. 68 --
+centre = kwbc
+paramId = 174096
+shortName = 2sh
+units = kg kg**-1
+name = 2 metre specific humidity
+
+-- GRIB N. 69 --
+centre = kwbc
+paramId = 168
+shortName = 2d
+units = K
+name = 2 metre dewpoint temperature
+
+-- GRIB N. 70 --
+centre = kwbc
+paramId = 260242
+shortName = 2r
+units = %
+name = 2 metre relative humidity
+
+-- GRIB N. 71 --
+centre = kwbc
+paramId = 165
+shortName = 10u
+units = m s**-1
+name = 10 metre U wind component
+
+-- GRIB N. 72 --
+centre = kwbc
+paramId = 166
+shortName = 10v
+units = m s**-1
+name = 10 metre V wind component
+
+-- GRIB N. 73 --
+centre = kwbc
+paramId = 207
+shortName = 10si
+units = m s**-1
+name = 10 metre wind speed
+
+-- GRIB N. 74 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 75 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 76 --
+centre = kwbc
+paramId = 260035
+shortName = cpofp
+units = %
+name = Percent frozen precipitation
+
+-- GRIB N. 77 --
+centre = kwbc
+paramId = 3059
+shortName = prate
+units = kg m**-2 s**-1
+name = Precipitation rate
+
+-- GRIB N. 78 --
+centre = kwbc
+paramId = 228228
+shortName = tp
+units = kg m**-2
+name = Total Precipitation
+
+-- GRIB N. 79 --
+centre = kwbc
+paramId = 260056
+shortName = sdwe
+units = kg m**-2
+name = Water equivalent of accumulated snow depth (deprecated)
+
+-- GRIB N. 80 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 81 --
+centre = kwbc
+paramId = 260288
+shortName = frzr
+units = kg m**-2
+name = Freezing Rain
+
+-- GRIB N. 82 --
+centre = kwbc
+paramId = 260175
+shortName = ssrun
+units = kg m**-2
+name = Storm surface runoff
+
+-- GRIB N. 83 --
+centre = kwbc
+paramId = 260174
+shortName = bgrun
+units = kg m**-2
+name = Baseflow-groundwater runoff
+
+-- GRIB N. 84 --
+centre = kwbc
+paramId = 260032
+shortName = csnow
+units = (Code table 4.222)
+name = Categorical snow
+
+-- GRIB N. 85 --
+centre = kwbc
+paramId = 260031
+shortName = cicep
+units = (Code table 4.222)
+name = Categorical ice pellets
+
+-- GRIB N. 86 --
+centre = kwbc
+paramId = 260030
+shortName = cfrzr
+units = (Code table 4.222)
+name = Categorical freezing rain
+
+-- GRIB N. 87 --
+centre = kwbc
+paramId = 260029
+shortName = crain
+units = (Code table 4.222)
+name = Categorical rain
+
+-- GRIB N. 88 --
+centre = kwbc
+paramId = 173
+shortName = sr
+units = m
+name = Surface roughness
+
+-- GRIB N. 89 --
+centre = kwbc
+paramId = 260073
+shortName = fricv
+units = m s**-1
+name = Frictional velocity
+
+-- GRIB N. 90 --
+centre = kwbc
+paramId = 260003
+shortName = shtfl
+units = W m**-2
+name = Sensible heat net flux
+
+-- GRIB N. 91 --
+centre = kwbc
+paramId = 260002
+shortName = lhtfl
+units = W m**-2
+name = Latent heat net flux
+
+-- GRIB N. 92 --
+centre = kwbc
+paramId = 260186
+shortName = gflux
+units = W m**-2
+name = Ground heat flux
+
+-- GRIB N. 93 --
+centre = kwbc
+paramId = 260439
+shortName = vgtyp
+units = Integer(0-13)
+name = Vegetation Type
+
+-- GRIB N. 94 --
+centre = kwbc
+paramId = 260127
+shortName = lftx
+units = K
+name = Surface lifted index
+
+-- GRIB N. 95 --
+centre = kwbc
+paramId = 59
+shortName = cape
+units = J kg**-1
+name = Convective available potential energy
+
+-- GRIB N. 96 --
+centre = kwbc
+paramId = 228001
+shortName = cin
+units = J kg**-1
+name = Convective inhibition
+
+-- GRIB N. 97 --
+centre = kwbc
+paramId = 3054
+shortName = pwat
+units = kg m**-2
+name = Precipitable water
+
+-- GRIB N. 98 --
+centre = kwbc
+paramId = 3073
+shortName = lcc
+units = %
+name = Low cloud cover
+
+-- GRIB N. 99 --
+centre = kwbc
+paramId = 3074
+shortName = mcc
+units = %
+name = Medium cloud cover
+
+-- GRIB N. 100 --
+centre = kwbc
+paramId = 3075
+shortName = hcc
+units = %
+name = High cloud cover
+
+-- GRIB N. 101 --
+centre = kwbc
+paramId = 228164
+shortName = tcc
+units = %
+name = Total Cloud Cover
+
+-- GRIB N. 102 --
+centre = kwbc
+paramId = 54
+shortName = pres
+units = Pa
+name = Pressure
+
+-- GRIB N. 103 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 104 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 105 --
+centre = kwbc
+paramId = 54
+shortName = pres
+units = Pa
+name = Pressure
+
+-- GRIB N. 106 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 107 --
+centre = kwbc
+paramId = 260098
+shortName = ulwrf
+units = W m**-2
+name = Upward long-wave radiation flux
+
+-- GRIB N. 108 --
+centre = kwbc
+paramId = 260087
+shortName = dswrf
+units = W m**-2
+name = Downward short-wave radiation flux
+
+-- GRIB N. 109 --
+centre = kwbc
+paramId = 260097
+shortName = dlwrf
+units = W m**-2
+name = Downward long-wave radiation flux
+
+-- GRIB N. 110 --
+centre = kwbc
+paramId = 260088
+shortName = uswrf
+units = W m**-2
+name = Upward short-wave radiation flux
+
+-- GRIB N. 111 --
+centre = kwbc
+paramId = 260098
+shortName = ulwrf
+units = W m**-2
+name = Upward long-wave radiation flux
+
+-- GRIB N. 112 --
+centre = kwbc
+paramId = 260346
+shortName = vbdsf
+units = W m**-2
+name = Visible Beam Downward Solar Flux
+
+-- GRIB N. 113 --
+centre = kwbc
+paramId = 260347
+shortName = vddsf
+units = W m**-2
+name = Visible Diffuse Downward Solar Flux
+
+-- GRIB N. 114 --
+centre = kwbc
+paramId = 260088
+shortName = uswrf
+units = W m**-2
+name = Upward short-wave radiation flux
+
+-- GRIB N. 115 --
+centre = kwbc
+paramId = 260125
+shortName = hlcy
+units = m**2 s**-2
+name = Storm relative helicity
+
+-- GRIB N. 116 --
+centre = kwbc
+paramId = 260125
+shortName = hlcy
+units = m**2 s**-2
+name = Storm relative helicity
+
+-- GRIB N. 117 --
+centre = kwbc
+paramId = 260070
+shortName = ustm
+units = m s**-1
+name = U-component storm motion
+
+-- GRIB N. 118 --
+centre = kwbc
+paramId = 260071
+shortName = vstm
+units = m s**-1
+name = V-component storm motion
+
+-- GRIB N. 119 --
+centre = kwbc
+paramId = 3045
+shortName = vucsh
+units = s**-1
+name = Vertical u-component shear
+
+-- GRIB N. 120 --
+centre = kwbc
+paramId = 3046
+shortName = vvcsh
+units = s**-1
+name = Vertical v-component shear
+
+-- GRIB N. 121 --
+centre = kwbc
+paramId = 3045
+shortName = vucsh
+units = s**-1
+name = Vertical u-component shear
+
+-- GRIB N. 122 --
+centre = kwbc
+paramId = 3046
+shortName = vvcsh
+units = s**-1
+name = Vertical v-component shear
+
+-- GRIB N. 123 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 124 --
+centre = kwbc
+paramId = 157
+shortName = r
+units = %
+name = Relative humidity
+
+-- GRIB N. 125 --
+centre = kwbc
+paramId = 54
+shortName = pres
+units = Pa
+name = Pressure
+
+-- GRIB N. 126 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 127 --
+centre = kwbc
+paramId = 157
+shortName = r
+units = %
+name = Relative humidity
+
+-- GRIB N. 128 --
+centre = kwbc
+paramId = 54
+shortName = pres
+units = Pa
+name = Pressure
+
+-- GRIB N. 129 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 130 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 131 --
+centre = kwbc
+paramId = 260128
+shortName = 4lftx
+units = K
+name = Best (4-layer) lifted index
+
+-- GRIB N. 132 --
+centre = kwbc
+paramId = 59
+shortName = cape
+units = J kg**-1
+name = Convective available potential energy
+
+-- GRIB N. 133 --
+centre = kwbc
+paramId = 228001
+shortName = cin
+units = J kg**-1
+name = Convective inhibition
+
+-- GRIB N. 134 --
+centre = kwbc
+paramId = 260083
+shortName = hpbl
+units = m
+name = Planetary boundary layer height
+
+-- GRIB N. 135 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 136 --
+centre = kwbc
+paramId = 59
+shortName = cape
+units = J kg**-1
+name = Convective available potential energy
+
+-- GRIB N. 137 --
+centre = kwbc
+paramId = 228001
+shortName = cin
+units = J kg**-1
+name = Convective inhibition
+
+-- GRIB N. 138 --
+centre = kwbc
+paramId = 59
+shortName = cape
+units = J kg**-1
+name = Convective available potential energy
+
+-- GRIB N. 139 --
+centre = kwbc
+paramId = 228001
+shortName = cin
+units = J kg**-1
+name = Convective inhibition
+
+-- GRIB N. 140 --
+centre = kwbc
+paramId = 156
+shortName = gh
+units = gpm
+name = Geopotential height
+
+-- GRIB N. 141 --
+centre = kwbc
+paramId = 260325
+shortName = plpl
+units = Pa
+name = Pressure of level from which parcel was lifted
+
+-- GRIB N. 142 --
+centre = kwbc
+paramId = 0
+shortName = unknown
+units = unknown
+name = unknown
+
+-- GRIB N. 143 --
+centre = kwbc
+paramId = 172
+shortName = lsm
+units = (0 - 1)
+name = Land-sea mask
+
+-- GRIB N. 144 --
+centre = kwbc
+paramId = 31
+shortName = ci
+units = (0 - 1)
+name = Sea ice area fraction
+
+-- GRIB N. 145 --
+centre = kwbc
+paramId = 7001305
+shortName = SBT123
+units = K
+name = Simulated Brightness Temperature for GOES 12, Channel 3
+
+-- GRIB N. 146 --
+centre = kwbc
+paramId = 7001306
+shortName = SBT124
+units = K
+name = Simulated Brightness Temperature for GOES 12, Channel 4
+
+-- GRIB N. 147 --
+centre = kwbc
+paramId = 7001301
+shortName = SBT113
+units = K
+name = Simulated Brightness Temperature for GOES 11, Channel 3
+
+-- GRIB N. 148 --
+centre = kwbc
+paramId = 7001302
+shortName = SBT114
+units = K
+name = Simulated Brightness Temperature for GOES 11, Channel 4
