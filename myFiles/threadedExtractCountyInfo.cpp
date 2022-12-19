@@ -1,8 +1,7 @@
 /*
-This implementation comes off the back of extractWRFData3.cpp. Will thread
-each hour into its own threading function. First attempt will use pthreads,
-as PTHREADs is a C library, matching ECCodes as a C library, as well as there
-being an example included in the eccodes library 
+This implementation is built on top of threadedExtractWRFData.cpp. I will be scraping 
+the files included in the "countyInfo" directory in order to extract the WRF data for a 
+given date range across all counties in the United States. 
 
 
 Compile:
