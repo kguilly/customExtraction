@@ -55,7 +55,7 @@
 5. Clone or downlaod the repository
    - This can either be done by downloading the zip file by clicking the green "<> Code" button or by cloning the repository onto a local machine with the command:
       ```
-      
+      git clone https://github.com/kguilly/customExtraction.git
       ```
 7. Navigating the repository
    - Related code pulled from the ECCODES source code is found in the gribFiles/ folder. Code written for WRF data extraction is included in myFiles/
