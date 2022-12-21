@@ -6,45 +6,70 @@ the file will send an email of either a success of a failure.
 import os
 import datetime
 from datetime import date, timedelta
+import subprocess
+import smtplib,ssl
+import time
 
 
 class spider_runna():
 
     def __init__(self):
-        self.year = "2016"
-        self.spider_file_path = "./"
+        self.email = "guillotkaleb01@gmail.com"
+        self.year = "2020"
+        self.spider_file_path = "/home/kalebg/Documents/GitHub/customExtraction/downloadFiles/"
+        self.spider_output_path = "/home/kalebg/Documents/GitHub/customExtraction/data/"
 
-    def email_me():
+    def email_me(self):
         # send me an email to tell me that you're done
         print("email me!")
+        port = 465
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
+            server.login("mimaemailalerts@gmail.com", "bttkxogqnqslpnfn")
+            message = "SUBJECT: THE YEAR HAS FINISHED DOWNLOADING"
+            server.sendmail("mimaemailalerts@gmail.com", self.email, message)
 
     def get_year(self):
         strfirstday = self.year+"0101"
         currday = str(strfirstday)
-        os.system("cd " +self.spider_file_path)
         
         while 1:
             # run call the command line to run the file for the current
             # day, and the next day as the end day
             
             currday = date(int(currday[0:4]), int(currday[4:6]), int(currday[6:]))
-            # currday = datetime.strptime(currday,'%Y%m%d')
+            
             nextday = currday + datetime.timedelta(days=1)
             nextday = nextday.strftime('%Y%m%d')
+            currday = currday.strftime('%Y%m%d')
             print(nextday)
-            # os.system("python spider_updated.py --begin_date "+ str(currday)+ " --end_date " + str(nextday))
-            pid = os.fork()
-            if pid: 
-                os.system("python spider_updated.py --begin_date "+ str(currday)+ " --end_date " + str(nextday))
-                os.wait()
-
-            # wait for the file to finish running before moving onto next
-            # iteration
+            cmd = ["python", self.spider_file_path+"spider_updated.py", "--begin_date", currday, "--end_date", nextday]
+            strcmd = "python "+self.spider_file_path+"spider_updated.py --begin_date "+currday+" --end_date "+nextday+" &>> yearlyOutput.log"
             
+            os.system(strcmd)
+            # search the directory, whenever the 23rd hour file is present (without .tmp behind it)
+            # run the next day
+            directory = self.spider_output_path + self.year + '/' + currday +'/'
+            flag = True
+            while flag:
+                for root, dirs, files in os.walk(directory):
+                    files.sort()
+                    files.reverse()
+                    if len(files) > 10:
+                        if files[0].endswith(".23.00.grib2"):
+                            flag = False
+                        else:
+                            time.sleep(10)
+                    else:
+                        time.sleep(60)
+                       
+            # once the loop breaks we can kill the previous command
+            os.system("^C")
+            os.system("clear")
 
             # if the day is the final day of the year,
             if currday == self.year+"1231":
-                email_me()
+                self.email_me()
                 break
 
             currday = nextday

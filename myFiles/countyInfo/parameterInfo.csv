@@ -1,0 +1,134 @@
+layer,name,units
+1,Maximum/Composite Radar Reflectivity,dB 
+3,Vertically-Integrated Liquid,kg m**-1 
+4,Visibility,m 
+5,Derived Radar Reflectivity,dB 
+6,Derived Radar Reflectivity,dB 
+7,Derived Radar Reflectivity,dB 
+8,Wind speed (gust),m s**-1 
+9,U component of wind,m s**-1 
+10,V component of wind,m s**-1 
+11,U component of wind,m s**-1 
+12,V component of wind,m s**-1 
+13,Geopotential Height,gpm 
+14,Temperature,K 
+15,Dew Point Temperature,K 
+16,U component of wind,m s**-1 
+17,V component of wind,m s**-1 
+18,Geopotential Height,gpm 
+19,Temperature,K 
+20,Dew Point Temperature,K 
+21,U component of wind,m s**-1 
+22,V component of wind,m s**-1 
+23,Geopotential Height,gpm 
+24,Temperature,K 
+25,Dew Point Temperature,K 
+26,U component of wind,m s**-1 
+27,V component of wind,m s**-1 
+28,Temperature,K 
+29,Dew Point Temperature,K 
+30,U component of wind,m s**-1 
+31,V component of wind,m s**-1 
+32,Temperature,K 
+33,Dew Point Temperature,K 
+34,U component of wind,m s**-1 
+35,V component of wind,m s**-1 
+38,Geometric vertical velocity,m s**-1 
+39,MSLP (MAPS System Reduction),Pa 
+40,Geopotential height,gpm 
+42,Derived Radar Reflectivity,dB 
+49,Vorticity (relative),s**-1 
+50,Vorticity (relative),s**-1 
+51,Hail,m 
+52,Hail,m 
+54,Lightning,dimensionless 
+55,U component of wind,m s**-1 
+56,V component of wind,m s**-1 
+57,Surface pressure,Pa 
+58,Orography,m 
+59,Temperature,K 
+60,Total Snowfall,m 
+61,Moisture availibility,% 
+62,Plant canopy surface water,kg m**-2 
+63,Water equivalent of accumulated snow depth (deprecated),kg m**-2 
+64,Snow Cover,% 
+65,Snow Depth,m 
+66,2 metre temperature,K  
+67,Potential temperature,K  
+68,2 metre specific humidity,kg kg**-1 
+69,2 metre dewpoint temperature,K 
+70,2 metre relative humidity,% 
+71,10 metre U wind component,m s**-1 
+72,10 metre V wind component,m s**-1 
+73,10 metre wind speed,m s**-1 
+76,Percent frozen precipitation,% 
+77,Precipitation rate,kg m**-2 s**-1 
+78,Total Precipitation,kg m**-2 
+79,Water equivalent of accumulated snow depth (deprecated),kg m**-2 
+81,Freezing Rain,kg m**-2 
+82,Storm surface runoff,kg m**-2 
+83,Baseflow-groundwater runoff,kg m**-2 
+84,Categorical Snow,Code table 4.222 
+85,Categorical ice pellets,Code table 4.222 
+86,Categorical freezing rain,Code table 4.222 
+87,Categorical Rain,Code table 4.222 
+88,Surface roughness,m 
+89,Frictional velocity,m s**-1 
+90,Sensible heat net flux,W m**-2 
+91,Latent heat net flux,W m**-2 
+92,Ground Heat Flux,W m**-2 
+93,Vegetation Type,Integer (0-13) 
+94,Surface lifted index,K 
+95,Convective available potential energy,J kg**-1 
+96,Convective inhibition,J kg**-1 
+97,Precipitable water,kg m**-2 
+98,Low cloud cover,% 
+99,Medium Cloud Cover,% 
+100,High Cloud Cover,% 
+101,Total Cloud Cover,% 
+102,Pressure,Pa 
+103,Geopotential Height,gpm 
+104,Pressure,gpm 
+105,Pressure,Pa 
+106,Geopotential Height,gpm 
+107,Upward long-wave radiation flux,W m**-2 
+108,Downward short-wave radiation flux,W m**-2 
+109,Downward long-wave radiation flux,W m**-2 
+110,Upward short-wave radiation flux,W m**-2 
+111,Upward long-wave radiation flux,W m**-2 
+112,Visile Beam Downward Solar Flux,W m**-2 
+113,Visible Diffuse Downward Solar Flux,W m**-2 
+114,Upward short-wave radiation flux,W m**-2 
+115,Storm relative helicity,m**2 s**-2 
+116,Storm relative helicity,m**2 s**-2 
+117,U-component storm motion,m s**-1 
+118,V-component storm motion,m s**-1 
+119,Vertical u-component shear,s**-1 
+120,Vertical v-component shear,s**-1 
+121,Vertical u-component shear,s**-1 
+122,Vertical v-component shear,s**-1 
+123,Geopotential Height,gpm 
+124,Relative Humidity,% 
+125,Pressure,Pa 
+126,Geopotential Height,gpm 
+127,Relative Humidity,% 
+128,Pressure,Pa 
+129,Geopotential Height,gpm 
+130,Geopotential Height,gpm 
+131,Best (4-layer) lifted index,K 
+132,Convective available potential energy,J kg**-1 
+133,Convective inhibition,J kg**-1 
+134,Planetary boundary layer height,m 
+135,Geopotential height,gpm 
+136,Convective available potential energy,J kg**-1 
+137,Convective inhibition,J kg**-1 
+138,Convective available potential energy,J kg**-1 
+139,Convective inhibition,J kg**-1 
+140,Geopotential Height,gpm 
+141,Pressure of level from which parcel was lifted,Pa 
+143,Land-sea mask,0-1 
+144,Sea ice area fraction,0-1 
+145,Simulated Brightness Temperature for GOES 12: Channel 3,K 
+146,Simulated Brightness Temperature for GOES 12: Channel 4,K 
+147,Simulated brightness Temperature for GOES 11: Channel 3,K 
+148,Simulated Brightness Temperature for GOES 11: Channel 4,K 

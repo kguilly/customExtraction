@@ -18,7 +18,7 @@
 
 using namespace std;
 struct station{
-    std::string name;
+    string name;
     string state;
     string county;
     string fips;
@@ -107,24 +107,32 @@ int main(){
         exit(1);
     }
     vector<string> row;
+    bool firstLine = true; // skip the header, which is the first line of the file
     while(getline(fileCoordinates, strLine)){
         row.clear();
         if(strLine.length() > 100) continue; // I put the link to github in one line
-
+        if (firstLine){
+            firstLine = false;
+            continue;
+        }
         stringstream s(strLine);
         string currLine;
         while(getline(s, currLine, ',')){
             row.push_back(currLine);
         }
-        // row[0] = fips, row[1] = county, row[2] = longitude, row[3] = latitude
-        coordinates c; c.latitude = stol(row.at(3)), c.longitude = stol(row.at(2));
-        coordinatesMap.insert({row.at(0), c});
+        if(row.size() > 2){
+            // row[0] = fips, row[1] = county, row[2] = longitude, row[3] = latitude
+            coordinates c; c.latitude = stol(row.at(3)), c.longitude = stol(row.at(2));
+            coordinatesMap.insert({row.at(0), c});
+        }
         
     }
     // match the counties to their respecitve states by matching fips codes
-    // throw out counties from alaska and hawaii (02 and 15)
+    // throw out unneeded counties (02,15,72)
     
     // now read from file countyfipsandcoordinates.csv and map the 
+    int numStations = 3233;
+    stationArr = new station[numStations];
     int arridx = 0;
     map<string, string>::iterator stateItr;
     map<string, coordinates>::iterator coordinatesItr;
@@ -138,26 +146,34 @@ int main(){
         if(stateItr == stateMap.end()){
             cout << "state not found in map" << endl;
             exit(0);
-        }else if(stateItr->first == "02" || stateItr->first == "15"){ // this is alaska or hawaii, do not include
+        }else if(stateItr->first == "02" || stateItr->first == "15" || stateItr->first == "72"){ // this is alaska or hawaii, do not include
             continue;
         }
-        station *newstation = (station*)malloc(1*sizeof(station));
-        newstation->fips = stoi(countyFips);
-        newstation->name = itr->second;
-        newstation->county = itr->second;
-        newstation->state = stateItr->second;
-        newstation->lat = c.latitude;
-        newstation->lon = c.longitude;
-        *(stationArr+arridx) = *newstation;
-        arridx++;
-        free(newstation);
-    
-    }
+        // station *newstation = (station*)malloc(1*sizeof(station));
+        // newstation->fips = stoi(countyFips);
+        // newstation->name = itr->second;
+        // newstation->county = itr->second;
+        // newstation->state = stateItr->second;
+        // newstation->lat = c.latitude;
+        // newstation->lon = c.longitude;
+        station st;
+        st.fips = countyFips;
+        st.name = itr->second;
+        st.county = itr->second;
+        st.state = stateItr->second;
+        st.lat = c.latitude;
+        st.lon = c.longitude;
+        *(stationArr+arridx) = st;
 
-    // print out the station array
-    for(int i=0;i<sizeof(stationArr)/sizeof(station);i++){
-        station s = stationArr[i];
-        cout << s.fips << " " << s.state << " " <<s.county << " " << s.lat << " " << s.lon << "\n";
+        arridx++;    
     }
+    
+    numStations = arridx;
+    // print out the station array
+    for(int i=0; i<numStations; i++){
+        station st = stationArr[i];
+        cout << st.county << " " << st.state << " " << st.fips << endl;
+    }
+    delete [] stationArr;
 
 }

@@ -290,22 +290,6 @@ void handleInput(int argc, char* argv[]){
         numParams = 133;
         numStations = 6;
         
-        
-        Parameter refc1, /*ATT2,*/ veril3, vis4, refd5, refd6, refd7, gust8, u9, v10, u11, v12, gh13,
-                  t14, dpt15, u16, v17, gh18, t19, dpt20, u21, v22, gh23, t24, dpt25, u26, 
-                  v27, t28, dpt29, u30, v31, t32, dpt33, u34, v35, /*ATT36, ATT37,*/ wz38, msla39, gh40,
-                  /*ATT41,*/ refd42, /*ATT43, ATT44, ATT45, ATT46, ATT47, ATT48,*/ vo49, vo50, hail51,
-                  hail52, /*ATT53,*/ ltng54, u55, v56, sp57, orog58, t59, asnow60, mstav61,cnwat62,
-                  sdwe63, snowc64, sde65, twot66, pt67, twosh68, twod69, twor70, tenu71, tenv72,
-                  tensi73, /*ATT74, ATT75, */cpofp76, prate77, tp78, sdwe79, /*ATT80,*/ frzr81, ssrun82,
-                  bgrun83, csnow84, cicep85, cfrzr86, crain87, sr88, fricv89, shtfl90, lhtfl91,
-                  gflux92, vgtyp93, lftx94, cape95, cin96, pwat97, lcc98, mcc99, hcc100, tcc101,
-                  pres102, gh103, gh104, pres105, gh106, ulwrf107, dswrf108, dlwrf109, uswrf110,
-                  ulwrf111, vbdsf112, vddsf113, uswrf114, hlcy115, hlcy116, ustm117, vstm118,
-                  vucsh119, vvcsh120, vucsh121, vvcsh122, gh123, r124, pres125, gh126, r127,
-                  pres128, gh129, gh130, fourlftx131, cape132, cin133, hpbl134, gh135, cape136,
-                  cin137, cape138, cin139, gh140, plpl141, /*ATT142,*/ lsm143, ci144, sbt123145,
-                  sbt124146, sbt113147, sbt114148;
 
         refc1.layer = 1, refc1.name = "Maximum/Composite Radar Reflectivity", refc1.units = "dB";
         // ATT2.layer = 2, ATT2.name = "unkn", ATT2.units = "unkn";
