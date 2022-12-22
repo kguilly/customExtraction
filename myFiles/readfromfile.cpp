@@ -176,4 +176,20 @@ int main(){
     }
     delete [] stationArr;
 
+
+
+    // READ PARAMETERS
+    int numParams = 148;
+    string paramline;
+    ifstream paramFile;
+    paramFile.open(/*the file path*/);
+    if(!paramFile){
+        cerr<<"Error: the parameter file could not be opened\n";
+        exit(1);
+    }
+    vector<string> paramRow;
+    firstLine = true;
+    
+
+
 }
