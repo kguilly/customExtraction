@@ -39,6 +39,7 @@ map<string, coordinates> coordinatesMap;
 station *stationArr;
 
 int main(){
+    /*
     std::string strcountyFipsCodes;
     std::ifstream filecountyFipsCodes;
     filecountyFipsCodes.open("./countyInfo/countyFipsCodes.txt");
@@ -175,20 +176,60 @@ int main(){
         cout << st.county << " " << st.state << " " << st.fips << endl;
     }
     delete [] stationArr;
+    */
 
-
-
+   int numParams;
+    struct Parameter{
+        int layer;
+        string name;
+        string unit;
+    };
+    Parameter *objParamArr; 
     // READ PARAMETERS
-    int numParams = 148;
+    map<int, Parameter> paramMap;
     string paramline;
     ifstream paramFile;
-    paramFile.open(/*the file path*/);
+    paramFile.open("./parameterInfo.csv");
     if(!paramFile){
         cerr<<"Error: the parameter file could not be opened\n";
         exit(1);
     }
     vector<string> paramRow;
-    firstLine = true;
+    bool firstLine = true;
+    int countParams = 0; 
+    while(getline(paramFile, paramline)){
+        paramRow.clear();
+        if (firstLine){
+            firstLine = false;
+            continue;
+        }
+        stringstream s(paramline);
+        string currLine;
+        while(getline(s, currLine, ',')){
+            paramRow.push_back(currLine);
+        }
+        if(paramRow.size() > 2){
+            Parameter p; p.layer = stoi(paramRow.at(0)); p.name = paramRow.at(1);
+            p.unit = paramRow.at(2);
+            countParams++; 
+            paramMap.insert({stoi(paramRow.at(0)), p});
+        }
+    }
+    numParams = countParams;
+    objParamArr = new Parameter[numParams];
+    int count =0;
+    for(auto itr = paramMap.begin(); itr!=paramMap.end(); ++itr){
+        *(objParamArr + count) = itr->second;
+        count ++;
+    }
+
+    // print out the objParamArr to make sure we did everything right
+    for(int i=0;i<numParams; i++){
+        Parameter p = objParamArr[i];
+        cout << p.layer << ", " << p.name << ", " << p.unit << endl;
+    }
+
+    delete [] objParamArr;
     
 
 

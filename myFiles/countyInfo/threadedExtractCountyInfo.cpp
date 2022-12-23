@@ -32,18 +32,18 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2019, 3, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2019, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                     // when passing a single day, pass the day after beginDay for endDay
                                     // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2019, 3, 2};
+vector<int> endDay = {2019, 1, 2};
 
-vector<int> arrHourRange = {12,19}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                  // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                  // accepts hours from 0 to 23 (IS INCLUSIVE)
 
 int intHourRange; 
 
-string filePath = "/home/kaleb/Desktop/SchoolFiles/Y4S1/REU/gribData/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/home/kalebg/Desktop/School/Y4S1/REU/extraction/UtilityTools/extractTools/data/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
@@ -56,7 +56,7 @@ struct Station{
     string name;
     string state;
     string county;
-    int fipsCode;
+    string fipsCode;
     float lat;
     float lon;
     double **values; // holds the values of the parameters. Index of this array will 
@@ -123,7 +123,15 @@ sem_t *valuesProtection; // protect when writing values to the values array
 // the hour array based on passed beginning and end hours
 void handleInput(int, char**);
 
-void semaphoreInit();
+// Function to build the default station array (all counties in continential US)
+// through reading from the files in the countyInfo file
+void defaultStations();
+// similar to default station, but for the parameter arrays
+void defaultParams();
+
+void buildHours();// builds the hour arrays given the hour range specified
+
+void semaphoreInit(); // initialize all semaphores used
 
 /* function to convert the lats and lons from the passed representation to the 
     way they are represented in the grib file. ONLY WORKS for coordinates in USA*/
@@ -253,17 +261,17 @@ int main(int argc, char*argv[]){
 
 
     // print out all the elements in all the station's data maps
-    for (int i=0; i<numStations;i++){
-        Station station = stationArr[i];
-        cout << "\n\nSTATION: " << station.name << endl;
-        for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
-            cout << itr->first << '\t';
-            for (auto i = 0; i<itr->second.size(); i++){
-                 cout << itr->second.at(i) << " ";
-            }
-            cout << endl;
-        }
-    }
+    // for (int i=0; i<numStations;i++){
+    //     Station station = stationArr[i];
+    //     cout << "\n\nSTATION: " << station.name << endl;
+    //     for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
+    //         cout << itr->first << '\t';
+    //         for (auto i = 0; i<itr->second.size(); i++){
+    //              cout << itr->second.at(i) << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    // }
 
 
     garbageCollection();
@@ -284,87 +292,239 @@ void handleInput(int argc, char* argv[]){
         // station arrays
     }
     else{
-        // build the default staion array and parameter array
+        buildHours();
+        defaultParams();
+        defaultStations();
         // potential improvement: for each month, run the file and make new parameter array based off
         //                        of what the file returns
-        numParams = 133;
-        numStations = 6;
-        
+             
+    }
+}
 
-        
-        int itr = 0;
-        objparamArr = new Parameter[numParams];
-        for (auto param : tempParamarr){
-            *(objparamArr + itr) = param;
-            itr++;
+void buildHours(){
+    // build the hour array
+    // make sure correct values have been passed to the hour array 
+    try{
+        intHourRange = arrHourRange.at(1) - arrHourRange.at(0)+1;
+        if(intHourRange < 1) throw(intHourRange);
+    }catch(exception e){
+        fprintf(stderr, "Error, problems with hour range.");
+        exit(0);
+    }
+
+    hours = (string*)malloc(intHourRange*sizeof(string));
+    if(!hours){
+        fprintf(stderr, "Error, unable to allocate hours");
+        exit(0);
+    }
+    
+    int endHour = arrHourRange.at(1);
+    int beginHour = arrHourRange.at(0);
+    int index=0;
+    for(int hour = beginHour; hour<=endHour;hour++){
+        if(hour < 10){ // put a 0 in front then insert in the hours arr
+            string strHour = "0"+to_string(hour);
+            hours[index++] = strHour;
         }
-
-        int layer =0;
-        for (int i = 0; i<numParams; i++){
-            layer = objparamArr[i].layer;
-            blnParamArr[layer] = true;
-        }        
-
-        stationArr = new Station[numStations];
-
-        Station bmtn, ccla, farm, huey, lxgn, lafy;
-        bmtn.name = "BMTN";bmtn.lat = 36.91973;bmtn.lon = -82.90619; bmtn.state = "Kentucky";bmtn.county = "Harlan"; bmtn.fipsCode = 21095;
-        *(stationArr+0) = bmtn;
-        ccla.name = "CCLA";ccla.lat = 37.67934; ccla.lon = -85.97877; ccla.state = "Kentucky";ccla.county = "Hardin"; ccla.fipsCode = 21157;
-        *(stationArr+1) = ccla;
-        farm.name = "FARM"; farm.lat = 36.93; farm.lon = -86.47; farm.state = "Kentucky"; farm.county = "Warren"; farm.fipsCode = 21227;
-        *(stationArr+2) = farm;
-        huey.name = "HUEY"; huey.lat = 38.96701; huey.lon = -84.72165; huey.state = "Kentucky"; huey.county = "Boone"; huey.fipsCode = 21015;
-        *(stationArr+3) = huey;
-        lxgn.name = "LXGN"; lxgn.lat = 37.97496; lxgn.lon = -84.53354; lxgn.state = "Kentucky"; lxgn.county = "Fayette"; lxgn.fipsCode = 21067;
-        *(stationArr+4) = lxgn;
-        lafy.name = "Lafayette", lafy.lat = 30.216667; lafy.lon = -92.033333; lafy.state = "Louisiana"; lafy.county = "Lafayette"; lafy.fipsCode = 22055;
-        *(stationArr+5) = lafy;
-
-
-
-        // build the hour array
-        // make sure correct values have been passed to the hour array 
-        try{
-            intHourRange = arrHourRange.at(1) - arrHourRange.at(0)+1;
-            if(intHourRange < 1) throw(intHourRange);
-        }catch(exception e){
-            fprintf(stderr, "Error, problems with hour range.");
-            exit(0);
-        }
-
-        hours = (string*)malloc(intHourRange*sizeof(string));
-        if(!hours){
-            fprintf(stderr, "Error, unable to allocate hours");
-            exit(0);
-        }
-        
-        int endHour = arrHourRange.at(1);
-        int beginHour = arrHourRange.at(0);
-        int index=0;
-        for(int hour = beginHour; hour<=endHour;hour++){
-            if(hour < 10){ // put a 0 in front then insert in the hours arr
-                string strHour = "0"+to_string(hour);
-                hours[index++] = strHour;
-            }
-            else{ // just convert to a string and insert into the hours arr
-                string strHour = to_string(hour);
-                hours[index++] = strHour;
-            }
-        }
-        // initialize the pointer array for each station to be of the length of the number of params
-        // for each station, allocate some memory for each values array
-        // **values = size of hour range
-        // *values[i] = size of numparams
-        for (int i=0; i<numStations;i++){
-            //ALSO: initialize closestPoint array
-            stationArr[i].closestPoint = new int[intHourRange];
-            stationArr[i].values = new double*[intHourRange];
-            for(int j=0; j<intHourRange; j++){
-                stationArr[i].values[j] = new double[numParams];
-            }
+        else{ // just convert to a string and insert into the hours arr
+            string strHour = to_string(hour);
+            hours[index++] = strHour;
         }
     }
+}
+
+void defaultStations(){
+    struct coordinates{
+        float lat; float lon;
+    };
+    map<string, string> stateMap;
+    map<string, string> countyMap;
+    map<string, coordinates> coordinatesMap;
+
+    string strcountyFipsCodes;
+    ifstream filecountyFipsCodes;
+    filecountyFipsCodes.open("./countyFipsCodes.txt");
+    if(!filecountyFipsCodes){
+        cerr << "Error: the FIPS file could not be opened.\n";
+        exit(1);
+    }
+    bool readstates = false;
+    bool readcounties = false;
+
+    string strCountyInfo;
+    string strStateInfo;
+    while(getline(filecountyFipsCodes, strcountyFipsCodes)){
+        // the line to start reading the county info
+        if(strcmp(strcountyFipsCodes.c_str(), " ------------    --------------")==0){
+            readcounties = true;
+            continue; // continue to the next line
+        }
+        // line to stop reading states
+        if(strcmp(strcountyFipsCodes.c_str(), " county-level      place")==0){
+            readstates = false;
+        }
+        // line to start reading states
+        if(strcmp(strcountyFipsCodes.c_str(), "   -----------   -------")==0){
+            readstates = true;
+            continue;
+        }
+
+        // load all states and their fips info into an obj
+        if(readstates){
+            // store fips code as the key, store statename as value
+            if(strcountyFipsCodes.length() < 3){
+                // do nothing, this is not a necessary line
+                continue;
+            }else{
+                string delimiter = ",";
+                string strfips = strcountyFipsCodes.substr(0,strcountyFipsCodes.find(delimiter));
+                string strState = strcountyFipsCodes.erase(0, strcountyFipsCodes.find(delimiter)+delimiter.length());
+
+                stateMap.insert({strfips, strState});
+            }
+        }
+
+        // load county information into the map
+        if(readcounties){
+            string delimiter = ",";
+            string strFips = strcountyFipsCodes.substr(0,strcountyFipsCodes.find(delimiter));
+            string strCountyName = strcountyFipsCodes.erase(0, strcountyFipsCodes.find(delimiter)+delimiter.length());
+
+            countyMap.insert({strFips, strCountyName}); 
+        }
+    }
+    filecountyFipsCodes.close();
+
+    // load the counties and their coordinates into the respective maps
+    string strLine;
+    ifstream fileCoordinates;
+    fileCoordinates.open("./countyFipsandCoordinates.csv");
+    if(!fileCoordinates){
+        cerr << "Error: the COORDINATES file could not be opened.\n";
+        exit(1);
+    }
+    vector<string> row;
+    bool firstLine = true; // skip the header
+    while(getline(fileCoordinates, strLine)){
+        row.clear();
+        if(strLine.length() > 100) continue; // link to gitHub of csv
+        if(firstLine){
+            firstLine = false;
+            continue;
+        }
+        stringstream s(strLine);
+        string currLine;
+        while(getline(s, currLine, ',')){
+            row.push_back(currLine);
+        }
+        if(row.size() > 2){
+            // row[0] = fips, row[1] = county, row[2] = longitude, row[3] = latitude
+            coordinates c; c.lat = stof(row.at(3)), c.lon = stof(row.at(2));
+            coordinatesMap.insert({row.at(0), c});
+        }
+    }
+    fileCoordinates.close();
+
+    // match the counties to their respective states by matching fips codes
+    // throw out unneeded counties (02, 15, 72)
+    int tmpNumStations = 3233; // max value, will change after knowing full size
+    Station tmpStationArr[tmpNumStations];
+    int arridx = 0;
+    map<string, string>::iterator stateItr;
+    map<string, coordinates>::iterator coordinatesItr;
+    for(auto itr = countyMap.begin(); itr!=countyMap.end(); ++itr){
+        string countyFips = itr->first;
+        string stateFips = countyFips.substr(0,2);
+        stateItr = stateMap.find(stateFips);
+        coordinatesItr = coordinatesMap.find(countyFips);
+        coordinates c = coordinatesItr->second;
+
+        if(stateItr==stateMap.end()){
+            cout << "when building default stationArr, state was not found in map" << endl;
+            exit(0);
+        }else if(stateItr->first == "02" || stateItr->first == "15" || stateItr->first == "72"){
+            // alaska, hawaii, and puerto rico, do not include
+            continue;
+        }
+        Station st;
+        st.fipsCode = countyFips;
+        st.name = itr->second;
+        st.county = itr->second;
+        st.state = stateItr->second;
+        st.lat = c.lat;
+        st.lon = c.lon;
+        tmpStationArr[arridx] = st;
+        arridx++;
+    }
+    // numStations will be arridx+1 since we're starting at 0
+    numStations = arridx;
+
+    // map the temp array to the global array
+    stationArr = new Station[numStations];
+    int itr=0;
+    for(int i=0;i<numStations;i++){
+        *(stationArr+i) = tmpStationArr[i];
+    }
+
+    // initialize the pointer array for each station to be of the length of the number of params
+    // for each station, allocate some memory for each values array
+    // **values = size of hour range
+    // *values[i] = size of numparams
+    for (int i=0; i<numStations;i++){
+        //ALSO: initialize closestPoint array
+        stationArr[i].closestPoint = new int[intHourRange];
+        stationArr[i].values = new double*[intHourRange];
+        for(int j=0; j<intHourRange; j++){
+            stationArr[i].values[j] = new double[numParams];
+        }
+    }
+
+}
+
+void defaultParams(){
+    map<int, Parameter> paramMap;
+    string paramline;
+    ifstream paramFile;
+    paramFile.open("./parameterInfo.csv");
+    if(!paramFile){
+        cerr << "Error: the PARAMETER file could not be opened.\n";
+        exit(1);
+    }
+    vector<string> paramRow;
+    bool firstline = true;
+    int countParams = 0;
+    while(getline(paramFile, paramline)){
+        paramRow.clear();
+        if(firstline){ // do not include the header
+            firstline = false;
+            continue;
+        }
+        stringstream s(paramline);
+        string currLine;
+        while(getline(s, currLine, ',')){
+            paramRow.push_back(currLine);
+        }
+        if(paramRow.size() > 2){
+            Parameter p; p.layer = stoi(paramRow.at(0)); p.name = paramRow.at(1);
+            p.units = paramRow.at(2);
+            countParams++;
+            paramMap.insert({stoi(paramRow.at(0)), p});
+        }
+    }
+    numParams = countParams;
+    objparamArr = new Parameter[numParams];
+    int count =0;
+    for(auto itr = paramMap.begin(); itr!=paramMap.end(); ++itr){
+        *(objparamArr + count) = itr->second;
+        count++;
+    }
+
+    // build the boolean param array
+    int layer =0;
+    for (int i = 0; i<numParams; i++){
+        layer = objparamArr[i].layer;
+        blnParamArr[layer] = true;
+    }    
 }
 
 void semaphoreInit(){
@@ -725,7 +885,7 @@ void* writeData(void*arg){
         }
     
         // append information to the output string
-        output.append(year +","+ month +","+ day + "," + hour + "," + station->state + "," + station->county + "," + std::to_string(station->fipsCode) + ",");
+        output.append(year +","+ month +","+ day + "," + hour + "," + station->state + "," + station->county + "," + station->fipsCode + ",");
         for(auto j=0; j<itr->second.size();j++){
             output.append(std::to_string(itr->second.at(j))+",");
         }
