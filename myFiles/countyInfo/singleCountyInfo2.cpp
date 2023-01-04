@@ -980,7 +980,7 @@ void mapWeeklyData(){
                 firstdayofweek = day;
             }
 
-            if(dayItr==6 || (day == lastDay && hour == lastHour)){
+            if((dayItr==6 && hour == lastHour)|| (day == lastDay && hour == lastHour)){
                 tmpMap.insert({day, itr->second});
                 // loop through all values in itr->second and append them to their elements map
                 for(auto j=0; j<itr->second.size(); j++){
@@ -1142,17 +1142,17 @@ void writeData(void*arg){
         state = station->state;
         name = station->name;
         
-        filePath = writePath + "/" + year + "/" + state + "/" + county + "/" + name + "/";
+        filePath = writePath + year + "/" + state + "/" + county + "/" + name + "/";
         fileName = weekrange + ".csv";
-        strcmd = "cd " + filePath + "; touch " +fileName;
-        status = system(strcmd.c_str());
-        if(status==-1) std::cerr << "\nFile Creation Error: " << strerror(errno) << endl;
+        // strcmd = "cd " + filePath + "; touch " +fileName;
+        // status = system(strcmd.c_str());
+        // if(status==-1) std::cerr << "\nFile Creation Error: " << strerror(errno) << endl;
 
-        strcmd = "echo \"Year, Month, Day, State, County, Fips Code,";
+        strcmd = "cd " + filePath + "; echo \"Year, Month, Day, State, County, Fips Code,";
         // append the name of each parameter to the headings of the files
         for(int j=0;j<numParams;j++) strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
         
-        strcmd += "\" > "+ filePath;
+        strcmd += "\" > "+ fileName;
         status = system(strcmd.c_str());
         if(status==-1) std::cerr << "\n Write to file error: " << strerror(errno) << endl;
         
@@ -1165,25 +1165,24 @@ void writeData(void*arg){
         output = "";
         for(auto dayitr = station->dailydatamap.begin(); dayitr != station->dailydatamap.end(); ++dayitr){
             fulldaymapday = dayitr->first;
-            if(fulldaymapday == firstdayoftheweek){
-                do{
-                    fulldaymapday = dayitr->first;
-                    daymapyear = dayitr->first.substr(0,4);
-                    daymapmonth = dayitr->first.substr(4,2);
-                    daymapday = dayitr->first.substr(6,2);
-                    output.append(daymapyear +","+ daymapmonth +","+ daymapday + "," + station->state + "," + station->county + "," + station->fipsCode + ",");
 
-                    // loop through the vector associated with the map and append to output
-                    for (auto j=0;j<dayitr->second.size();j++){
-                        output.append(itr->second.at(j)+",");
-                    }
-                    // output.append("\n");
-                    // send the output string as a line to the file
-                    strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
-                    status = system(strcmd.c_str());
-                    if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
-                    output = "";
-                }while(fulldaymapday != lastdayoftheweek);
+            if(fulldaymapday <= lastdayoftheweek && fulldaymapday >= firstdayoftheweek){
+                daymapyear = dayitr->first.substr(0,4);
+                daymapmonth = dayitr->first.substr(4,2);
+                daymapday = dayitr->first.substr(6,2);
+                output.append(daymapyear +","+ daymapmonth +","+ daymapday + "," + station->state + "," + station->county + "," + station->fipsCode + ",");
+
+                // loop through the vector associated with the map and append to output
+                for (auto j=0;j<dayitr->second.size();j++){
+                    output.append(to_string(dayitr->second.at(j))+",");
+                }
+                // output.append("\n");
+                // send the output string as a line to the file
+                strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
+                status = system(strcmd.c_str());
+                if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
+                output = "";
+                
             }
 
         }
