@@ -169,9 +169,10 @@ void mapWeeklyData();
 /*Function to find the standard deviation of the values for each week,
 takes an array of the values for the week and their average, outputs a stdDev*/
 static double standardDev(vector<double>, double&);
-
+/*Function to create the paths and files for the maps to be written to*/
+void createPath();
 /* function to write the data in the staion maps to a .csv file */
-void* writeData(void*);
+void writeData(void*);
 
 void garbageCollection();
 
@@ -247,61 +248,20 @@ int main(int argc, char*argv[]){
     }
 
     mapWeeklyData();
-
-    // DEBUGGING PHASE -- DELETE WHEN DONE
-    // print out each station's weekly map to make sure I did it right
-    // for (int i=0; i<numStations;i++){
-    //     Station station = stationArr[i];
-    //     cout << "\n\nSTATION: " << station.name << endl;
-    //     for(auto itr = station.weeklydatamap.begin(); itr != station.weeklydatamap.end(); ++itr){
-    //         cout << itr->first << '\t';
-    //         for (auto i = 0; i<itr->second.size(); i++){
-    //              cout << itr->second.at(i) << " ";
-    //         }
-    //         cout << endl;
-    //     }
-    // }
-    // EXIT DEBUGGERRRRRRRRRRR
-
     // the data maps are finished being built, now its time to write the maps to csv files
     // since each station has their own map, we can thread the stations without having to 
     // use semaphores. 
-    pthread_t *writeThreads = (pthread_t*)malloc(numStations * sizeof(pthread_t)); // will be freed at the end of this iteration
-    if(!writeThreads){
-        fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(numStations*sizeof(pthread_t)));
-        exit(0);
-    }
+    createPath();
+    
     writeThreadArgs *arg = new writeThreadArgs[numStations];
     int threaderr;
     for(int i=0; i<numStations;i++){
         arg[i].station = &stationArr[i];
-        threaderr= pthread_create(&writeThreads[i], NULL, &writeData, &arg[i]);
-        if(threaderr){
-            assert(0);
-            return 1;
-        }
+        writeData(&arg[i]);
     }
-    for(int i=0;i<numStations;i++){
-        pthread_join(writeThreads[i], NULL);
-    }
-    std::free(writeThreads);
+    
     delete [] arg;
 
-
-
-
-    // print out all the elements in all the station's data maps
-    // for (int i=0; i<numStations;i++){
-    //     Station station = stationArr[i];
-    //     cout << "\n\nSTATION: " << station.name << endl;
-    //     for(auto itr = station.dataMap.begin(); itr != station.dataMap.end(); ++itr){
-    //         cout << itr->first << '\t';
-    //         for (auto i = 0; i<itr->second.size(); i++){
-    //              cout << itr->second.at(i) << " ";
-    //         }
-    //         cout << endl;
-    //     }
-    // }
 
 
     garbageCollection();
@@ -960,18 +920,7 @@ void mapData(string date, string hour, int threadIndex){
 
 void mapWeeklyData(){
 
-    // for each station
-        // loop through their datamap
-            // grab the day substring of the key
-            // format it, so we know the day
-            // hold as the beginning day
-            // when 7 days have passed, that's the end day (endday-beginday = 7)
-            // take the values from each of the hours, add each one up, and find the average
-    // map<string, vector<double>> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
 
-    // // hold the output data for a full week, {"yyyymmdd - yyyymmdd" : [averagedData]}
-    // map<string, vector<double>> weeklydatamap;
-    // hourlydate = 2019010100
 
     for(int i=0;i<numStations;i++){
 
@@ -1109,7 +1058,72 @@ static double standardDev(vector<double> elements, double&refmean){
     return stdDev;
 }
 
-void* writeData(void*arg){
+void createPath(){
+    string strcmd; int status;
+    if(!dirExists(writePath)){
+            strcmd = "mkdir -p "+ writePath;
+            status = system(strcmd.c_str());
+            if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+            
+    }
+    
+    // for each of the years passed, create a year folder
+    // if the begin date and end date have different years, create multiple folders
+    // create the begin year folder
+    strcmd = "cd " + writePath + "; mkdir "+to_string(beginDay.at(0));
+    status = system(strcmd.c_str());
+    if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+    
+    if(beginDay.at(0) != endDay.at(0)){
+        int years = endDay.at(0) - beginDay.at(0);
+        int currYear = beginDay.at(0)+1;
+        do{
+            // create a folder before the current year reaches the
+            // end year 
+            strcmd = "cd " + writePath + "; mkdir "+to_string(currYear);
+            status = system(strcmd.c_str());
+            if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+            currYear++;
+
+        }while(currYear!= endDay.at(0));
+    }
+    // for each station, if this is the first time seeing its state or county,
+    // make a directory and make one for the particular station as well
+    string currPath;
+    for (const auto &entry : std::filesystem::directory_iterator(writePath)){
+        currPath = entry.path();
+
+        vector<string> vctrCounties(0);
+        vector<string> vctrStates(0);
+        for(int i=0;i<numStations;i++){
+            Station*station = &stationArr[i];
+
+            if(std::find(vctrStates.begin(), vctrStates.end(), station->state)==vctrStates.end()){
+                vctrStates.insert(vctrStates.begin(), station->state);
+                strcmd = "cd " + currPath + "; mkdir "+station->state;
+                status = system(strcmd.c_str());
+                if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+
+                if(std::find(vctrCounties.begin(), vctrCounties.end(), station->county)==vctrCounties.end()){
+                    vctrCounties.insert(vctrCounties.begin(), station->county);
+                    strcmd = "cd " + currPath + "/" + station->state + "; mkdir "+station->county;
+                    status = system(strcmd.c_str());
+                    if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+                }
+            }
+
+            // after the directory for the state and county are made, then go into it and make the directory
+            // for the individual station
+            string stationPath = currPath + "/" + station->state + "/" + station->county;
+            strcmd = "cd " + stationPath + "; mkdir " + station->name;
+            status = system(strcmd.c_str());
+            if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+        }
+    }
+
+}
+
+void writeData(void*arg){
 
     struct writeThreadArgs writeThreadArgs = *(struct writeThreadArgs*)arg;
 
@@ -1117,79 +1131,31 @@ void* writeData(void*arg){
 
     // the entire file will be written to in one iteration. We will append the strings
     // of all days together until the next day is reached, at which point we will write out
-    string output;
-    // string prevDay = station->dataMap.begin()->first;
-    // prevDay = prevDay.substr(6,2);
+    string output, filePath, fileName, year, county, state, name, strcmd;
+    int status;
     // loop through each key of the file, every time you run into a new day, 
     // make a new file
     for(auto itr = station->weeklydatamap.begin(); itr!=station->weeklydatamap.end();++itr){
         string weekrange = itr->first;
-        string year = weekrange.substr(0,4);
+        year = weekrange.substr(0,4);
+        county = station->county;
+        state = station->state;
+        name = station->name;
         
-        // if the path does not exist, make the path
-        sem_wait(&pathCreationSem);
-        if(!dirExists(writePath)){
-            string strcmd = "mkdir -p "+ writePath;
-            int status = system(strcmd.c_str());
-            if(status==-1){
-                std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
-            }
-        }
-        sem_post(&pathCreationSem);
+        filePath = writePath + "/" + year + "/" + state + "/" + county + "/" + name + "/";
+        fileName = weekrange + ".csv";
+        strcmd = "cd " + filePath + "; touch " +fileName;
+        status = system(strcmd.c_str());
+        if(status==-1) std::cerr << "\nFile Creation Error: " << strerror(errno) << endl;
 
-        // make the directory structure: writePath/state/county/index/year/weekRange.csv
-        string indexWritePath = writePath +station->state+"/"+ station->county+"/"+station->name+"/";
-        sem_wait(&pathCreationSem);
-        if(!dirExists(indexWritePath)){
-            string command = "cd " + writePath + "; mkdir "+station->state + "; cd "+station->state+
-                            "; mkdir "+station->county+"; cd "+station->county+";mkdir "+station->name;
-            int status = system(command.c_str());
-            if(status==-1){
-                std::cerr << "\nindexwritepatherror: " << strerror(errno) << endl;
-            }
-        }
-        sem_post(&pathCreationSem);
-
-        // for each year make a folder
-        string yearwritepath = indexWritePath + year + "/";
-        sem_wait(&pathCreationSem);
-        if(!dirExists(yearwritepath)){
-            string strcmd = "cd  "+ indexWritePath+ ";mkdir "+year;
-            int status = system(strcmd.c_str());
-            if(status==-1){
-                std::cerr << "\nyearwritepatherror: " << strerror(errno) << endl;
-            }
-        }
-        sem_post(&pathCreationSem);
-
-        // check to see if the file for this day and station exists
-        string fullFilePath = yearwritepath + weekrange+".csv";
-        if(!std::filesystem::exists(fullFilePath.c_str())){
-
-            // give the new file the appropriate headers
-            sem_wait(&writeProtection);
-            string strcmd = "cd "+yearwritepath+";touch "+weekrange+".csv";
-            int status = system(strcmd.c_str());
-            if(status==-1){
-                std::cerr << "\nfilecreationerror: " << strerror(errno) << endl;
-            }
-            /*
-            ofstream outfile;
-            outfile.open(fullFilePath.c_str(), std::ios_base::app);
-            outfile << "Year, Month, Day, State, County, Fips Code, ";
-            */ 
-           // for some reason, the normal file handling library doesn't wanna work
-            strcmd = "echo \"Year, Month, DAy, State, County, Fips Code,";
-            
-            // append the name of each parameter to the headings of the files
-            for(int j=0;j<numParams;j++){
-                strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
-            }
-            strcmd += "\" > "+fullFilePath;
-            status = system(strcmd.c_str());
-            if(status==-1) std::cerr << "\n Write to file error: " << strerror(errno) << endl;
-            sem_post(&writeProtection);
-        }
+        strcmd = "echo \"Year, Month, Day, State, County, Fips Code,";
+        // append the name of each parameter to the headings of the files
+        for(int j=0;j<numParams;j++) strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
+        
+        strcmd += "\" > "+ filePath;
+        status = system(strcmd.c_str());
+        if(status==-1) std::cerr << "\n Write to file error: " << strerror(errno) << endl;
+        
     
         // append information to the output string
         // send each day of the week's data to the output file
@@ -1211,28 +1177,27 @@ void* writeData(void*arg){
                     for (auto j=0;j<dayitr->second.size();j++){
                         output.append(itr->second.at(j)+",");
                     }
-                    output.append("\n");
-                    
+                    // output.append("\n");
+                    // send the output string as a line to the file
+                    strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
+                    status = system(strcmd.c_str());
+                    if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
+                    output = "";
                 }while(fulldaymapday != lastdayoftheweek);
             }
 
         }
-        output.append("Weekly Averages, , , , ,"+station->fipsCode+",");
+        output = "Weekly Averages, , , , ,"+station->fipsCode+",";
         for(auto j=0; j<itr->second.size();j++){
             output.append((itr->second.at(j))+",");
         }
-        output.append("\n");
-        
-        // send the information out to the csv file
-        sem_wait(&writeProtection);
-
-        string strcmd = "echo \"" + output + "\" >> " + fullFilePath;
-        int status = system(strcmd.c_str());
-        if(status==-1) std::cerr << "\n Write to file error: " << strerror(errno) << endl;
-        sem_post(&writeProtection);
+        strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
+        status = system(strcmd.c_str());
+        if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
+        output = "";
        
     }
-    pthread_exit(0);
+
 }
 
 void garbageCollection(){
