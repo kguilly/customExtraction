@@ -18,6 +18,7 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 #include <fstream>
 #include <cstring>
 #include <vector> 
+#include <bits/stdc++.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <map>
@@ -48,7 +49,7 @@ string filePath = "/home/kalebg/Desktop/weekInputData/";  // path to "data" fold
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
+string writePath = "/home/kalebg/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
@@ -121,6 +122,7 @@ sem_t hProtection; // protect when creating the handle object for each layer
 sem_t *mapProtection; // protect when writing to the maps
 sem_t pathCreationSem; // protect when writeData makes new file paths
 sem_t *valuesProtection; // protect when writing values to the values array
+sem_t writeProtection; // only one thread should be able to write to a file at a time
 
 // function to handle arguments passed. Will either build the Station array and/or paramter array
 // based off of the arguments passed or will build them with default values. Will also construct
@@ -166,7 +168,7 @@ void mapWeeklyData();
 
 /*Function to find the standard deviation of the values for each week,
 takes an array of the values for the week and their average, outputs a stdDev*/
-static double standardDev(vector<double>, double*);
+static double standardDev(vector<double>, double&);
 
 /* function to write the data in the staion maps to a .csv file */
 void* writeData(void*);
@@ -248,17 +250,17 @@ int main(int argc, char*argv[]){
 
     // DEBUGGING PHASE -- DELETE WHEN DONE
     // print out each station's weekly map to make sure I did it right
-    for (int i=0; i<numStations;i++){
-        Station station = stationArr[i];
-        cout << "\n\nSTATION: " << station.name << endl;
-        for(auto itr = station.weeklydatamap.begin(); itr != station.weeklydatamap.end(); ++itr){
-            cout << itr->first << '\t';
-            for (auto i = 0; i<itr->second.size(); i++){
-                 cout << itr->second.at(i) << " ";
-            }
-            cout << endl;
-        }
-    }
+    // for (int i=0; i<numStations;i++){
+    //     Station station = stationArr[i];
+    //     cout << "\n\nSTATION: " << station.name << endl;
+    //     for(auto itr = station.weeklydatamap.begin(); itr != station.weeklydatamap.end(); ++itr){
+    //         cout << itr->first << '\t';
+    //         for (auto i = 0; i<itr->second.size(); i++){
+    //              cout << itr->second.at(i) << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    // }
     // EXIT DEBUGGERRRRRRRRRRR
 
     // the data maps are finished being built, now its time to write the maps to csv files
@@ -540,7 +542,7 @@ void readCountycsv(){
             row.push_back(currLine);
         }
         // row[0] = indx, row[1] = fips, row[2] = statefips, row[3] = county, 4 = lat, 5 = lon
-        Station st; st.name = row.at(0); st.fipsCode = row.at(1); st.county = row.at(3);
+        Station st; st.name = row.at(0); st.fipsCode = row.at(1); st.county = "\""+row.at(3)+"\"";
         st.lat = stof(row.at(4)); st.lon = stof(row.at(5));
         tmpStationMap.insert({row.at(0), st});
         arridx++;
@@ -690,6 +692,10 @@ void semaphoreInit(){
             perror("sem_init");
             exit(EXIT_FAILURE);
         }
+    }
+    if(sem_init(&writeProtection, 0, 1) == -1){
+        perror("sem_init");
+        exit(EXIT_FAILURE);
     }
 
 }
@@ -1008,13 +1014,14 @@ void mapWeeklyData(){
         //  paramLayer, all layer's elements, used to find stdDev
         map<int, vector<double>> elements; 
         for(int j=0; j<numParams; j++){
-            vector<double> vctrElements(expectedelements); // make the vector of the size number of expected elements
+            vector<double> vctrElements(0); // make the vector of the size number of expected elements
             elements.insert({j, vctrElements});
         }
         
         string lastDay = datamap.rbegin()->first.substr(0,8);
         int lastHour = stoi(datamap.rbegin()->first.substr(8,2));
-        string firstdayofweek;
+        int firstHour = arrHourRange.at(0);
+        string firstdayofweek;//,previousDay;
         int dayItr = 0; // when this hits 6, you're on the final day of the week
         for(auto itr = datamap.begin(); itr!=datamap.end();++itr){
             
@@ -1028,21 +1035,27 @@ void mapWeeklyData(){
                 tmpMap.insert({day, itr->second});
                 // loop through all values in itr->second and append them to their elements map
                 for(auto j=0; j<itr->second.size(); j++){
-                    vector<double> vctrElem = elements.at(j);
-                    vector<double>::iterator it = vctrElem.begin();
-                    vctrElem.insert(it, itr->second.at(j));
-
-                    elements.insert({j, vctrElem});
+                    auto nodehandler = elements.find(j);
+                    if(nodehandler != elements.end()){
+                        // insert the element into the element map's vector
+                        vector<double> vctrElem = nodehandler->second;
+                        vctrElem.insert(vctrElem.begin(),itr->second.at(j));
+                        nodehandler->second = vctrElem; // insert the vector back into the map
+                    }else{
+                        std::cerr << "\nError: unable to find key in map." << endl;
+                    }
                 }
                 // loop through the elements map, find stdDev and average
-                vector<string> vctrAverages;
-                for(auto elemItr = elements.begin(); elemItr!=elements.end(); ++itr){
-                    double*ptrmean = nullptr;
-                    double stdDev = standardDev(elemItr->second, ptrmean);
-                    double mean = *ptrmean;
-                    string strval = to_string(mean) + "+-" + to_string(stdDev);
-                    vector<string>::iterator itrAvg = vctrAverages.end();
-                    vctrAverages.insert(itrAvg, strval);
+                vector<string> vctrAverages(0);
+                for(auto elemItr = elements.rbegin(); elemItr!=elements.rend(); ++elemItr){
+                    // double*ptrmean;
+                    vector<double> thoseElementsIneed = elemItr->second;
+                    double mean = 0.0;
+                    double &refmean = mean;
+                    double stdDev = standardDev(thoseElementsIneed, refmean);
+                    // double mean = *ptrmean;
+                    string strval = std::to_string(mean) + "+-" + std::to_string(stdDev);
+                    vctrAverages.insert(vctrAverages.begin(), strval);
                 }
                 // place the averages in the map
                 string weekRange = firstdayofweek + "-" + day;
@@ -1057,13 +1070,20 @@ void mapWeeklyData(){
                 // append the values and increment the dayitr
                 tmpMap.insert({day, itr->second});
                 for(auto j=0; j<itr->second.size(); j++){
-                    vector<double> vctrElem = elements.at(j);
-                    vector<double>::iterator it = vctrElem.begin();
-                    vctrElem.insert(it, itr->second.at(j));
-
-                    elements.insert({j, vctrElem});
+                    auto nodehandler = elements.find(j);
+                    if(nodehandler != elements.end()){
+                        // insert the element into the element map's vector
+                        vector<double> vctrElem = nodehandler->second;
+                        vctrElem.insert(vctrElem.begin(),itr->second.at(j));
+                        // insert the vector back into the map
+                        nodehandler->second = vctrElem;
+                    }else{
+                        std::cerr << "\nError: unable to find key in map." << endl;
+                    }
                 }
-                dayItr++;
+                if(hour == lastHour){
+                    dayItr++;
+                }
             }
             
             
@@ -1071,21 +1091,21 @@ void mapWeeklyData(){
         *weeklyDataMap = weeklyAverages;
     }
 }
-static double standardDev(vector<double> elements, double*refmean){
+static double standardDev(vector<double> elements, double&refmean){
     double stdDev = 0, sum=0, mean=0;
     
     for(int i=0;i<elements.size();i++){
         sum+=elements.at(i);
     }
-    mean = sum / elements.size();
+    refmean = sum / elements.size();
     for(int i=0; i<elements.size(); i++){
-        stdDev += pow(elements.at(i) - mean, 2);
+        stdDev += pow(elements.at(i) - refmean, 2);
     }
     stdDev = sqrt(stdDev / elements.size());
-    if(isnan(mean)){
+    if(isnan(refmean)){
         std::cerr << "\nError: NaN value in standard deviation calculation" << endl;
     }
-    *refmean = mean;
+    // refmean = &mean;
     return stdDev;
 }
 
@@ -1107,45 +1127,55 @@ void* writeData(void*arg){
         string year = weekrange.substr(0,4);
         
         // if the path does not exist, make the path
+        sem_wait(&pathCreationSem);
         if(!dirExists(writePath)){
-            sem_wait(&pathCreationSem);
-            if(mkdir(writePath.c_str(), 0777) == -1){
-                sem_post(&pathCreationSem);
-                std::cerr << "Error: " << strerror(errno) << endl;
+            string strcmd = "mkdir -p "+ writePath;
+            int status = system(strcmd.c_str());
+            if(status==-1){
+                std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
             }
-            sem_post(&pathCreationSem);
         }
+        sem_post(&pathCreationSem);
 
         // make the directory structure: writePath/state/county/index/year/weekRange.csv
         string indexWritePath = writePath +station->state+"/"+ station->county+"/"+station->name+"/";
+        sem_wait(&pathCreationSem);
         if(!dirExists(indexWritePath)){
-            sem_wait(&pathCreationSem);
-            if(mkdir(indexWritePath.c_str(),0777)==-1){
-                sem_post(&pathCreationSem);
-                std::cerr << "Error: " << strerror(errno) << endl;
+            string command = "cd " + writePath + "; mkdir "+station->state + "; cd "+station->state+
+                            "; mkdir "+station->county+"; cd "+station->county+";mkdir "+station->name;
+            int status = system(command.c_str());
+            if(status==-1){
+                std::cerr << "\nindexwritepatherror: " << strerror(errno) << endl;
             }
-            sem_post(&pathCreationSem);
         }
+        sem_post(&pathCreationSem);
 
         // for each year make a folder
         string yearwritepath = indexWritePath + year + "/";
+        sem_wait(&pathCreationSem);
         if(!dirExists(yearwritepath)){
-            sem_wait(&pathCreationSem);
-            if(mkdir(yearwritepath.c_str(), 0777)==-1){
-                sem_post(&pathCreationSem);
-                std::cerr << "Error: " << strerror(errno) << endl;
+            string strcmd = "cd  "+ indexWritePath+ ";mkdir "+year;
+            int status = system(strcmd.c_str());
+            if(status==-1){
+                std::cerr << "\nyearwritepatherror: " << strerror(errno) << endl;
             }
-            sem_post(&pathCreationSem);
         }
+        sem_post(&pathCreationSem);
 
         // check to see if the file for this day and station exists
         string fullFilePath = yearwritepath + weekrange+".csv";
-        if(!std::filesystem::exists(fullFilePath)){
+        if(!std::filesystem::exists(fullFilePath.c_str())){
 
             // give the new file the appropriate headers
+            sem_wait(&writeProtection);
+            string strcmd = "cd "+yearwritepath+";touch "+weekrange+".csv";
+            int status = system(strcmd.c_str());
+            if(status==-1){
+                std::cerr << "\nfilecreationerror: " << strerror(errno) << endl;
+            }
             ofstream outfile;
-            outfile.open(fullFilePath, std::ios_base::app);
-            outfile << "Year, Month, Day, Hour, State, County, Fips Code, ";
+            outfile.open(fullFilePath.c_str(), std::ios_base::app);
+            outfile << "Year, Month, Day, State, County, Fips Code, ";
             
             // append the name of each parameter to the headings of the files
             for(int j=0;j<numParams;j++){
@@ -1153,24 +1183,50 @@ void* writeData(void*arg){
             }
             outfile << "\n";
             outfile.close();
+            sem_post(&writeProtection);
         }
     
         // append information to the output string
-        //output.append(year +","+ month +","+ day + "," + hour + "," + station->state + "," + station->county + "," + station->fipsCode + ",");
+        // send each day of the week's data to the output file
+        string firstdayoftheweek = itr->first.substr(0,8);
+        string lastdayoftheweek = itr->first.substr(9,8);
+        string fulldaymapday,daymapyear,daymapmonth,daymapday;
+        output = "";
+        for(auto dayitr = station->dailydatamap.begin(); dayitr != station->dailydatamap.end(); ++dayitr){
+            fulldaymapday = dayitr->first;
+            if(fulldaymapday == firstdayoftheweek){
+                do{
+                    fulldaymapday = dayitr->first;
+                    daymapyear = dayitr->first.substr(0,4);
+                    daymapmonth = dayitr->first.substr(4,2);
+                    daymapday = dayitr->first.substr(6,2);
+                    output.append(daymapyear +","+ daymapmonth +","+ daymapday + "," + station->state + "," + station->county + "," + station->fipsCode + ",");
+
+                    // loop through the vector associated with the map and append to output
+                    for (auto j=0;j<dayitr->second.size();j++){
+                        output.append(itr->second.at(j)+",");
+                    }
+                    output.append("\n");
+                    
+                }while(fulldaymapday != lastdayoftheweek);
+            }
+
+        }
+        output.append("Weekly Averages, , , , ,"+station->fipsCode+",");
         for(auto j=0; j<itr->second.size();j++){
             output.append((itr->second.at(j))+",");
         }
         output.append("\n");
-
-        string finalHour = hours[intHourRange-1];
-        // if the current hour that we're on is equal to the last hour in the hour range, send the output to the day's file
-        // if(strcmp(hour.c_str(), finalHour.c_str())==0){
-        //     ofstream csvFile;
-        //     csvFile.open(fullFilePath, std::ios_base::app);
-        //     csvFile << output << "\n";
-        //     output = "";
-        //     csvFile.close();
-        // }
+        
+        // send the information out to the csv file
+        sem_wait(&writeProtection);
+        ofstream csvFile;
+        csvFile.open(fullFilePath.c_str(), std::ios_base::app);
+        csvFile <<output << "\n";
+        output = "";
+        csvFile.close();
+        sem_post(&writeProtection);
+       
     }
     pthread_exit(0);
 }
@@ -1193,6 +1249,10 @@ void garbageCollection(){
         exit(EXIT_FAILURE);
     }
     if(sem_destroy(&pathCreationSem)==-1){
+        perror("sem_destroy");
+        exit(EXIT_FAILURE);
+    }
+    if(sem_destroy(&writeProtection)==-1){
         perror("sem_destroy");
         exit(EXIT_FAILURE);
     }
