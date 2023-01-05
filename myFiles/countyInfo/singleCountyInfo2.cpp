@@ -1176,7 +1176,7 @@ void writeData(void*arg){
                 for (auto j=0;j<dayitr->second.size();j++){
                     output.append(to_string(dayitr->second.at(j))+",");
                 }
-                // output.append("\n");
+                // output.append("\n"
                 // send the output string as a line to the file
                 strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
                 status = system(strcmd.c_str());
