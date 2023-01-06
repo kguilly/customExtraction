@@ -51,6 +51,8 @@ string filePath = "/home/kalebg/Desktop/weekInputData/";  // path to "data" fold
 
 string writePath = "/home/kalebg/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
+string repositoryPath = "/home/kalebg/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
+                                                                          // important when passing args                                                    
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
 // paper: "Regional Weather Forecasting via Neural Networks with Near-Surface Observational and Atmospheric Numerical Data."
@@ -171,6 +173,7 @@ takes an array of the values for the week and their average, outputs a stdDev*/
 static double standardDev(vector<double>, double&);
 /*Function to create the paths and files for the maps to be written to*/
 void createPath();
+
 /* function to write the data in the staion maps to a .csv file */
 void writeData(void*);
 
@@ -280,6 +283,53 @@ void handleInput(int argc, char* argv[]){
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
         // station arrays
+        int fipsindex=0;
+        bool fipsflag = false;
+        for(int i=0; i<argc;i++){
+            if(strcmp(argv[i], "--fips") == 0){
+                fipsflag = true;
+                fipsindex = i;
+                break;
+            }
+        }
+        vector<string> fipscodes(0);
+        if(fipsflag){
+            for(int i=fipsflag+1;i<argc;i++){
+                string arg = argv[i];
+                if (arg.length() == 5){
+                    fipscodes.insert(fipscodes.begin(), argv[i]);
+                }
+                else{
+                    cout << "Invalid length of fips argument passed" << endl;
+                    exit(0);
+                }
+            }
+
+            
+            // buildHours();
+            // defaultParams();
+            // readCountycsv();
+            // matchState();
+        }else{
+            cout << "Incorrect arguments passed" << endl;
+            exit(0);
+        }
+
+        // now call the cmd line to run the python file
+        string command; int status;
+        for(int i=0;i<fipscodes.size();i++){
+            string command = "cd " + repositoryPath + "/myFiles/countyInfo/sentinel-hub ; python3 geo_gridedit_1-5-23.py --fips " +
+                            fipscodes.at(i);
+            status = system(command.c_str());
+            if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
+
+        }
+        buildHours();
+        defaultParams();
+        // defaultStations();
+        readCountycsv();
+        matchState();
+        
     }
     else{
         buildHours();
