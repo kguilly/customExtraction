@@ -37,7 +37,7 @@ double totalTime;
 vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 1, 8};   // NOT INCLUSIVE
+vector<int> endDay = {2020, 1, 2};   // NOT INCLUSIVE
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -1030,7 +1030,7 @@ void mapWeeklyData(){
                 firstdayofweek = day;
             }
 
-            if((dayItr==6 && hour == lastHour)|| (day == lastDay && hour == lastHour)){
+            if((dayItr==13 && hour == lastHour)|| (day == lastDay && hour == lastHour)){
                 tmpMap.insert({day, itr->second});
                 // loop through all values in itr->second and append them to their elements map
                 for(auto j=0; j<itr->second.size(); j++){
@@ -1119,7 +1119,7 @@ void createPath(){
 
     // for each of the stations passed, make a directory for their fips
     for(int i=0; i<numStations; i++){
-        Station * station = stationArr[i];
+        Station * station = &stationArr[i];
         string fips = station->fipsCode;
         string writePath_1 = writePath + fips;
         if(!dirExists(writePath_1)){
