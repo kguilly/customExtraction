@@ -61,9 +61,9 @@
    - Related code pulled from the ECCODES source code is found in the gribFiles/ folder. Code written for WRF data extraction is included in myFiles/
       - For scripts in *myFiles* of the same name, the script with the highest number on the end is the most recent version of that script
 8. Running the code
-   - All code in this reposository can be compiled with your favorite C++ compiler, however an "-leccodes" flag must be included. For the threaded implementation, the "-lpthread" flag must also be included. For example:
+   - All code in this reposository can be compiled with your favorite C++ compiler, however C++ version 17 is preferred and an "-leccodes" flag must be included. For the threaded implementation, the "-lpthread" flag must also be included. For example:
       ```
-      g++ threadedExtractWRFData1.cpp -leccodes -lpthread
+      g++ -std=c++17 threadedExtractWRFData1.cpp -leccodes -lpthread
       ./a.out
       ```
       *OR, for non-threaded*
