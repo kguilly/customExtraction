@@ -1,0 +1,63 @@
+2023-01-11 12:39:56,029 - weather_spider_ - INFO - data check
+2023-01-11 12:39:56,029 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:39:56,029 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:39:56,029 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:39:56,122 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.00.00.grib2
+2023-01-11 12:39:56,233 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.01.00.grib2
+2023-01-11 12:39:56,487 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.02.00.grib2
+2023-01-11 12:39:57,988 - weather_spider_ - INFO - data check
+2023-01-11 12:39:57,988 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:39:57,989 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:39:57,989 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:39:58,134 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.03.00.grib2
+2023-01-11 12:39:58,163 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.04.00.grib2
+2023-01-11 12:39:58,373 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.05.00.grib2
+2023-01-11 12:39:59,053 - weather_spider_ - INFO - data check
+2023-01-11 12:39:59,053 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:39:59,054 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:39:59,054 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:39:59,281 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.06.00.grib2
+2023-01-11 12:39:59,609 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.07.00.grib2
+2023-01-11 12:39:59,819 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.08.00.grib2
+2023-01-11 12:40:00,379 - weather_spider_ - INFO - data check
+2023-01-11 12:40:00,379 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:40:00,379 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:40:00,380 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:40:00,381 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.09.00.grib2
+2023-01-11 12:40:00,406 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.10.00.grib2
+2023-01-11 12:40:00,532 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.11.00.grib2
+2023-01-11 12:40:00,971 - weather_spider_ - INFO - data check
+2023-01-11 12:40:00,971 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:40:00,971 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:40:00,971 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:40:00,992 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.12.00.grib2
+2023-01-11 12:40:01,039 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.13.00.grib2
+2023-01-11 12:40:01,147 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.14.00.grib2
+2023-01-11 12:40:01,858 - weather_spider_ - INFO - data check
+2023-01-11 12:40:01,858 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:40:01,858 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:40:01,859 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:40:02,157 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.15.00.grib2
+2023-01-11 12:40:02,178 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.16.00.grib2
+2023-01-11 12:40:02,654 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.17.00.grib2
+2023-01-11 12:40:03,304 - weather_spider_ - INFO - data check
+2023-01-11 12:40:03,304 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:40:03,304 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:40:03,305 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:40:03,674 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.18.00.grib2
+2023-01-11 12:40:03,761 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.19.00.grib2
+2023-01-11 12:40:04,296 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.20.00.grib2
+2023-01-11 12:40:04,945 - weather_spider_ - INFO - data check
+2023-01-11 12:40:04,945 - weather_spider_ - INFO - worker: 0
+2023-01-11 12:40:04,946 - weather_spider_ - INFO - worker: 1
+2023-01-11 12:40:04,946 - weather_spider_ - INFO - worker: 2
+2023-01-11 12:40:05,196 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.21.00.grib2
+2023-01-11 12:40:05,404 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.22.00.grib2
+2023-01-11 12:40:05,887 - weather_spider_ - INFO - start downloading: data/2016/20160101/hrrr.20160101.23.00.grib2
+2023-01-11 14:16:44,728 - weather_spider_ - INFO - data check
+2023-01-11 14:16:44,728 - weather_spider_ - INFO - worker: 0
+2023-01-11 14:16:44,728 - weather_spider_ - INFO - worker: 1
+2023-01-11 14:16:44,728 - weather_spider_ - INFO - worker: 2
+2023-01-11 14:16:44,856 - weather_spider_ - INFO - start downloading: data/2021/20210101/hrrr.20210101.00.00.grib2
+2023-01-11 14:16:44,919 - weather_spider_ - INFO - start downloading: data/2021/20210101/hrrr.20210101.01.00.grib2
+2023-01-11 14:16:45,055 - weather_spider_ - INFO - start downloading: data/2021/20210101/hrrr.20210101.02.00.grib2
