@@ -19,9 +19,23 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 
 */
 
+#ifndef __has_include
+  static_assert(false, "__has_include not supported");
+#else
+#  if __cplusplus >= 201703L && __has_include(<filesystem>)
+#    include <filesystem>
+     namespace fs = std::filesystem;
+#  elif __has_include(<experimental/filesystem>)
+#    include <experimental/filesystem>
+     namespace fs = std::experimental::filesystem;
+#  elif __has_include(<boost/filesystem.hpp>)
+#    include <boost/filesystem.hpp>
+     namespace fs = boost::filesystem;
+#  endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <filesystem>
 #include "eccodes.h"
 #include <time.h>
 #include <iostream>
@@ -1147,7 +1161,7 @@ void createPath(){
     // for each of the years passed, create a folder
     // for each folder in write path, pass each year passed
     string currpath; 
-    for (const auto &entry : std::filesystem::directory_iterator(writePath)){
+    for (const auto &entry : fs::directory_iterator(writePath)){
         currpath = entry.path();
         strcmd = "cd " + currpath + "; mkdir " + to_string(beginDay.at(0));
         status = system(strcmd.c_str());
