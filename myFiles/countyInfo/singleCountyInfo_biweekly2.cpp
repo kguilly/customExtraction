@@ -58,10 +58,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2020, 2, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 2, 15};   // NOT INCLUSIVE
+vector<int> endDay = {2020, 1, 15};   // NOT INCLUSIVE
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -203,12 +203,18 @@ void writeData(void*);
 
 void garbageCollection();
 
+/* calls a python function to sort the csvs based on county index, then on avg, then month, then day*/
+void sortcsv();
+
+void writeMonthlyData();
+
 int main(int argc, char*argv[]){
 
 
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
 
-    handleInput(argc, argv);
+
+    handleInput(argc , argv);
 
     semaphoreInit();
     
@@ -296,6 +302,7 @@ int main(int argc, char*argv[]){
     
     delete [] arg;
 
+    writeMonthlyData();
 
 
     garbageCollection();
@@ -336,25 +343,51 @@ void handleInput(int argc, char* argv[]){
             cout << "Must pass both begin and end date" << endl;
             exit(0);
         }
+        if(begin_date_flag){
+            // meaning we've passed both begin and end date flags
+            // store them 
+            string begin_date = argv[begin_date_index+1];
+            string end_date = argv[end_date_index+1];
+
+            //check their length
+            if (end_date.length() != 8 || begin_date.length() != 8){
+                cout << "Error: Begin / End date arguments have not been passed correctly" << endl;
+                exit(0);
+            }
+
+            // pass as the actual beginning and ending date
+            beginDay.at(0) = stoi(begin_date.substr(0,4));
+            beginDay.at(1) = stoi(begin_date.substr(4,2));
+            beginDay.at(2) = stoi(begin_date.substr(6,2));
+            
+            endDay.at(0) = stoi(end_date.substr(0,4));
+            endDay.at(1) = stoi(end_date.substr(4,2));
+            endDay.at(2) = stoi(end_date.substr(6,2));
+
+
+        }
         vector<string> fipscodes(0);
         if(fipsflag){
             for(int i=fipsflag+1;i<argc;i++){
                 string arg = argv[i];
                 if (arg.substr(0,1) == "-"){
-                    if (arg.length() == 5){
-                        fipscodes.insert(fipscodes.begin(), argv[i]);
-                    }
-                    else{
-                        cout << "Invalid length of fips argument passed" << endl;
-                        exit(0);
-                    }
+                    break;
+                }
+                if (arg.length() == 5){
+                    fipscodes.insert(fipscodes.begin(), argv[i]);
+                }
+                else{
+                    cout << "Invalid length of fips argument passed" << endl;
+                    exit(0);
                 }
             }
-        }else{
-            cout << "Incorrect arguments passed" << endl;
+            
+        }
+        // if all the flags are false and argc > 1, then something went wront
+        if(!begin_date_flag && !end_date_flag && !fipsflag && argc > 1){
+            cout << "Incorrect Arguments Passed" << endl;
             exit(0);
         }
-
         // now call the cmd line to run the python file
         string command; int status;
         for(int i=0;i<fipscodes.size();i++){
@@ -787,12 +820,16 @@ vector<int> getNextDay(vector<int> beginDate){
 	if (day > 0 && day < 28) day+=1; //checking for day from 0-27, can just increment
 	else if(day == 28){
 		if(month == 2){ // if it is february, need special care
-			if ((year % 400 == 0) || (year % 100 != 0 || year % 4 == 0)){ // is a leap year
-				day == 29;
-			}
-			else{
+			if(year % 400 != 0){
 				day = 1;
 				month = 3;
+			}
+            else if(year % 100 == 0 && year % 4 != 0){
+                day = 1;
+                month = 3;
+            }
+			else if ((year % 400 == 0) || ((year % 100 != 0) && (year % 4 == 0))){ // is a leap year
+				day == 29;
 			}
 		}
 		else // its not feb
@@ -806,6 +843,9 @@ vector<int> getNextDay(vector<int> beginDate){
 			day = 1;
 			month = 3;
 		}
+        else{
+            day +=1;
+        }
 	}
 	else if(day == 30) // last day check for april, june, sept, nov
 	{
@@ -1097,7 +1137,7 @@ void mapMonthlyData(){
                     double &refmean = mean;
                     double stdDev = standardDev(thoseElementsIneed, refmean);
                     // double mean = *ptrmean;
-                    string strval = std::to_string(mean) + "+-" + std::to_string(stdDev);
+                    string strval = std::to_string(mean); // + "+-" + std::to_string(stdDev);
                     vctrAverages.insert(vctrAverages.begin(), strval);
                 }
                 // place the averages in the map
@@ -1203,8 +1243,9 @@ void writeData(void*arg){
 
     // the entire file will be written to in one iteration. We will append the strings
     // of all days together until the next day is reached, at which point we will write out
-    string output, filePath, fileName, year, county, state, name, fips, strcmd, month;
+    string output, filePath_out, fileName, year, county, state, name, fips, strcmd, month;
     int status;
+    ifstream outputFile;
     // loop through each key of the file, every time you run into a new day, 
     // make a new file
     for(auto itr = station->weeklydatamap.begin(); itr!=station->weeklydatamap.end();++itr){
@@ -1216,43 +1257,49 @@ void writeData(void*arg){
         name = station->name;
         fips = station->fipsCode;
 
-        filePath = writePath + fips + "/" + year + "/";
-        fileName = year + ".csv";
-        // strcmd = "cd " + filePath + "; touch " +fileName;
+        filePath_out = writePath + fips + "/" + year + "/";
+        fileName = "HRRR_"+station->fipsCode.substr(0,2)+"_"+station->state+"_"+year+month+ ".csv";
+        outputFile.open(filePath_out+fileName);
+        if(!outputFile){
+            // the file does not exists, need to write out the header 
+            //strcmd = "cd " + filePath_out + "; echo \"CountyIndexNum,Day/Month,Year, Month, Day, State, County, FIPS Code,";
+            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code, Index,";
+            // append the name of each parameter to the headings of the files
+            for(int j=0;j<numParams;j++) strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
+            
+            strcmd += "\" > "+ fileName;
+            status = system(strcmd.c_str());
+            if(status==-1) std::cerr << "\n Write to file error: " << strerror(errno) << endl;
+        }
+        outputFile.close();
+        // strcmd = "cd " + filePath_out + "; touch " +fileName;
         // status = system(strcmd.c_str());
         // if(status==-1) std::cerr << "\nFile Creation Error: " << strerror(errno) << endl;
 
-        strcmd = "cd " + filePath + "; echo \"CountyIndexNum, ,Year, Month, Day, State, County, Fips Code,";
-        // append the name of each parameter to the headings of the files
-        for(int j=0;j<numParams;j++) strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
-        
-        strcmd += "\" > "+ fileName;
-        status = system(strcmd.c_str());
-        if(status==-1) std::cerr << "\n Write to file error: " << strerror(errno) << endl;
         
     
         // append information to the output string
         // send each day of the week's data to the output file
         string firstdayoftheweek = itr->first.substr(0,8);
         string lastdayoftheweek = itr->first.substr(9,8);
-        string fulldaymapday,daymapyear,daymapmonth,daymapday;
+        string full_daymapday,daymapyear,daymapmonth,daymapday;
         output = "";
         for(auto dayitr = station->dailydatamap.begin(); dayitr != station->dailydatamap.end(); ++dayitr){
-            fulldaymapday = dayitr->first;
+            full_daymapday = dayitr->first;
 
-            if(fulldaymapday <= lastdayoftheweek && fulldaymapday >= firstdayoftheweek){
+            if(full_daymapday <= lastdayoftheweek && full_daymapday >= firstdayoftheweek){
                 daymapyear = dayitr->first.substr(0,4);
                 daymapmonth = dayitr->first.substr(4,2);
                 daymapday = dayitr->first.substr(6,2);
-                output.append(name +",Daily Averages,"+daymapyear +","+ daymapmonth +","+ daymapday + "," + station->state + "," + station->county + "," + fips + ",");
-
+                // output.append(name +",Daily,"+daymapyear +","+ daymapmonth +","+ daymapday + "," + station->state + "," + station->county + "," + fips + ",");
+                output.append(daymapyear+","+daymapmonth+","+daymapday+",Daily,"+station->state+","+station->county+","+fips+","+name+",");
                 // loop through the vector associated with the map and append to output
                 for (auto j=0;j<dayitr->second.size();j++){
                     output.append(to_string(dayitr->second.at(j))+",");
                 }
                 // output.append("\n"
                 // send the output string as a line to the file
-                strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
+                strcmd = "cd " + filePath_out + "; echo " + "\"" + output + "\" >> " + fileName;
                 status = system(strcmd.c_str());
                 if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
                 output = "";
@@ -1260,16 +1307,101 @@ void writeData(void*arg){
             }
 
         }
-        output = name + ",Monthly Averages," + year+ "," + month + ", , , ,"+fips+",";
-        for(auto j=0; j<itr->second.size();j++){
-            output.append((itr->second.at(j))+",");
-        }
-        strcmd = "cd " + filePath + "; echo " + "\"" + output + "\" >> " + fileName;
-        status = system(strcmd.c_str());
-        if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
+        // output = name + ",Monthly," + year+ "," + month + ", , , ,"+fips+",";
+        // for(auto j=0; j<itr->second.size();j++){
+        //     output.append((itr->second.at(j))+",");
+        // }
+        // strcmd = "cd " + filePath_out + "; echo " + "\"" + output + "\" >> " + fileName;
+        // status = system(strcmd.c_str());
+        // if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
         output = "";
        
     }
+
+}
+
+void writeMonthlyData(){
+    // for each station, if they have the same fips code, we need to add them to a map in order to group them together and find the monthly average
+    // monthly averages are done over the entire county, not station to station
+    map<string, vector<Station>> sameCountyStations;
+    map<string, vector<Station>>::iterator shitr;
+    Station*station;
+    for(int i=0; i<numStations; i++){
+        station = &stationArr[i];
+        string fips = station->fipsCode;
+        if(sameCountyStations.find(fips) == sameCountyStations.end()){
+            // the fips is not in the map, need to insert it
+            vector<Station> vctrStation;
+            vctrStation.insert(vctrStation.begin(), *station);
+            sameCountyStations.insert({fips, vctrStation});
+        }
+        else{
+            // the fips is already in the map, append the station to the index's station vector
+            shitr = sameCountyStations.find(fips);
+            shitr->second.insert(shitr->second.begin(), *station);
+        }
+    }
+
+
+    map<string, vector<string>> averagedMonthlyMap;
+    map<string, vector<string>>::iterator avgmonItr;
+    vector<Station> vctrStations;
+    
+    for (auto itr = sameCountyStations.begin(); itr!=sameCountyStations.end(); ++itr){
+        vctrStations = itr->second;
+        averagedMonthlyMap = vctrStations.at(0).weeklydatamap;
+        
+        for(int i=1; i<vctrStations.size(); i++){
+            Station station = vctrStations.at(i);
+            map<string, vector<string>> stMonthlyMap = station.weeklydatamap;
+            
+            for(auto itr2 = stMonthlyMap.begin(); itr2!=stMonthlyMap.end(); ++itr2){
+                avgmonItr = averagedMonthlyMap.find(itr2->first);
+                
+                if(avgmonItr != averagedMonthlyMap.end()){
+                    vector<string> params(numParams);
+
+                    for(int j=0;j<numParams;j++){
+                        params.at(j)= std::to_string(stod(avgmonItr->second.at(j)) + stod(itr2->second.at(j)));
+                    }
+
+                    averagedMonthlyMap.insert({avgmonItr->first, params});
+                }
+                else{
+                    cout << "Something went wrong when trying to find the monthly averages" << endl;
+                    exit(1);
+                }
+            }
+        }
+
+        for(avgmonItr = averagedMonthlyMap.begin(); avgmonItr!= averagedMonthlyMap.end(); ++avgmonItr){
+            int numst = vctrStations.size();
+            vector<string> params = avgmonItr->second;
+            Station station = vctrStations.at(0);
+            string year = avgmonItr->first.substr(0,4);
+            string month = avgmonItr->first.substr(4,2);
+            string fips = station.fipsCode;
+            string fileName = "HRRR_"+station.fipsCode.substr(0,2)+"_"+station.state+"_"+year+month+ ".csv";
+            
+            // string output = ",Monthly,"+year+","+month+",,,,"+fips+",";
+            string output = year+","+month+",,"+"Monthly,"+station.state+","+station.county+","+fips+",,";
+            for(int i=0; i<params.size(); i++){// find the average
+                double averageVal = stod(params.at(i)) / numst;
+                output.append(to_string(averageVal) + ",");
+                // after finding the average, write out to appropriate file
+
+            }
+            string filePath_out = writePath + fips + "/" + year + "/";
+            string strcmd = "cd " + filePath_out + "; echo " + "\"" + output + "\" >> " + fileName;
+            int status = system(strcmd.c_str());
+            if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
+            output = "";
+
+        }
+        averagedMonthlyMap.clear();
+
+    }
+
 
 }
 
