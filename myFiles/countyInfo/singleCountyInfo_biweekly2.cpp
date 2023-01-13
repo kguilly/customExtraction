@@ -58,10 +58,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2020, 2, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 1, 2};   // NOT INCLUSIVE
+vector<int> endDay = {2020, 2, 15};   // NOT INCLUSIVE
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -228,6 +228,7 @@ int main(int argc, char*argv[]){
         // if the day is not the first or 14th day, skip it
         string onlytheday = strCurrentDay.at(2);
         if(!(onlytheday == "01" || onlytheday == "14")){
+            intcurrentDay = getNextDay(intcurrentDay);
             continue;
         }
 
@@ -313,33 +314,42 @@ void handleInput(int argc, char* argv[]){
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
         // station arrays
-        int fipsindex=0;
-        bool fipsflag = false;
+        int fipsindex=0, begin_date_index=0, end_date_index=0; 
+        bool fipsflag = false, begin_date_flag = false, end_date_flag = false;
         for(int i=0; i<argc;i++){
             if(strcmp(argv[i], "--fips") == 0){
                 fipsflag = true;
                 fipsindex = i;
-                break;
+                
             }
+            else if(strcmp(argv[i], "--begin_date")==0){
+                begin_date_flag = true;
+                begin_date_index = i;
+            }
+            else if(strcmp(argv[i], "--end_date")==0){
+                end_date_flag = true;
+                end_date_index = i;
+            }
+
+        }
+        if((begin_date_flag && !end_date_flag) | (end_date_flag && !begin_date_flag)){
+            cout << "Must pass both begin and end date" << endl;
+            exit(0);
         }
         vector<string> fipscodes(0);
         if(fipsflag){
             for(int i=fipsflag+1;i<argc;i++){
                 string arg = argv[i];
-                if (arg.length() == 5){
-                    fipscodes.insert(fipscodes.begin(), argv[i]);
-                }
-                else{
-                    cout << "Invalid length of fips argument passed" << endl;
-                    exit(0);
+                if (arg.substr(0,1) == "-"){
+                    if (arg.length() == 5){
+                        fipscodes.insert(fipscodes.begin(), argv[i]);
+                    }
+                    else{
+                        cout << "Invalid length of fips argument passed" << endl;
+                        exit(0);
+                    }
                 }
             }
-
-            
-            // buildHours();
-            // defaultParams();
-            // readCountycsv();
-            // matchState();
         }else{
             cout << "Incorrect arguments passed" << endl;
             exit(0);
@@ -1207,7 +1217,7 @@ void writeData(void*arg){
         fips = station->fipsCode;
 
         filePath = writePath + fips + "/" + year + "/";
-        fileName = weekrange + ".csv";
+        fileName = year + ".csv";
         // strcmd = "cd " + filePath + "; touch " +fileName;
         // status = system(strcmd.c_str());
         // if(status==-1) std::cerr << "\nFile Creation Error: " << strerror(errno) << endl;
