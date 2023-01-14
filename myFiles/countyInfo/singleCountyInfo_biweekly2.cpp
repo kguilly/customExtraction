@@ -19,21 +19,22 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 
 */
 
-#ifndef __has_include
-  static_assert(false, "__has_include not supported");
-#else
-#  if __cplusplus >= 201703L && __has_include(<filesystem>)
-#    include <filesystem>
-     namespace fs = std::filesystem;
-#  elif __has_include(<experimental/filesystem>)
-#    include <experimental/filesystem>
-     namespace fs = std::experimental::filesystem;
-#  elif __has_include(<boost/filesystem.hpp>)
-#    include <boost/filesystem.hpp>
-     namespace fs = boost::filesystem;
-#  endif
-#endif
-
+// #ifndef __has_include
+//   static_assert(false, "__has_include not supported");
+// #else
+// #  if __cplusplus >= 201703L && __has_include(<filesystem>)
+// #    include <filesystem>
+//      namespace fs = std::filesystem;
+// #  elif __has_include(<experimental/filesystem>)
+// #    include <experimental/filesystem>
+//      namespace fs = std::experimental::filesystem;
+// #  elif __has_include(<boost/filesystem.hpp>)
+// #    include <boost/filesystem.hpp>
+//      namespace fs = boost::filesystem;
+// #  endif
+// #endif
+#include <filesystem>
+namespace fs = std::filesystem;
 #include <stdio.h>
 #include <stdlib.h>
 #include "eccodes.h"
@@ -51,17 +52,17 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 #include <cmath>
 #include "semaphore.h"
 #define MAX_VAL_LEN 1024
-using namespace std;
 
+using namespace std;
 /* Timing variables */
 struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2021, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 1, 8};   // NOT INCLUSIVE
+vector<int> endDay = {2021, 1, 8};   // NOT INCLUSIVE
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -69,13 +70,13 @@ vector<int> arrHourRange = {0,23}; // array for the range of hours one would lik
 
 int intHourRange; 
 
-string filePath = "/home/kalebg/Desktop/weekInputData/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/home/kaleb/Desktop/weekInputData/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kalebg/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
-string repositoryPath = "/home/kalebg/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
+string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
@@ -323,13 +324,12 @@ void handleInput(int argc, char* argv[]){
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
         // station arrays
-        int fipsindex=0, begin_date_index=0, end_date_index=0; 
-        bool fipsflag = false, begin_date_flag = false, end_date_flag = false;
+        int fipsindex=0, begin_date_index=0, end_date_index=0, begin_hour_index=0, end_hour_index=0;
+        bool fipsflag = false, begin_date_flag = false, end_date_flag = false, begin_hour_flag = false, end_hour_flag = false;
         for(int i=0; i<argc;i++){
             if(strcmp(argv[i], "--fips") == 0){
                 fipsflag = true;
-                fipsindex = i;
-                
+                fipsindex = i;      
             }
             else if(strcmp(argv[i], "--begin_date")==0){
                 begin_date_flag = true;
@@ -338,8 +338,41 @@ void handleInput(int argc, char* argv[]){
             else if(strcmp(argv[i], "--end_date")==0){
                 end_date_flag = true;
                 end_date_index = i;
+            }else if(strcmp(argv[i], "--begin_hour")==0){
+                begin_hour_flag = true;
+                begin_hour_index = i;
+            }else if(strcmp(argv[i], "--end_hour")==0){
+                end_hour_flag = true;
+                end_hour_index = i;
             }
 
+        }
+        
+        if(begin_hour_flag){
+            string begin_hour = argv[begin_hour_index+1];
+            if(begin_hour.length() > 2) {
+                cout << "Error in the begin hour" << endl;
+                exit(0);
+            }
+            int intbegin_hour = stoi(begin_hour);
+            if(intbegin_hour > 23 || intbegin_hour < 0){
+                cout << "Error in the size of the begin hour" << endl;
+                exit(0);
+            }
+            arrHourRange[0] = intbegin_hour;
+        }
+        if(end_hour_flag){
+            string strend_hour = argv[end_hour_index + 1];
+            if(strend_hour.length()  > 2){
+                cout << "Error in the end hour" << endl;
+                exit(0);
+            }
+            int intendhour = stoi(strend_hour);
+            if(intendhour > 23 || intendhour < 0 || intendhour < arrHourRange[0]){
+                cout << "Error in the end hour size checking" << endl;
+                exit(0);
+            }
+            arrHourRange[1] = intendhour;
         }
         if((begin_date_flag && !end_date_flag) | (end_date_flag && !begin_date_flag)){
             cout << "Must pass both begin and end date" << endl;
@@ -386,7 +419,7 @@ void handleInput(int argc, char* argv[]){
             
         }
         // if all the flags are false and argc > 1, then something went wront
-        if(!begin_date_flag && !end_date_flag && !fipsflag && argc > 1){
+        if(!begin_date_flag && !end_date_flag && !fipsflag && argc > 1 && !end_hour_flag && !begin_hour_flag){
             cout << "Incorrect Arguments Passed" << endl;
             exit(0);
         }
@@ -1374,12 +1407,12 @@ void writeData(void*arg){
 }
 
 void writeMonthlyData(){
-    string strcmd = "cd " + repositoryPath + "myFiles/countyInfo; python getMonthlyAvgs.py --path " + writePath;
-    int status = system(strcmd.c_str());
-    if(status == -1) cerr << "call to getmonthlyavs.py error" << strerror(errno) << endl;
+    // string strcmd = "cd " + repositoryPath + "myFiles/countyInfo; python getMonthlyAvgs.py --path " + writePath;
+    // int status = system(strcmd.c_str());
+    // if(status == -1) cerr << "call to getmonthlyavs.py error" << strerror(errno) << endl;
 
 
-    /*
+
     // I. HATE. C++.
     // for each station, if they have the same fips code, we need to add them to a map in order to group them together and find the monthly average
     // monthly averages are done over the entire county, not station to station
@@ -1455,7 +1488,7 @@ void writeMonthlyData(){
 
         }
     }
-    */
+    
 }
 
 void garbageCollection(){
