@@ -27,7 +27,7 @@ for fips in fipsfolders:
             findavgflag = False
             introflag = True
             # write the 
-            for column in df:
+            for column in df.columns:
                 # make sure that
                 
                 if findavgflag: 
