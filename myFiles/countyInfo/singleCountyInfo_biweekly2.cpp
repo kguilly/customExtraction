@@ -59,12 +59,12 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 1, 8};   // NOT INCLUSIVE
+vector<int> endDay = {2020, 1, 2};   // NOT INCLUSIVE
 
-vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,1}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                    // accepts hours from 0 to 23 (IS INCLUSIVE)
 
@@ -320,7 +320,6 @@ int main(int argc, char*argv[]){
 
 void handleInput(int argc, char* argv[]){
     
-    // NOT FINISHED. DO NOT PASS ARGS
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
         // station arrays
@@ -1453,19 +1452,22 @@ void writeMonthlyData(){
                 if(paramAverages.find(itr2->first.substr(0,6)) == paramAverages.end()){
                     vector<double> tmpvctr = itr2->second;
                     paramAverages.insert({itr2->first.substr(0,6), tmpvctr});
-                }else{ // the 
+                }
+                else{ // the 
                     map<string,vector<double>>::iterator pmitr = paramAverages.find(itr2->first.substr(0.6));
-                    vector<double> tmpvctr(0);
+                    vector<double> *tmpvctr = &pmitr->second;
                     for(int i=0;i<numParams;i++){
-                        double val = pmitr->second.at(i) + itr2->second.at(i);
-                        tmpvctr.insert(tmpvctr.begin()+i, val);
+                        double &val = tmpvctr->at(i);
+                        val+= val + itr2->second[i];
+                        
                     }
-                    paramAverages.insert({pmitr->first, tmpvctr});
+
 
                 }
             }
             
         }
+        ///////////////////////////// THE ABOVE CODE WORKY ///////////////////////////////////
 
         // we have looped through all stations at a given loc, and found the summation of all of their vals,
         // now we need to divide each one and find their averages
