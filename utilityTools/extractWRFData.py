@@ -26,10 +26,10 @@ class extractor():
         self.parameter_info = [	"ATT1", "ATT2", "ATT3", "ATT4", "ATT5", "ATT6", "ATT7", "ATT8", "ATT9", "ATT10", "ATT11", "ATT12", "ATT13", "ATT14", "ATT15", "ATT16", "ATT17", "ATT18", "ATT19", "ATT20", "ATT21", "ATT22", "ATT23", "ATT24", "ATT25", "ATT26", "ATT27", "ATT28", "ATT29", "ATT30","ATT31", "ATT32", "ATT33", "ATT34", "ATT35", "ATT36", "ATT37", "ATT38", "ATT39", "ATT40", "ATT41", "ATT42", "ATT43", "ATT44", "ATT45","ATT46", "ATT47", "ATT48", "ATT49", "ATT50", "ATT51", "ATT52", "ATT53", "ATT54", "ATT55", "ATT56", "ATT57", "ATT58", "ATT59", "ATT60", "ATT61", "ATT62", "ATT63", "ATT64", "ATT65", "ATT66", "ATT67", "ATT68", "ATT69", "ATT70", "ATT71", "ATT72", "ATT73", "ATT74", "ATT75", "ATT76", "ATT77", "ATT78", "ATT79", "ATT80", "ATT81", "ATT82", "ATT83", "ATT84", "ATT85", "ATT86", "ATT87", "ATT88", "ATT89", "ATT90", "ATT91", "ATT92", "ATT93", "ATT94", "ATT95", "ATT96", "ATT97", "ATT98", "ATT99", "ATT100", "ATT101", "ATT102", "ATT103", "ATT104", "ATT105",	"ATT106", "ATT107", "ATT108", "ATT109", "ATT110", "ATT111",	"ATT112", "ATT113", "ATT114", "ATT115", "ATT116","ATT117", "ATT118", "ATT119", "ATT120", "ATT121", "ATT122", "ATT123","ATT124", "ATT125", "ATT126", "ATT127", "ATT128", "ATT129", "ATT130","ATT131", "ATT132"]
         #self.data_path = "N:/weather/WRF/"
         #self.write_data_path = "E:/extract_weather_parameter/Data/WRF/"
-        self.data_path = "/home/kalebg/Desktop/School/Y4S1/REU/customExtraction/UtilityTools/extractTools/data/"  # data source (grib file location)
+        self.data_path = "/home/kalebg/Desktop/weekInputData/"  # data source (grib file location)
         self.write_data_path = "/home/kalebg/Desktop/WRF_Data/" # path to store extracted data
-        self.start_date = date(2019,1,2)  # start date
-        self.end_date = date(2019, 1,3)   # end date
+        self.start_date = date(2018, 1, 1)  # start date
+        self.end_date = date(2018, 1, 2)   # end date
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date - start_date).days)):
@@ -89,6 +89,7 @@ class extractor():
             #print(p)
             tmpmsgs = grib[p]
             lt, ln = tmpmsgs.latlons() # lt - latitude, ln - longitude
+            print("Layer: %s Name: %s  Units: %s  Level: %s (%s)" % (p, tmpmsgs.name, tmpmsgs.units, tmpmsgs.level, tmpmsgs.typeOfLevel))
             data = tmpmsgs.values      
 
             for (l_lt, l_ln), l_info in zip(self.loc, self.loc_info):

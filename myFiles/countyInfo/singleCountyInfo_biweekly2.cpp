@@ -61,7 +61,7 @@ double totalTime;
 vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 1, 15};   // NOT INCLUSIVE
+vector<int> endDay = {2020, 1, 8};   // NOT INCLUSIVE
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -83,6 +83,7 @@ string repositoryPath = "/home/kalebg/Documents/GitHub/customExtraction/";//PATH
 struct Station{
     string name = "00";
     string state;
+    string stateAbbrev;
     string county;
     string fipsCode;
     float lat;
@@ -158,6 +159,7 @@ void handleInput(int, char**);
 // Function to build the default station array (all counties in continential US)
 // through reading from the files in the countyInfo file
 void defaultStations(); void readCountycsv(); void matchState();
+void getStateAbbreviations();
 // similar to default station, but for the parameter arrays
 void defaultParams();
 
@@ -232,11 +234,11 @@ int main(int argc, char*argv[]){
         vector<string> strCurrentDay = formatDay(intcurrentDay);
 
         // if the day is not the first or 14th day, skip it
-        string onlytheday = strCurrentDay.at(2);
-        if(!(onlytheday == "01" || onlytheday == "14")){
-            intcurrentDay = getNextDay(intcurrentDay);
-            continue;
-        }
+        // string onlytheday = strCurrentDay.at(2);
+        // if(!(onlytheday == "01" || onlytheday == "14")){
+        //     intcurrentDay = getNextDay(intcurrentDay);
+        //     continue;
+        // }
 
         // concatenate the file path
         string filePath1 = filePath + strCurrentDay.at(0) + "/" + strCurrentDay.at(3) + "/";
@@ -390,18 +392,18 @@ void handleInput(int argc, char* argv[]){
         }
         // now call the cmd line to run the python file
         string command; int status;
+        command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-13-23.py --fips ";
         for(int i=0;i<fipscodes.size();i++){
-            string command = "cd " + repositoryPath + "/myFiles/countyInfo/sentinel-hub ; python3 geo_gridedit_1-5-23.py --fips " +
-                            fipscodes.at(i);
-            status = system(command.c_str());
-            if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
-
+            command += fipscodes.at(i) + " ";
         }
+        status = system(command.c_str());
+        if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
         buildHours();
         defaultParams();
         // defaultStations();
         readCountycsv();
         matchState();
+        getStateAbbreviations();
         
     }
     else{
@@ -410,6 +412,7 @@ void handleInput(int argc, char* argv[]){
         // defaultStations();
         readCountycsv();
         matchState();
+        getStateAbbreviations();
         // potential improvement: for each month, run the file and make new parameter array based off
         //                        of what the file returns
         // // print out to make sure I did it right
@@ -419,7 +422,55 @@ void handleInput(int argc, char* argv[]){
         // }
     }
 }
+void getStateAbbreviations(){
+    // read the us-state-ansi-fips.csv file into a map, 
+    // KEY: fips, VALUE: abbrev
+    map<string, string> stateabbrevmap;
+    ifstream abbrevs;
+    string abbrev_path = repositoryPath + "myFiles/countyInfo/us-state-ansi-fips.csv";
+    abbrevs.open(abbrev_path);
+    if(!abbrevs){
+        cerr << "Error opening the abbreviations file." << endl;
+        exit(1);
+    }
+    vector<string> row; 
+    string strLine;
+    bool firstline = true;
+    while(getline(abbrevs, strLine)){
+        row.clear();
+        if(firstline){
+            firstline = false;
+            continue;
+        }
+        stringstream s(strLine);
+        string currline;
+        while(getline(s, currline, ',')){
+            row.push_back(currline);
+        }
+        if(row.size() > 2){
+            string fips = row.at(1); string abbrev = row.at(2);
+            fips.erase(remove_if(fips.begin(), fips.end(), ::isspace));
+            abbrev.erase(remove_if(abbrev.begin(), abbrev.end(), ::isspace));
+            stateabbrevmap.insert({fips, abbrev});
+        }
+    }
 
+    ///////////////////////////////////////////////////////////
+    // based off of the map, give each station their abbrev
+    map<string, string>::iterator itr;
+    for(int i=0; i<numStations; i++){
+        Station *station = &stationArr[i];
+        string statefips = station->fipsCode.substr(0,2);
+        itr = stateabbrevmap.find(statefips);
+        if(itr!= stateabbrevmap.end()) station->stateAbbrev = itr->second;
+        else{
+            cout << "Error in finding state abbrevs" <<endl;
+            exit(1);
+        }
+    }
+
+
+}
 void buildHours(){
     // build the hour array
     // make sure correct values have been passed to the hour array 
@@ -431,23 +482,21 @@ void buildHours(){
         exit(0);
     }
 
-    hours = (string*)malloc(intHourRange*sizeof(string));
-    if(!hours){
-        fprintf(stderr, "Error, unable to allocate hours");
-        exit(0);
-    }
-    
+    hours = new string[intHourRange];
+       
     int endHour = arrHourRange.at(1);
     int beginHour = arrHourRange.at(0);
     int index=0;
     for(int hour = beginHour; hour<=endHour;hour++){
         if(hour < 10){ // put a 0 in front then insert in the hours arr
             string strHour = "0"+to_string(hour);
-            hours[index++] = strHour;
+            hours[index] = strHour;
+            index++;
         }
         else{ // just convert to a string and insert into the hours arr
             string strHour = to_string(hour);
-            hours[index++] = strHour;
+            hours[index] = strHour;
+            index++;
         }
     }
 }
@@ -517,7 +566,7 @@ void defaultStations(){
     // load the counties and their coordinates into the respective maps
     string strLine;
     ifstream fileCoordinates;
-    fileCoordinates.open("./countyFipsandCoordinates.csv");
+    fileCoordinates.open("countyFipsandCoordinates.csv");
     if(!fileCoordinates){
         cerr << "Error: the COORDINATES file could not be opened.\n";
         exit(1);
@@ -605,7 +654,7 @@ void readCountycsv(){
     map<string, Station> tmpStationMap;
     string strLine;
     ifstream filewrfdata;
-    filewrfdata.open("./WRFoutput/wrfOutput.csv");
+    filewrfdata.open("WRFoutput/wrfOutput.csv");
     if(!filewrfdata){
         cerr << "Error: the WRFOUTPUT file could not be opened.\n";
         exit(1);
@@ -627,7 +676,8 @@ void readCountycsv(){
         // row[0] = indx, row[1] = fips, row[2] = statefips, row[3] = county, 4 = lat, 5 = lon
         Station st; st.name = row.at(0); st.fipsCode = row.at(1); st.county = "\""+row.at(3)+"\"";
         st.lat = stof(row.at(4)); st.lon = stof(row.at(5));
-        tmpStationMap.insert({row.at(0), st});
+        string stationMapidx = st.fipsCode + "_" + st.name;
+        tmpStationMap.insert({stationMapidx, st});
         arridx++;
     }
     filewrfdata.close();
@@ -660,7 +710,7 @@ void matchState(){
     map<string, string> stateMap;
     string strcountyfipscodes;
     ifstream filecountyfipscodes;
-    filecountyfipscodes.open("./countyFipsCodes.txt");
+    filecountyfipscodes.open("countyFipsCodes.txt");
     if(!filecountyfipscodes){
         cerr << "Error: the FIPS file could not be opened.\n";
         exit(1);
@@ -702,7 +752,10 @@ void matchState(){
         stateItr = stateMap.find(stateFips);
 
         // insert the state into the objs
-        stationArr[i].state = stateItr->second;
+        if(stateItr!=stateMap.end()) stationArr[i].state = stateItr->second;
+        else{
+            cout << "Error in the state matching." << endl; exit(0);
+        }
     }
 
 }
@@ -1258,12 +1311,12 @@ void writeData(void*arg){
         fips = station->fipsCode;
 
         filePath_out = writePath + fips + "/" + year + "/";
-        fileName = "HRRR_"+station->fipsCode.substr(0,2)+"_"+station->state+"_"+year+month+ ".csv";
+        fileName = "HRRR_"+station->fipsCode.substr(0,2)+"_"+station->stateAbbrev+"_"+year+month+ ".csv";
         outputFile.open(filePath_out+fileName);
         if(!outputFile){
             // the file does not exists, need to write out the header 
             //strcmd = "cd " + filePath_out + "; echo \"CountyIndexNum,Day/Month,Year, Month, Day, State, County, FIPS Code,";
-            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code, Index,";
+            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code,GridIndex,";
             // append the name of each parameter to the headings of the files
             for(int j=0;j<numParams;j++) strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
             
@@ -1321,8 +1374,16 @@ void writeData(void*arg){
 }
 
 void writeMonthlyData(){
+    string strcmd = "cd " + repositoryPath + "myFiles/countyInfo; python getMonthlyAvgs.py --path " + writePath;
+    int status = system(strcmd.c_str());
+    if(status == -1) cerr << "call to getmonthlyavs.py error" << strerror(errno) << endl;
+
+
+    /*
+    // I. HATE. C++.
     // for each station, if they have the same fips code, we need to add them to a map in order to group them together and find the monthly average
     // monthly averages are done over the entire county, not station to station
+
     map<string, vector<Station>> sameCountyStations;
     map<string, vector<Station>>::iterator shitr;
     Station*station;
@@ -1342,67 +1403,59 @@ void writeMonthlyData(){
         }
     }
 
+    ///////////////////////////////////////////////////////////////////////////
+    // the sameCountyStations map is built, now we put them in an average map and find the averages
 
-    map<string, vector<string>> averagedMonthlyMap;
-    map<string, vector<string>>::iterator avgmonItr;
-    vector<Station> vctrStations;
-    
-    for (auto itr = sameCountyStations.begin(); itr!=sameCountyStations.end(); ++itr){
-        vctrStations = itr->second;
-        averagedMonthlyMap = vctrStations.at(0).weeklydatamap;
+    for(auto itr = sameCountyStations.begin(); itr!=sameCountyStations.end(); ++itr){
+        vector<Station> vctrSts = itr->second;
+        map<string, vector<double>> paramAverages; // key is month, val is all values for a given month
         
-        for(int i=1; i<vctrStations.size(); i++){
-            Station station = vctrStations.at(i);
-            map<string, vector<string>> stMonthlyMap = station.weeklydatamap;
-            
-            for(auto itr2 = stMonthlyMap.begin(); itr2!=stMonthlyMap.end(); ++itr2){
-                avgmonItr = averagedMonthlyMap.find(itr2->first);
-                
-                if(avgmonItr != averagedMonthlyMap.end()){
-                    vector<string> params(numParams);
+        for(int j=0;j<vctrSts.size();j++){
+            int mapsize = vctrSts.at(j).dataMap.size(); int intitr = 0; // because of a bug that would keep going past st.dataMap.end
 
-                    for(int j=0;j<numParams;j++){
-                        params.at(j)= std::to_string(stod(avgmonItr->second.at(j)) + stod(itr2->second.at(j)));
+            for(auto itr2 = vctrSts.at(j).dataMap.begin(); itr2 !=vctrSts.at(j).dataMap.end(); ++itr2){
+                if(intitr >= mapsize) break;
+                else intitr++;
+                // if the month hasn't been written to before, then we need to insert it
+                if(paramAverages.find(itr2->first.substr(0,6)) == paramAverages.end()){
+                    vector<double> tmpvctr = itr2->second;
+                    paramAverages.insert({itr2->first.substr(0,6), tmpvctr});
+                }else{ // the 
+                    map<string,vector<double>>::iterator pmitr = paramAverages.find(itr2->first.substr(0.6));
+                    vector<double> tmpvctr(0);
+                    for(int i=0;i<numParams;i++){
+                        double val = pmitr->second.at(i) + itr2->second.at(i);
+                        tmpvctr.insert(tmpvctr.begin()+i, val);
                     }
+                    paramAverages.insert({pmitr->first, tmpvctr});
 
-                    averagedMonthlyMap.insert({avgmonItr->first, params});
-                }
-                else{
-                    cout << "Something went wrong when trying to find the monthly averages" << endl;
-                    exit(1);
                 }
             }
+            
         }
 
-        for(avgmonItr = averagedMonthlyMap.begin(); avgmonItr!= averagedMonthlyMap.end(); ++avgmonItr){
-            int numst = vctrStations.size();
-            vector<string> params = avgmonItr->second;
-            Station station = vctrStations.at(0);
-            string year = avgmonItr->first.substr(0,4);
-            string month = avgmonItr->first.substr(4,2);
+        // we have looped through all stations at a given loc, and found the summation of all of their vals,
+        // now we need to divide each one and find their averages
+        int amtToDivBy = vctrSts.size() * vctrSts.at(0).dataMap.size(); // the number of keys in each of their data maps
+        for(auto pmitr = paramAverages.begin(); pmitr !=paramAverages.end(); ++pmitr){
+            Station station = itr->second.at(0);
+            string year = pmitr->first.substr(0,4);
+            string month = pmitr->first.substr(4,2);
             string fips = station.fipsCode;
-            string fileName = "HRRR_"+station.fipsCode.substr(0,2)+"_"+station.state+"_"+year+month+ ".csv";
-            
-            // string output = ",Monthly,"+year+","+month+",,,,"+fips+",";
+            string fileName = "HRRR_"+station.fipsCode.substr(0,2)+"_"+station.stateAbbrev+"_"+year+month+ ".csv";
             string output = year+","+month+",,"+"Monthly,"+station.state+","+station.county+","+fips+",,";
-            for(int i=0; i<params.size(); i++){// find the average
-                double averageVal = stod(params.at(i)) / numst;
-                output.append(to_string(averageVal) + ",");
-                // after finding the average, write out to appropriate file
-
+            for(double val : pmitr->second){
+                val = val / amtToDivBy;
+                output.append(to_string(val) + ",");
             }
             string filePath_out = writePath + fips + "/" + year + "/";
             string strcmd = "cd " + filePath_out + "; echo " + "\"" + output + "\" >> " + fileName;
             int status = system(strcmd.c_str());
             if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
-            output = "";
 
         }
-        averagedMonthlyMap.clear();
-
     }
-
-
+    */
 }
 
 void garbageCollection(){
@@ -1417,7 +1470,7 @@ void garbageCollection(){
     }
     delete [] objparamArr;
     delete [] stationArr;
-    std::free(hours);
+    delete [] hours;
     if(sem_destroy(&hProtection)==-1){
         perror("sem_destroy");
         exit(EXIT_FAILURE);

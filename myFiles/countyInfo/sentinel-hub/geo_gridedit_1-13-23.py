@@ -61,60 +61,69 @@ def demo():
 
 def county(fips=None):
 
+    dict = {} # hold the fips code info
     #####################3
     # parse the arguments that I passed]
     #####################3
-    passedcountyfips = fips[2:6]
-    passedstateFips = fips[0:2]
+    for fipscode in fips:
 
-    geoData = gpd.read_file(
-        'https://raw.githubusercontent.com/holtzy/The-Python-Graph-Gallery/master/static/data/US-counties.geojson')
+        if(type(fips) == str): # if only one argument was passed
+            passedcountyfips = fips[2:6]
+            passedstateFips = fips[0:2]
+            fipscode = fips    
+        else: # if more than one argument was passed
+            passedcountyfips = fipscode[2:6]
+            passedstateFips = fipscode[0:2]
 
-    # Make sure the "id" column is an integer
-    geoData.id = geoData.id.astype(str).astype(int)
+        geoData = gpd.read_file(
+            'https://raw.githubusercontent.com/holtzy/The-Python-Graph-Gallery/master/static/data/US-counties.geojson')
 
-    # Remove Alaska, Hawaii and Puerto Rico.
-    stateToRemove = ['02', '15', '72']
-    geoData = geoData[~geoData.STATE.isin(stateToRemove)]
+        # Make sure the "id" column is an integer
+        geoData.id = geoData.id.astype(str).astype(int)
 
-    county = geoData[(geoData.STATE == passedstateFips) & (geoData.COUNTY == passedcountyfips)]
+        # Remove Alaska, Hawaii and Puerto Rico.
+        stateToRemove = ['02', '15', '72']
+        geoData = geoData[~geoData.STATE.isin(stateToRemove)]
 
-    geom = county.geometry.iloc[0]
-    print(county)
+        county = geoData[(geoData.STATE == passedstateFips) & (geoData.COUNTY == passedcountyfips)]
+
+        geom = county.geometry.iloc[0]
+        print(county)
 
 
-    grid = partition(geom, 0.08)
+        grid = partition(geom, 0.08)
 
-    geometry = gpd.GeoSeries(grid)
-    geometry_json = geometry.to_json()
-    geometry_json = json.loads(geometry_json)
-    # print(geometry_json)
+        geometry = gpd.GeoSeries(grid)
+        geometry_json = geometry.to_json()
+        geometry_json = json.loads(geometry_json)
+        # print(geometry_json)
 
-    fig, ax = plt.subplots(figsize=(15, 15))
-    gpd.GeoSeries(grid).boundary.plot(ax=ax)
-    gpd.GeoSeries([geom]).boundary.plot(ax=ax, color="red")
-    # plt.show()
+        # fig, ax = plt.subplots(figsize=(15, 15))
+        # gpd.GeoSeries(grid).boundary.plot(ax=ax)
+        # gpd.GeoSeries([geom]).boundary.plot(ax=ax, color="red")
+        # plt.show()
 
-     ##################################################
-    # Make a dictionary:
-    #      - county grid index : [countyGridIndex, fips, state, county, lat, lon]
-    # need to find the center of each lat and lon
-    ##################################################
-    
-    header = ['countyGridIndex', 'FIPS', 'stateFips', 'county', 'lat', 'lon']
-    
-    features = geometry_json['features'] 
-    dict = {}
-    for i in features:
-        grididx = i['id']
-        bbox = i['bbox']
-        avglat = (bbox[1] + bbox[3]) / 2
-        avglon = (bbox[0] + bbox[2]) / 2
-        stateFips = str(county.STATE.iloc[0])
-        fips = stateFips + str(county.COUNTY.iloc[0])
-        countyName = str(county.NAME.iloc[0]) + " " + county.LSAD.iloc[0]
-        dict[str(grididx)] = [str(grididx), fips, stateFips, countyName, avglat, avglon]
+        ##################################################
+        # Make a dictionary:
+        #      - county grid index : [countyGridIndex, fips, state, county, lat, lon]
+        # need to find the center of each lat and lon
+        ##################################################
+        
+        header = ['countyGridIndex', 'FIPS', 'stateFips', 'county', 'lat', 'lon']
+        
+        features = geometry_json['features'] 
+        for i in features:
+            grididx = i['id']
+            bbox = i['bbox']
+            avglat = (bbox[1] + bbox[3]) / 2
+            avglon = (bbox[0] + bbox[2]) / 2
+            stateFips = str(county.STATE.iloc[0])
+            thisfips = stateFips + str(county.COUNTY.iloc[0])
+            countyName = str(county.NAME.iloc[0]) + " " + county.LSAD.iloc[0]
+            dict[str(grididx) + "_" +fipscode] = [str(grididx), thisfips, stateFips, countyName, avglat, avglon]
 
+        if type(fips) == str:
+            break
     # print(dict)
         
 
@@ -134,8 +143,7 @@ def county(fips=None):
 if __name__ == '__main__':
     # demo()
     parser = argparse.ArgumentParser(description='enter the fips code')
-    parser.add_argument("--fips", default='22055', type=str, help='The 5 digit fips code')
+    parser.add_argument("--fips", default='22055', nargs="+", help='The 5 digit fips code')
     args = parser.parse_args()
     fips=args.fips
-
     county(fips=fips)
