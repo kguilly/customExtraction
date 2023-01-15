@@ -62,7 +62,7 @@ double totalTime;
 vector<int> beginDay = {2021, 4, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 4, 4};   // NOT INCLUSIVE
+vector<int> endDay = {2021, 4, 4};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
