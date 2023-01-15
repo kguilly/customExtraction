@@ -1371,7 +1371,7 @@ void writeData(void*arg){
         if(!outputFile){
             // the file does not exists, need to write out the header 
             //strcmd = "cd " + filePath_out + "; echo \"CountyIndexNum,Day/Month,Year, Month, Day, State, County, FIPS Code,";
-            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code,GridIndex,Lat,Lon(-180,180),";
+            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code,GridIndex,Lat,Lon(-180-180),";
             // append the name of each parameter to the headings of the files
             for(int j=0;j<numParams;j++){
                 // if the param name has temperature in the name, then 
