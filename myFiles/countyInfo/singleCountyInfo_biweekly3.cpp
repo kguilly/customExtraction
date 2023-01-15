@@ -59,12 +59,12 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2021, 4, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 1, 2};   // NOT INCLUSIVE
+vector<int> endDay = {2021, 4, 4};   // NOT INCLUSIVE
 
-vector<int> arrHourRange = {0,1}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                    // accepts hours from 0 to 23 (IS INCLUSIVE)
 
@@ -97,6 +97,10 @@ struct Station{
     // hold the average output data for a full week, {"yyyymmdd - yyyymmdd" : [averagedData]}
     map<string, vector<string>> weeklydatamap;
     int *closestPoint; // index in the grib file of the point closest to the station's lats and lons
+
+    // arrays to track the daily min and max of each param
+    map<string, vector<double>> dailyMinParams;
+    map<string, vector<double>> dailyMaxParams;
     
     // NOT IMPLEMENTED YET
     // the next values will store the index of the parameters around the station that are returned by the GRIB file
@@ -1144,6 +1148,8 @@ void mapMonthlyData(){
         map<string, vector<double>> *dailyDataMap = &station->dailydatamap;
         map<string, vector<string>> *weeklyDataMap = &station->weeklydatamap;
         map<string, vector<string>> weeklyAverages; // stores the averages
+        vector<double> arrMins = station->dataMap.begin()->second;
+        vector<double> arrMaxes = station->dataMap.begin()->second;
         int expectedelements =0;
         
         // before finding the weekly averages, find the daily averages
@@ -1159,17 +1165,34 @@ void mapMonthlyData(){
                 for(auto tmpItr=tmpMap.begin(); tmpItr!=tmpMap.end();++tmpItr){
                     for(int j=0; j<numParams;j++){
                         vctrAverges[j]+=tmpItr->second[j];
+                        
                     }
                 }
                 //found the summation of all params, now find the averages
                 for(int j=0;j<numParams;j++){
                     vctrAverges[j] = vctrAverges[j] / tmpMap.size();
+                    if(arrMins.at(j) > itr->second.at(j)){
+                            arrMins[j] = itr->second.at(j);
+                        }
+                    if(arrMaxes.at(j) < itr->second.at(j)){
+                        arrMaxes[j] = itr->second.at(j);
+                    }
                 }
                 dailyDataMap->insert({day, vctrAverges});
+                station->dailyMaxParams.insert({day, arrMaxes});
+                station->dailyMinParams.insert({day, arrMins});
 
                 tmpMap.clear();
             }else{
                 tmpMap.insert({to_string(hour), itr->second});
+                for(int j=0; j<numParams; j++){
+                    if(arrMins.at(j) > itr->second.at(j)){
+                        arrMins[j] = itr->second.at(j);
+                    }
+                    if(arrMaxes.at(j) < itr->second.at(j)){
+                        arrMaxes[j] = itr->second.at(j);
+                    }
+                }
             }
         }
         
@@ -1348,9 +1371,18 @@ void writeData(void*arg){
         if(!outputFile){
             // the file does not exists, need to write out the header 
             //strcmd = "cd " + filePath_out + "; echo \"CountyIndexNum,Day/Month,Year, Month, Day, State, County, FIPS Code,";
-            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code,GridIndex,";
+            strcmd = "cd " + filePath_out + "; echo \"Year,Month,Day,Day/Month,State,County,FIPS Code,GridIndex,Lat,Lon(-180,180),";
             // append the name of each parameter to the headings of the files
-            for(int j=0;j<numParams;j++) strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
+            for(int j=0;j<numParams;j++){
+                // if the param name has temperature in the name, then 
+                    // include a heading for min and max temperature
+                //else 
+                    // just write normally
+                strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
+                if(objparamArr[j].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
+                    strcmd += "Min Temperature (" + objparamArr[j].units + "), Max Temperature (" + objparamArr[j].units + "),";
+                }
+            }    
             
             strcmd += "\" > "+ fileName;
             status = system(strcmd.c_str());
@@ -1377,10 +1409,16 @@ void writeData(void*arg){
                 daymapmonth = dayitr->first.substr(4,2);
                 daymapday = dayitr->first.substr(6,2);
                 // output.append(name +",Daily,"+daymapyear +","+ daymapmonth +","+ daymapday + "," + station->state + "," + station->county + "," + fips + ",");
-                output.append(daymapyear+","+daymapmonth+","+daymapday+",Daily,"+station->state+","+station->county+","+fips+","+name+",");
+                output.append(daymapyear+","+daymapmonth+","+daymapday+",Daily,"+station->state+","+station->county+","+fips+","+name+"," + to_string(station->lat) + "," + to_string(station->lon)+ ",");
                 // loop through the vector associated with the map and append to output
                 for (auto j=0;j<dayitr->second.size();j++){
                     output.append(to_string(dayitr->second.at(j))+",");
+                    
+                    if(objparamArr[j].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
+                        double minvalue = station->dailyMinParams.find(full_daymapday)->second.at(j);
+                        double maxvalue = station->dailyMaxParams.find(full_daymapday)->second.at(j);
+                        output.append(to_string(minvalue)+","+to_string(maxvalue)+",");
+                    }
                 }
                 // output.append("\n"
                 // send the output string as a line to the file
@@ -1478,16 +1516,28 @@ void writeMonthlyData(){
             string month = pmitr->first.substr(4,2);
             string fips = station.fipsCode;
             string fileName = "HRRR_"+station.fipsCode.substr(0,2)+"_"+station.stateAbbrev+"_"+year+month+ ".csv";
-            string output = year+","+month+",,"+"Monthly,"+station.state+","+station.county+","+fips+",,";
-            for(double val : pmitr->second){
+            string output = year+","+month+",,"+"Monthly,"+station.state+","+station.county+","+fips+",,,,";
+
+            for(int i=0; i < pmitr->second.size(); i++){
+                double val = pmitr->second[i];
                 val = val / amtToDivBy;
                 output.append(to_string(val) + ",");
+                if(objparamArr[i].name.find("Temperature") != string::npos){
+                        // string ymd = year + month + pmitr->first.substr(6,2);
+                        // map<string, vector<double>>::iterator dailystationitr = station.dataMap.find()
+                        // double minvalue = station.dailyMinParams.find(ymd)->second.at(i);
+                        // double maxvalue = station.dailyMaxParams.find(ymd)->second.at(i);
+                        // output.append(to_string(minvalue)+","+to_string(maxvalue)+",");
+                        output.append("-0.0,-0.0,");
+                }
+
             }
+            output.append("\n");
             string filePath_out = writePath + fips + "/" + year + "/";
             string strcmd = "cd " + filePath_out + "; echo " + "\"" + output + "\" >> " + fileName;
             int status = system(strcmd.c_str());
             if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
-
+            output = "";
         }
     }
     
