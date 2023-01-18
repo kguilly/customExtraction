@@ -59,24 +59,24 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 4, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2021, 6, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 4, 4};   // NOT INCLUSIVEe
+vector<int> endDay = {2021, 6, 2};   // NOT INCLUSIVEe
 
-vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,2}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                    // accepts hours from 0 to 23 (IS INCLUSIVE)
 
 int intHourRange; 
 
-string filePath = "/home/kalebg/Desktop/weekInputData/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/home/kaleb/Desktop/weekInputData/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kalebg/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFDataThreaded1-17/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
-string repositoryPath = "/home/kalebg/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
+string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
@@ -189,6 +189,9 @@ vector<string> formatDay(vector<int>);
 /* function to check if a given directory exists*/
 bool dirExists(string filePath);
 
+/* function to write the parameter information for a given day out to csv*/
+void paramInfotoCsv(vector<string>);
+
 /* function to read the data from a passed grib file */
 void *readData(void*);
 
@@ -290,7 +293,19 @@ int main(int argc, char*argv[]){
             pthread_join(threads[i], NULL);
         }
         std::free(threads);
+
+        // if the next day contains a new month:
+        // read the file to get the "parameter info"
+        // get the daily and monthly averages
+        // write out the daily and monthly averages to the appropriate files
+        // clear every map from every station
+        // TODO: finish this logic
+
         intcurrentDay = getNextDay(intcurrentDay);
+        if(formatDay(intcurrentDay).at(1) != strCurrentDay.at(1)){ // we are on a new month
+            paramInfotoCsv();
+        }
+
         delete [] arrThreadArgs;
     }
 
@@ -324,6 +339,7 @@ int main(int argc, char*argv[]){
 
 void handleInput(int argc, char* argv[]){
     
+    vector<string> vctrstrBeginDay = formatDay(beginDay);
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
         // station arrays
@@ -435,7 +451,8 @@ void handleInput(int argc, char* argv[]){
         status = system(command.c_str());
         if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
         buildHours();
-        defaultParams();
+        // defaultParams();
+        paramInfotoCsv(vctrstrBeginDay);
         // defaultStations();
         readCountycsv();
         matchState();
@@ -444,7 +461,8 @@ void handleInput(int argc, char* argv[]){
     }
     else{
         buildHours();
-        defaultParams();
+        // defaultParams();
+        paramInfotoCsv(vctrstrBeginDay);
         // defaultStations();
         readCountycsv();
         matchState();
@@ -842,6 +860,67 @@ void defaultParams(){
     }    
 }
 
+void paramInfotoCsv(vector<string> vctrDay){
+    string fulldate = vctrDay.at(3), year = vctrDay.at(0);
+    string strFirstHour = (arrHourRange.at(0) < 10) ? "0"+ to_string(arrHourRange.at(0)) : to_string(arrHourRange.at(0)); 
+    string fullpathtofile = filePath + year + "/" + fulldate + "hrrr." + fulldate + "." + strFirstHour + ".00.grib2";
+    string strOutput = "layer,name,units\n";
+
+    //init params
+    unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS | 
+                                                CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
+    const char* name_space = "parameter";
+    size_t vlen = MAX_VAL_LEN;
+    char value[MAX_VAL_LEN];
+    int err = 0, layerNum =0;
+    FILE* gribFile;
+    codes_handle* handle = NULL;
+    gribFile = fopen(fullpathtofile, "rb");
+    if(!gribFile){
+        fprintf(stderr, "Error: unable to open file while reading parameters \n %s \n", fullpathtofile);
+        exit(1);
+    }
+    
+    // now open the file for reading, read the contents into a csv 
+    while((handle = codes_handle_new_from_file(0, gribFile, PRODUCT_GRIB, &err))!=NULL){
+        codes_keys_iterator * kiter = NULL;
+        layerNum++;
+
+        kiter = codes_keys_iterator_new(handle, key_iterator_filter_flags, name_space);
+        if(!kiter){
+            fprintf(stderr, "Error: Unable to create keys iterator while reading parameters\n");
+            exit(1);
+        }
+        string strUnits;
+        while (codes_keys_iterator_next(kiter)){
+            const char*name = codes_keys_iterator_get_name(kiter);
+            vlen = MAX_VAL_LEN;
+            memset(value, 0, vlen);
+            CODES_CHECK(codes_get_string(handle, name, value, &vlen), name);
+            
+            // append that booshaka to the output string
+            // start reading when the name = units
+            // if the units = unknown, break
+            if(name.find("units")!= string::npos){
+                if(value.find("unknown") != string::npos) break;
+                strUnits = value;
+                strOutput.append(layerNum+",");
+            }
+            if(name.find("name") != string::npos){
+                if(value.find("unknown") != string:npos) break;
+                // TODO: fix this booshaka
+            }
+        }
+        strOutput.append("\n");
+        codes_keys_iterator_delete(kiter);
+        codes_handle_delete(handle);
+    }
+
+    fclose(f);
+
+    // TODO: write the strOutput to the parameters.csv
+    return;
+}
 void semaphoreInit(){
     mapProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
     for(int i=0; i< numStations; i++){
@@ -1327,16 +1406,16 @@ void createPath(){
         
         if(beginDay.at(0) != endDay.at(0)){
             int years = endDay.at(0) - beginDay.at(0);
-        int currYear = beginDay.at(0)+1;
-        do{
-            // create a folder before the current year reaches the
-            // end year 
-            strcmd = "cd " + writePath + "; mkdir "+to_string(currYear);
-            status = system(strcmd.c_str());
-            if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
-            currYear++;
+            int currYear = beginDay.at(0)+1;
+            do{
+                // create a folder before the current year reaches the
+                // end year 
+                strcmd = "cd " + writePath + "; mkdir "+to_string(currYear);
+                status = system(strcmd.c_str());
+                if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
+                currYear++;
 
-        }while(currYear!= endDay.at(0));
+            }while(currYear!= endDay.at(0));
         }
     }
     
@@ -1379,7 +1458,7 @@ void writeData(void*arg){
                 //else 
                     // just write normally
                 strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
-                if(objparamArr[j].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
+                if(objparamArr[j+1].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
                     strcmd += "Min Temperature (" + objparamArr[j].units + "), Max Temperature (" + objparamArr[j].units + "),";
                 }
             }    
@@ -1414,7 +1493,7 @@ void writeData(void*arg){
                 for (auto j=0;j<dayitr->second.size();j++){
                     output.append(to_string(dayitr->second.at(j))+",");
                     
-                    if(objparamArr[j].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
+                    if(objparamArr[j+1].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
                         double minvalue = station->dailyMinParams.find(full_daymapday)->second.at(j);
                         double maxvalue = station->dailyMaxParams.find(full_daymapday)->second.at(j);
                         output.append(to_string(minvalue)+","+to_string(maxvalue)+",");
@@ -1522,7 +1601,7 @@ void writeMonthlyData(){
                 double val = pmitr->second[i];
                 val = val / amtToDivBy;
                 output.append(to_string(val) + ",");
-                if(objparamArr[i].name.find("Temperature") != string::npos){
+                if(objparamArr[i+1].name.find("Temperature") != string::npos){
                         // string ymd = year + month + pmitr->first.substr(6,2);
                         // map<string, vector<double>>::iterator dailystationitr = station.dataMap.find()
                         // double minvalue = station.dailyMinParams.find(ymd)->second.at(i);
