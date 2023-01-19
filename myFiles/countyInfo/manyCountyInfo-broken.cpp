@@ -34,7 +34,6 @@ g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
 // #  endif
 // #endif
 #include <filesystem>
-// namespace fs = std::filesystem;
 #include <stdio.h>
 #include <stdlib.h>
 #include "eccodes.h"
@@ -64,7 +63,7 @@ vector<int> beginDay = {2021, 6, 1}; // arrays for the begin days and end days. 
                                      // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2021, 6, 2};   // NOT INCLUSIVEe
 
-vector<int> arrHourRange = {0,2}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                    // accepts hours from 0 to 23 (IS INCLUSIVE)
 
@@ -74,7 +73,7 @@ string filePath = "/home/kaleb/Desktop/weekInputData/";  // path to "data" folde
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/WRFDataThreaded1-17/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFDataThreaded1-18/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -144,7 +143,8 @@ bool *blnParamArr; // this will be used to quickly index whether a parameter nee
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
 
-int numStations, numParams;
+int numStations;
+size_t numParams=0;
 
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 string *hours;
@@ -165,8 +165,9 @@ void handleInput(int, char**);
 // through reading from the files in the countyInfo file
 void defaultStations(); void readCountycsv(); void matchState();
 void getStateAbbreviations();
-// similar to default station, but for the parameter arrays
-void defaultParams();
+
+/* function to write the parameter information for a given day out to csv and update arrays*/
+void getParamInfo(vector<string>);
 
 void buildHours();// builds the hour arrays given the hour range specified
 
@@ -189,8 +190,6 @@ vector<string> formatDay(vector<int>);
 /* function to check if a given directory exists*/
 bool dirExists(string filePath);
 
-/* function to write the parameter information for a given day out to csv*/
-void paramInfotoCsv(vector<string>);
 
 /* function to read the data from a passed grib file */
 void *readData(void*);
@@ -299,16 +298,13 @@ int main(int argc, char*argv[]){
         // get the daily and monthly averages
         // write out the daily and monthly averages to the appropriate files
         // clear every map from every station
-        // TODO: finish this logic
-
         intcurrentDay = getNextDay(intcurrentDay);
-        // if(formatDay(intcurrentDay).at(1) != strCurrentDay.at(1)){ // we are on a new month
-        //     paramInfotoCsv();
-        // }
+        if(formatDay(intcurrentDay).at(1) != strCurrentDay.at(1)){ // we are on a new month
+            getParamInfo(formatDay(intcurrentDay));
+        }
 
         delete [] arrThreadArgs;
     }
-    delete [] blnParamArr;
 
     mapMonthlyData();
     // the data maps are finished being built, now its time to write the maps to csv files
@@ -332,7 +328,8 @@ int main(int argc, char*argv[]){
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
     totalTime+= (endTotal.tv_nsec - startTotal.tv_nsec) / 1000000.0;
-    printf("\n\nRuntime in ms:: %f\n", totalTime);
+    totalTime = totalTime / 1000;
+    printf("\n\nRuntime in s:: %f\n", totalTime);
 
 
     return 0;
@@ -341,6 +338,8 @@ int main(int argc, char*argv[]){
 void handleInput(int argc, char* argv[]){
     
     vector<string> vctrstrBeginDay = formatDay(beginDay);
+    objparamArr = new Parameter[numParams];
+    blnParamArr = new bool[numParams+1];
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
         // station arrays
@@ -452,9 +451,7 @@ void handleInput(int argc, char* argv[]){
         status = system(command.c_str());
         if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
         buildHours();
-        paramInfotoCsv(vctrstrBeginDay);
-        defaultParams();
-        // defaultStations();
+        getParamInfo(vctrstrBeginDay);
         readCountycsv();
         matchState();
         getStateAbbreviations();
@@ -462,19 +459,10 @@ void handleInput(int argc, char* argv[]){
     }
     else{
         buildHours();
-        paramInfotoCsv(vctrstrBeginDay);
-        defaultParams();
-        // defaultStations();
+        getParamInfo(vctrstrBeginDay);
         readCountycsv();
         matchState();
         getStateAbbreviations();
-        // potential improvement: for each month, run the file and make new parameter array based off
-        //                        of what the file returns
-        // // print out to make sure I did it right
-        // for(int i=0;i<numStations;i++){
-        //     cout << stationArr[i].state << " " << stationArr[i].county << " " << stationArr[i].fipsCode;
-        //     cout << " " << stationArr[i].lat << endl;
-        // }
     }
 }
 void getStateAbbreviations(){
@@ -526,6 +514,7 @@ void getStateAbbreviations(){
 
 
 }
+
 void buildHours(){
     // build the hour array
     // make sure correct values have been passed to the hour array 
@@ -815,59 +804,16 @@ void matchState(){
 
 }
 
-void defaultParams(){
-    map<int, Parameter> paramMap;
-    string paramline;
-    ifstream paramFile;
-    paramFile.open("./parameterInfo.csv");
-    if(!paramFile){
-        cerr << "Error: the PARAMETER file could not be opened.\n";
-        exit(1);
-    }
-    vector<string> paramRow;
-    bool firstline = true;
-    int countParams = 0;
-    while(getline(paramFile, paramline)){
-        paramRow.clear();
-        if(firstline){ // do not include the header
-            firstline = false;
-            continue;
-        }
-        stringstream s(paramline);
-        string currLine;
-        while(getline(s, currLine, ',')){
-            paramRow.push_back(currLine);
-        }
-        if(paramRow.size() > 2){
-            Parameter p; p.layer = stoi(paramRow.at(0)); p.name = paramRow.at(1);
-            p.units = paramRow.at(2);
-            countParams++;
-            paramMap.insert({stoi(paramRow.at(0)), p});
-        }
-    }
-    numParams = countParams;
-    objparamArr = new Parameter[numParams];
-    int count =0;
-    for(auto itr = paramMap.begin(); itr!=paramMap.end(); ++itr){
-        *(objparamArr + count) = itr->second;
-        count++;
-    }
-
-    // build the boolean param array
-    int layer =0;
-    blnParamArr = new bool[numParams];
-    for (int i = 0; i<numParams; i++){
-        layer = objparamArr[i].layer;
-        blnParamArr[layer] = true;
-    }    
-}
-
-void paramInfotoCsv(vector<string> vctrDay){
+void getParamInfo(vector<string> vctrDay){
     string fulldate = vctrDay.at(3), year = vctrDay.at(0);
     string strFirstHour = (arrHourRange.at(0) < 10) ? "0"+ to_string(arrHourRange.at(0)) : to_string(arrHourRange.at(0)); 
-    string fullpathtofile = filePath + year + "/" + fulldate +"/"+ "hrrr." + fulldate + "." + strFirstHour + ".00.grib2";
-    string strOutput = "";
-    strOutput.append("layer,name,units\n");
+    string fullpathtofile = filePath + year + "/" + fulldate + "/"+ "hrrr." + fulldate + "." + strFirstHour + ".00.grib2";
+    string strOutput = "layer,name,units\n";
+    vector<Parameter> tmpvctrParams;
+    delete [] objparamArr;
+    delete [] blnParamArr;
+
+    numParams=0;
 
     //init params
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS | 
@@ -880,13 +826,13 @@ void paramInfotoCsv(vector<string> vctrDay){
     codes_handle* handle = NULL;
     gribFile = fopen(fullpathtofile.c_str(), "rb");
     if(!gribFile){
-        fprintf(stderr, "Error: unable to open file while reading parameters \n %s \n", fullpathtofile);
+        fprintf(stderr, "Error: unable to open file while reading parameters \n %s \n", fullpathtofile.c_str());
         exit(1);
     }
     
     // now open the file for reading, read the contents into a csv 
     while((handle = codes_handle_new_from_file(0, gribFile, PRODUCT_GRIB, &err))!=NULL){
-        codes_keys_iterator * kiter = NULL;
+        codes_keys_iterator * kiter = NULL; 
         layerNum++;
 
         kiter = codes_keys_iterator_new(handle, key_iterator_filter_flags, name_space);
@@ -904,31 +850,56 @@ void paramInfotoCsv(vector<string> vctrDay){
             // append that booshaka to the output string
             // start reading when the name = units
             // if the units = unknown, break
-            string strname = name, strvalue = value;
-            if(strname.find("units")!= string::npos){
-                if(strvalue.find("unknown") != string::npos) break;
+            string strName = name, strValue = value;
+            if(strName.find("units")!= string::npos){
+                if(strValue.find("unknown") != string::npos) break;
                 strUnits = value;
                 strOutput.append(to_string(layerNum)+",");
             }
-            if(strname.find("name") != string::npos){
-                if(strvalue.find("unknown") != string::npos) break;
-                strvalue.erase(remove(strvalue.begin(), strvalue.end(), ','), strvalue.end());
-                strOutput.append(strvalue+","+strUnits+"\n");
+            if(strName.find("name") != string::npos){
+                if(strValue.find("unknown") != string::npos) break;
+                strOutput.append(strValue+","+strUnits+"\n");
+
+                // cleanse the value of commas
+                strValue.erase(remove(strValue.begin(), strValue.end(), ','), strValue.end());
+                strValue.erase(remove(strValue.begin(), strValue.end(), ' '), strValue.end());
+                strValue.erase(remove(strValue.begin(), strValue.end(), '/'), strValue.end());
+                Parameter p; p.layer = layerNum, p.name = strName;
+                p.units = strUnits;
+                tmpvctrParams.push_back(p);
+                numParams++;
+                
             }
         }
         codes_keys_iterator_delete(kiter);
         codes_handle_delete(handle);
     }
+    if(handle) codes_handle_delete(handle);
 
-    fclose(gribFile);
+    std::fclose(gribFile);
+
+    objparamArr = new Parameter[numParams];
+    for(size_t i=0; i<numParams; i++){
+        *(objparamArr+i) = tmpvctrParams.at(i);
+    }
+
+    int layer;
+    blnParamArr = new bool[numParams+1];
+    for (size_t i =0; i<numParams; i++){
+        layer = objparamArr[i].layer;
+        blnParamArr[layer] = true;
+    }
+    ofstream paramFile;
+    paramFile.clear();
+    paramFile << strOutput;
+    strOutput = "";
+    paramFile.close();
+    tmpvctrParams.clear();
 
 
-    FILE* paramFile =fopen("parameterInfo.csv", "w");
-    fwrite(strOutput.c_str(), strOutput.size(), 1, paramFile);
-    printf("%s", strOutput.c_str());
-    fclose(paramFile);
     return;
 }
+
 void semaphoreInit(){
     mapProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
     for(int i=0; i< numStations; i++){
@@ -1120,7 +1091,7 @@ void *readData(void *args){
     double *lats, *lons, *values; // lats, lons, and values returned from extracted grib file
 
     sem_wait(&hProtection);
-    while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
+    while((h=codes_grib_handle_new_from_file(NULL, f, &err))!=NULL) // loop through every layer of the file
     {
         sem_post(&hProtection);
         assert(h);
@@ -1466,7 +1437,7 @@ void writeData(void*arg){
                 //else 
                     // just write normally
                 strcmd += objparamArr[j].name + " ( " + objparamArr[j].units + "),";
-                if(objparamArr[j+1].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
+                if(objparamArr[j].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
                     strcmd += "Min Temperature (" + objparamArr[j].units + "), Max Temperature (" + objparamArr[j].units + "),";
                 }
             }    
@@ -1501,7 +1472,7 @@ void writeData(void*arg){
                 for (auto j=0;j<dayitr->second.size();j++){
                     output.append(to_string(dayitr->second.at(j))+",");
                     
-                    if(objparamArr[j+1].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
+                    if(objparamArr[j].name.find("Temperature") != string::npos){ //the param name has "temperature" in the name
                         double minvalue = station->dailyMinParams.find(full_daymapday)->second.at(j);
                         double maxvalue = station->dailyMaxParams.find(full_daymapday)->second.at(j);
                         output.append(to_string(minvalue)+","+to_string(maxvalue)+",");
@@ -1609,7 +1580,7 @@ void writeMonthlyData(){
                 double val = pmitr->second[i];
                 val = val / amtToDivBy;
                 output.append(to_string(val) + ",");
-                if(objparamArr[i+1].name.find("Temperature") != string::npos){
+                if(objparamArr[i].name.find("Temperature") != string::npos){
                         // string ymd = year + month + pmitr->first.substr(6,2);
                         // map<string, vector<double>>::iterator dailystationitr = station.dataMap.find()
                         // double minvalue = station.dailyMinParams.find(ymd)->second.at(i);
@@ -1643,6 +1614,7 @@ void garbageCollection(){
     delete [] objparamArr;
     delete [] stationArr;
     delete [] hours;
+    delete [] blnParamArr;
     if(sem_destroy(&hProtection)==-1){
         perror("sem_destroy");
         exit(EXIT_FAILURE);
