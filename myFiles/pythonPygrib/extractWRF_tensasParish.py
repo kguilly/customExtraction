@@ -8,7 +8,7 @@ from pathlib import Path
 class extraction():
     def __init__(self):
         self.info = 'extract wrf information from a grib2 file for a given location'
-        self.wrf_data_path = "/home/kaleb/Desktop/weekInputData/"
+        self.wrf_data_path = "/mnt/wrf/"
         self.write_path = "/home/kaleb/Desktop/tensasWRFOutput/"
 
         self.arrfips = ["22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107"]
@@ -23,7 +23,7 @@ class extraction():
         self.parameter_typeofLevels = []
         
         self.start_date = date(2021, 6, 1)
-        self.end_date = date(2021,6,2)
+        self.end_date = date(2021,7,1)
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date- start_date).days)):
