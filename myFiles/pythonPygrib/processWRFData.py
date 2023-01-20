@@ -7,7 +7,7 @@ from pathlib import Path
 
 class formatWRF():
     def __init__(self):
-        self.data_path = "/home/kaleb/Desktop/canpc39pythonOutput/"
+        self.data_path = "/home/kaleb/Desktop/roughExtractedOutput/"
 
     def main(self):
         csvFiles = self.findFiles()
@@ -54,7 +54,10 @@ class formatWRF():
     def removeUnkn(self, file):
         df = pd.read_csv(file)
         # print(df)
-        df.drop(columns='Unnamed: 0', inplace=True)
+        try:
+            df.drop(columns='Unnamed: 0', inplace=True)
+        except:
+            print("")
         for col in df:
             # for each column, if the string 'unknown' is found, remove it 
             if col.rfind('unknown') != -1:
@@ -178,7 +181,7 @@ class formatWRF():
                 # do sum
                 if col.rfind('Daily/Monthly') != -1:
                     monthlyavgs.append("Monthly")
-                if col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('State') != -1 or col.rfind('County') != -1 or col.rfind('FIPS') != -1:
+                elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('State') != -1 or col.rfind('County') != -1 or col.rfind('FIPS') != -1:
                     monthlyavgs.append(df[col].iloc[0])
                 else:
                     monthlyavgs.append('N/A')
@@ -188,7 +191,9 @@ class formatWRF():
                     monthlyavgs.append(df[col].mean())
                 except:
                     monthlyavgs.append('NaN')
-        df.loc[len(df)] = monthlyavgs
+        # df.loc[len(df)] = monthlyavgs
+        # df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]))
+        df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]), ignore_index=True)
         print(df)
         return df
 

@@ -8,7 +8,7 @@ from pathlib import Path
 class extraction():
     def __init__(self):
         self.info = 'extract wrf information from a grib2 file for a given location'
-        self.wrf_data_path = "/mnt/wrf/"
+        self.wrf_data_path = "/media/kaleb/extraSpace/wrf/"
         self.write_path = "/home/kaleb/Desktop/tensasWRFOutput/"
 
         self.arrfips = ["22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107", "22107"]
@@ -22,8 +22,8 @@ class extraction():
         self.parameter_levels = []
         self.parameter_typeofLevels = []
         
-        self.start_date = date(2021, 6, 1)
-        self.end_date = date(2021,7,1)
+        self.start_date = date(2021, 4, 27)
+        self.end_date = date(2021,5,1)
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date- start_date).days)):
@@ -34,14 +34,15 @@ class extraction():
             yield "%02d"%n
 
     def read_loop(self):
-
+        headerFlag = True
         file_name = "HRRR_22_LA_"+self.start_date.strftime("%Y%m")+".csv"
         for single_date in self.daterange(self.start_date, self.end_date):
             for single_hour in self.hourrange():
                 data_path = self.wrf_data_path+single_date.strftime("%Y")+"/"+single_date.strftime("%Y%m%d")+"/"+"hrrr."+single_date.strftime("%Y%m%d")+"."+single_hour+".00.grib2"
                 write_path = self.write_path+'/'+self.arrfips[0]+'/'+single_date.strftime("%Y")+"/"# +single_date.strftime("%Y%m")+"/"
-                if(single_date.strftime("%d") == "01" and single_hour == "00"):
+                if(headerFlag):
                     data = self.read_data(data_path, write_path, headerFlag=True)
+                    headerFlag = False
                 else:
                     data = self.read_data(data_path, write_path, headerFlag=False)
                 self.write_data(data,write_path, single_date, single_hour, file_name)
