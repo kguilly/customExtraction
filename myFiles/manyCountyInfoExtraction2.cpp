@@ -1,6 +1,9 @@
 /*
 NOTE:
 
+TODO: for every call to a file, make sure there is either an absolute path or the path
+is configured by the passed "repository path"
+
 Before running, please configure beginday, endday, arrhourrange, filePath, writepath, 
 repositoryPath
 
@@ -88,34 +91,10 @@ struct Station{
     float lon;
     double **values; // holds the values of the parameters. Index of this array will 
                     // correspond to index if the Parameter array. This will be a single hour's data
-    map<string, vector<double>> dataMap; // this will hold the output data. structured as {"yyyymmddHH" : [param1, param2, ...]}}
-    // hold the average output data for a full day, {"yyyymmdd": [averagedData]}
-    map<string, vector<double>> dailydatamap;
-    // hold the average output data for a full week, {"yyyymmdd - yyyymmdd" : [averagedData]}
-    map<string, vector<string>> weeklydatamap;
-    int *closestPoint; // index in the grib file of the point closest to the station's lats and lons
+    int* closestPoint;
 
-    // arrays to track the daily min and max of each param
-    map<string, vector<double>> dailyMinParams;
-    map<string, vector<double>> dailyMaxParams;
-    
-    // NOT IMPLEMENTED YET
-    // the next values will store the index of the parameters around the station that are returned by the GRIB file
-    int topL[2]; // index of the lat and lons of the point up and to the left. 
-    int topR[2]; 
-    int botL[2];
-    int botR[2];
 };
 
-struct Parameter{
-    int layer; // order that the parameter is extracted in decompression. parameter number in ACM paper
-               // layer is NOT reliable. Some parameters are repeated in decompression. Parameters with a height attached to them
-               // are not shown in the "name" from the key iterator
-    int paramId; // given from codes_keys_iterator object
-    string shortName; //given
-    string units; //given
-    string name; // given
-};
 
 // Struct for passing one to many arguments into individual threading functions 
 // Currently not in use, only need a single argument for the moment
@@ -133,11 +112,8 @@ struct writeThreadArgs{ //this is clumsily implemented, when making changes, kee
 };
 
 Station *stationArr; 
-Parameter *objparamArr; // array of the WRF parameter names. Default is the 30 in 
-                          // the academic paper "Regional Weather Forecasting via Neural
-                          // Networks with Near-Surface Observational and Atmospheric Numerical 
-                          // Data." Names are changed to fit the exact names
-bool *blnParamArr; // this will be used to quickly index whether a parameter needs to be 
+bool blnParamArr[200]; // TEMPORARY FIX
+                        // this will be used to quickly index whether a parameter needs to be 
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
 
@@ -210,21 +186,17 @@ void writeData(void*);
 
 void garbageCollection();
 
-/* calls a python function to sort the csvs based on county index, then on avg, then month, then day*/
-void sortcsv();
-
-void writeMonthlyData();
-
 int main(int argc, char*argv[]){
-
+    for (auto sum : blnParamArr){
+        cout<< sum << endl;
+    }
+    exit();
 
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
 
-
+    // function calls to initialize everything
     handleInput(argc , argv);
-
     semaphoreInit();
-    
     convertLatLons();
 
     // validate the dates passed
@@ -291,12 +263,7 @@ int main(int argc, char*argv[]){
         }
         std::free(threads);
 
-        // if the next day contains a new month:
-        // read the file to get the "parameter info"
-        // get the daily and monthly averages
-        // write out the daily and monthly averages to the appropriate files
-        // clear every map from every station
-        // TODO: finish this logic
+        //TODO: After each day, write the values out to their respective file
 
         intcurrentDay = getNextDay(intcurrentDay);
         // if(formatDay(intcurrentDay).at(1) != strCurrentDay.at(1)){ // we are on a new month
@@ -336,7 +303,7 @@ int main(int argc, char*argv[]){
  }
 
 void handleInput(int argc, char* argv[]){
-    
+    // TODO: add a --param arg that allows the user to select one or multiple specific integer parameters
     vector<string> vctrstrBeginDay = formatDay(beginDay);
     if(argc > 1){
         // check to see if the correct arguments have been passed to fill the parameter and/or 
@@ -448,31 +415,14 @@ void handleInput(int argc, char* argv[]){
         }
         status = system(command.c_str());
         if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
-        buildHours();
-        paramInfotoCsv(vctrstrBeginDay);
-        defaultParams();
-        // defaultStations();
-        readCountycsv();
-        matchState();
-        getStateAbbreviations();
+    }
+    fill_n(blnParamArr, 200, true);
+    buildHours();
+    defaultParams();
+    readCountycsv();
+    matchState();
+    getStateAbbreviations();
         
-    }
-    else{
-        buildHours();
-        paramInfotoCsv(vctrstrBeginDay);
-        defaultParams();
-        // defaultStations();
-        readCountycsv();
-        matchState();
-        getStateAbbreviations();
-        // potential improvement: for each month, run the file and make new parameter array based off
-        //                        of what the file returns
-        // // print out to make sure I did it right
-        // for(int i=0;i<numStations;i++){
-        //     cout << stationArr[i].state << " " << stationArr[i].county << " " << stationArr[i].fipsCode;
-        //     cout << " " << stationArr[i].lat << endl;
-        // }
-    }
 }
 void getStateAbbreviations(){
     // read the us-state-ansi-fips.csv file into a map, 
@@ -523,6 +473,7 @@ void getStateAbbreviations(){
 
 
 }
+
 void buildHours(){
     // build the hour array
     // make sure correct values have been passed to the hour array 
@@ -553,160 +504,13 @@ void buildHours(){
     }
 }
 
-void defaultStations(){
-    struct coordinates{
-        float lat; float lon;
-    };
-    map<string, string> stateMap;
-    map<string, string> countyMap;
-    map<string, coordinates> coordinatesMap;
-
-    string strcountyFipsCodes;
-    ifstream filecountyFipsCodes;
-    filecountyFipsCodes.open("./countyFipsCodes.txt");
-    if(!filecountyFipsCodes){
-        cerr << "Error: the FIPS file could not be opened.\n";
-        exit(1);
-    }
-    bool readstates = false;
-    bool readcounties = false;
-
-    string strCountyInfo;
-    string strStateInfo;
-    while(getline(filecountyFipsCodes, strcountyFipsCodes)){
-        // the line to start reading the county info
-        if(strcmp(strcountyFipsCodes.c_str(), " ------------    --------------")==0){
-            readcounties = true;
-            continue; // continue to the next line
-        }
-        // line to stop reading states
-        if(strcmp(strcountyFipsCodes.c_str(), " county-level      place")==0){
-            readstates = false;
-        }
-        // line to start reading states
-        if(strcmp(strcountyFipsCodes.c_str(), "   -----------   -------")==0){
-            readstates = true;
-            continue;
-        }
-
-        // load all states and their fips info into an obj
-        if(readstates){
-            // store fips code as the key, store statename as value
-            if(strcountyFipsCodes.length() < 3){
-                // do nothing, this is not a necessary line
-                continue;
-            }else{
-                string delimiter = ",";
-                string strfips = strcountyFipsCodes.substr(0,strcountyFipsCodes.find(delimiter));
-                string strState = strcountyFipsCodes.erase(0, strcountyFipsCodes.find(delimiter)+delimiter.length());
-
-                stateMap.insert({strfips, strState});
-            }
-        }
-
-        // load county information into the map
-        if(readcounties){
-            string delimiter = ",";
-            string strFips = strcountyFipsCodes.substr(0,strcountyFipsCodes.find(delimiter));
-            string strCountyName = strcountyFipsCodes.erase(0, strcountyFipsCodes.find(delimiter)+delimiter.length());
-
-            countyMap.insert({strFips, strCountyName}); 
-        }
-    }
-    filecountyFipsCodes.close();
-
-    // load the counties and their coordinates into the respective maps
-    string strLine;
-    ifstream fileCoordinates;
-    fileCoordinates.open("countyFipsandCoordinates.csv");
-    if(!fileCoordinates){
-        cerr << "Error: the COORDINATES file could not be opened.\n";
-        exit(1);
-    }
-    vector<string> row;
-    bool firstLine = true; // skip the header
-    while(getline(fileCoordinates, strLine)){
-        row.clear();
-        if(strLine.length() > 100) continue; // link to gitHub of csv
-        if(firstLine){
-            firstLine = false;
-            continue;
-        }
-        stringstream s(strLine);
-        string currLine;
-        while(getline(s, currLine, ',')){
-            row.push_back(currLine);
-        }
-        if(row.size() > 2){
-            // row[0] = fips, row[1] = county, row[2] = longitude, row[3] = latitude
-            coordinates c; c.lat = stof(row.at(3)), c.lon = stof(row.at(2));
-            coordinatesMap.insert({row.at(0), c});
-        }
-    }
-    fileCoordinates.close();
-
-    // match the counties to their respective states by matching fips codes
-    // throw out unneeded counties (02, 15, 72)
-    int tmpNumStations = 3233; // max value, will change after knowing full size
-    Station tmpStationArr[tmpNumStations];
-    int arridx = 0;
-    map<string, string>::iterator stateItr;
-    map<string, coordinates>::iterator coordinatesItr;
-    for(auto itr = countyMap.begin(); itr!=countyMap.end(); ++itr){
-        string countyFips = itr->first;
-        string stateFips = countyFips.substr(0,2);
-        stateItr = stateMap.find(stateFips);
-        coordinatesItr = coordinatesMap.find(countyFips);
-        coordinates c = coordinatesItr->second;
-
-        if(stateItr==stateMap.end()){
-            cout << "when building default stationArr, state was not found in map" << endl;
-            exit(0);
-        }else if(stateItr->first == "02" || stateItr->first == "15" || stateItr->first == "72"){
-            // alaska, hawaii, and puerto rico, do not include
-            continue;
-        }
-        Station st;
-        st.fipsCode = countyFips;
-        st.name = itr->second;
-        st.county = itr->second;
-        st.state = stateItr->second;
-        st.lat = c.lat;
-        st.lon = c.lon;
-        tmpStationArr[arridx] = st;
-        arridx++;
-    }
-    // numStations will be arridx+1 since we're starting at 0
-    numStations = arridx;
-
-    // map the temp array to the global array
-    stationArr = new Station[numStations];
-    int itr=0;
-    for(int i=0;i<numStations;i++){
-        *(stationArr+i) = tmpStationArr[i];
-    }
-
-    // initialize the pointer array for each station to be of the length of the number of params
-    // for each station, allocate some memory for each values array
-    // **values = size of hour range
-    // *values[i] = size of numparams
-    for (int i=0; i<numStations;i++){
-        //ALSO: initialize closestPoint array
-        stationArr[i].closestPoint = new int[intHourRange];
-        stationArr[i].values = new double*[intHourRange];
-        for(int j=0; j<intHourRange; j++){
-            stationArr[i].values[j] = new double[numParams];
-        }
-    }
-
-}
-
 void readCountycsv(){
     
     map<string, Station> tmpStationMap;
     string strLine;
     ifstream filewrfdata;
-    filewrfdata.open("WRFoutput/wrfOutput.csv");
+    string path_to_data_file = repositoryPath + "myFiles/WRFoutput/wrfOutput.csv";
+    filewrfdata.open(path_to_data_file);
     if(!filewrfdata){
         cerr << "Error: the WRFOUTPUT file could not be opened.\n";
         exit(1);
@@ -762,7 +566,8 @@ void matchState(){
     map<string, string> stateMap;
     string strcountyfipscodes;
     ifstream filecountyfipscodes;
-    filecountyfipscodes.open("countyFipsCodes.txt");
+    string filecountyfipscodes_path = repositoryPath + "myFiles/countyInfo/countyFipsCodes.txt";
+    filecountyfipscodes.open(filecountyfipscodes_path);
     if(!filecountyfipscodes){
         cerr << "Error: the FIPS file could not be opened.\n";
         exit(1);
@@ -812,120 +617,6 @@ void matchState(){
 
 }
 
-void defaultParams(){
-    map<int, Parameter> paramMap;
-    string paramline;
-    ifstream paramFile;
-    paramFile.open("./parameterInfo.csv");
-    if(!paramFile){
-        cerr << "Error: the PARAMETER file could not be opened.\n";
-        exit(1);
-    }
-    vector<string> paramRow;
-    bool firstline = true;
-    int countParams = 0;
-    while(getline(paramFile, paramline)){
-        paramRow.clear();
-        if(firstline){ // do not include the header
-            firstline = false;
-            continue;
-        }
-        stringstream s(paramline);
-        string currLine;
-        while(getline(s, currLine, ',')){
-            paramRow.push_back(currLine);
-        }
-        if(paramRow.size() > 2){
-            Parameter p; p.layer = stoi(paramRow.at(0)); p.name = paramRow.at(1);
-            p.units = paramRow.at(2);
-            countParams++;
-            paramMap.insert({stoi(paramRow.at(0)), p});
-        }
-    }
-    numParams = countParams;
-    objparamArr = new Parameter[numParams];
-    int count =0;
-    for(auto itr = paramMap.begin(); itr!=paramMap.end(); ++itr){
-        *(objparamArr + count) = itr->second;
-        count++;
-    }
-
-    // build the boolean param array
-    int layer =0;
-    blnParamArr = new bool[numParams];
-    for (int i = 0; i<numParams; i++){
-        layer = objparamArr[i].layer;
-        blnParamArr[layer] = true;
-    }    
-}
-
-void paramInfotoCsv(vector<string> vctrDay){
-    string fulldate = vctrDay.at(3), year = vctrDay.at(0);
-    string strFirstHour = (arrHourRange.at(0) < 10) ? "0"+ to_string(arrHourRange.at(0)) : to_string(arrHourRange.at(0)); 
-    string fullpathtofile = filePath + year + "/" + fulldate +"/"+ "hrrr." + fulldate + "." + strFirstHour + ".00.grib2";
-    string strOutput = "";
-    strOutput.append("layer,name,units\n");
-
-    //init params
-    unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS | 
-                                                CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
-    const char* name_space = "parameter";
-    size_t vlen = MAX_VAL_LEN;
-    char value[MAX_VAL_LEN];
-    int err = 0, layerNum =0;
-    FILE* gribFile;
-    codes_handle* handle = NULL;
-    gribFile = fopen(fullpathtofile.c_str(), "rb");
-    if(!gribFile){
-        fprintf(stderr, "Error: unable to open file while reading parameters \n %s \n", fullpathtofile);
-        exit(1);
-    }
-    
-    // now open the file for reading, read the contents into a csv 
-    while((handle = codes_handle_new_from_file(0, gribFile, PRODUCT_GRIB, &err))!=NULL){
-        codes_keys_iterator * kiter = NULL;
-        layerNum++;
-
-        kiter = codes_keys_iterator_new(handle, key_iterator_filter_flags, name_space);
-        if(!kiter){
-            fprintf(stderr, "Error: Unable to create keys iterator while reading parameters\n");
-            exit(1);
-        }
-        string strUnits;
-        while (codes_keys_iterator_next(kiter)){
-            const char*name = codes_keys_iterator_get_name(kiter);
-            vlen = MAX_VAL_LEN;
-            memset(value, 0, vlen);
-            CODES_CHECK(codes_get_string(handle, name, value, &vlen), name);
-            
-            // append that booshaka to the output string
-            // start reading when the name = units
-            // if the units = unknown, break
-            string strname = name, strvalue = value;
-            if(strname.find("units")!= string::npos){
-                if(strvalue.find("unknown") != string::npos) break;
-                strUnits = value;
-                strOutput.append(to_string(layerNum)+",");
-            }
-            if(strname.find("name") != string::npos){
-                if(strvalue.find("unknown") != string::npos) break;
-                strvalue.erase(remove(strvalue.begin(), strvalue.end(), ','), strvalue.end());
-                strOutput.append(strvalue+","+strUnits+"\n");
-            }
-        }
-        codes_keys_iterator_delete(kiter);
-        codes_handle_delete(handle);
-    }
-
-    fclose(gribFile);
-
-
-    FILE* paramFile =fopen("parameterInfo.csv", "w");
-    fwrite(strOutput.c_str(), strOutput.size(), 1, paramFile);
-    printf("%s", strOutput.c_str());
-    fclose(paramFile);
-    return;
-}
 void semaphoreInit(){
     mapProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
     for(int i=0; i< numStations; i++){
