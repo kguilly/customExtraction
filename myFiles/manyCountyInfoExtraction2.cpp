@@ -181,6 +181,9 @@ static double standardDev(vector<double>, double&);
 /*Function to create the paths and files for the maps to be written to*/
 void createPath();
 
+/*functions to help create paths by finding length of string and splitting strnig on delimeter*/
+int len(string); vector<string> splitonDelim(string, char);
+
 /* function to write the data in the staion maps to a .csv file */
 void writeData(void*);
 
@@ -205,6 +208,9 @@ int main(int argc, char*argv[]){
         fprintf(stderr, "Invalid Date Range\n");
         exit(1);
     }
+    
+    // before writing to anything, make sure all necessary directories exist
+    createPath();
     vector<int> intcurrentDay = beginDay;
     // for each day
     while(checkDateRange(intcurrentDay, endDay)){
@@ -264,32 +270,14 @@ int main(int argc, char*argv[]){
         std::free(threads);
 
         //TODO: After each day, write the values out to their respective file
+        // CREATE THE PATH, then write to the file
+        // or maybe create each path needed before reading
 
         intcurrentDay = getNextDay(intcurrentDay);
-        // if(formatDay(intcurrentDay).at(1) != strCurrentDay.at(1)){ // we are on a new month
-        //     paramInfotoCsv();
-        // }
 
         delete [] arrThreadArgs;
     }
     delete [] blnParamArr;
-
-    mapMonthlyData();
-    // the data maps are finished being built, now its time to write the maps to csv files
-    // since each station has their own map, we can thread the stations without having to 
-    // use semaphores. 
-    createPath();
-    
-    writeThreadArgs *arg = new writeThreadArgs[numStations];
-    int threaderr;
-    for(int i=0; i<numStations;i++){
-        arg[i].station = &stationArr[i];
-        writeData(&arg[i]);
-    }
-    
-    delete [] arg;
-
-    writeMonthlyData();
 
 
     garbageCollection();
@@ -304,119 +292,163 @@ int main(int argc, char*argv[]){
 
 void handleInput(int argc, char* argv[]){
     // TODO: add a --param arg that allows the user to select one or multiple specific integer parameters
+    // these parameters will be set in the bln param array // NEED to tell python about this
     vector<string> vctrstrBeginDay = formatDay(beginDay);
-    if(argc > 1){
-        // check to see if the correct arguments have been passed to fill the parameter and/or 
-        // station arrays
-        int fipsindex=0, begin_date_index=0, end_date_index=0, begin_hour_index=0, end_hour_index=0;
-        bool fipsflag = false, begin_date_flag = false, end_date_flag = false, begin_hour_flag = false, end_hour_flag = false;
-        for(int i=0; i<argc;i++){
-            if(strcmp(argv[i], "--fips") == 0){
-                fipsflag = true;
-                fipsindex = i;      
-            }
-            else if(strcmp(argv[i], "--begin_date")==0){
-                begin_date_flag = true;
-                begin_date_index = i;
-            }
-            else if(strcmp(argv[i], "--end_date")==0){
-                end_date_flag = true;
-                end_date_index = i;
-            }else if(strcmp(argv[i], "--begin_hour")==0){
-                begin_hour_flag = true;
-                begin_hour_index = i;
-            }else if(strcmp(argv[i], "--end_hour")==0){
-                end_hour_flag = true;
-                end_hour_index = i;
-            }
+    // check to see if the correct arguments have been passed to fill the parameter and/or 
+    // station arrays
+    int fipsindex=0, begin_date_index=0, end_date_index=0, begin_hour_index=0, end_hour_index=0, param_index=0;
+    bool fipsflag = false, begin_date_flag = false, end_date_flag = false, begin_hour_flag = false, end_hour_flag = false, param_flag=false;
+    for(int i=0; i<argc;i++){
+        if(strcmp(argv[i], "--fips") == 0){
+            fipsflag = true;
+            fipsindex = i;      
+        }else if(strcmp(argv[i], "--help")==0 || strcmp(argv[i], "-h")==0){
+            cout<<"####################### Help Mode ###########################\n";
+            cout<<"This is a script to decompress grib files for a selected\n";
+            cout<<"county region. The file read to know the counties is the \n";
+            cout<<"wrfOutput.csv file in the directory:\n";
+            cout<<"customExtraction/myFiles/countyInfo/WRFOutput/. \n\n";
+            cout<<"Currently, the possible parameters to pass are as follows:\n";
+            cout<<"--fips...............FIPs code of the county you would like\n";
+            cout<<"                     to extract information from.";
+            cout<<"--begin_date.........First WRF day to read from, format\n";
+            cout<<"                     as YYYYmmdd";
+            cout<<"--end_date...........Last WRF day to read from, format\n";
+            cout<<"                     as YYYYmmdd";
+            cout<<"--begin_hour.........First hour's worth of WRF data to\n";
+            cout<<"                     read from for each day passed.";
+            cout<<"--end_hour...........Last hour to read from";
+            cout<<"--param..............Integer number of the layer(s) of \n";
+            cout<<"                     Grib files to read from\n\n";
+            cout<<"NOTE: arg which can have multiple inputs (fips, param)\n";
+            cout<<"are read from either until the end of the arg list or until\n";
+            cout<<"the next arg is reached. Flags cannot be stacked, e.g. only\n";
+            cout<<"pass args with the double hyphen.\n";
+            cout<<"Questions / Comments: guillotkaleb01@gmail.com";
 
+            exit(0);
+        }
+        else if(strcmp(argv[i], "--begin_date")==0){
+            begin_date_flag = true;
+            begin_date_index = i;
+        }
+        else if(strcmp(argv[i], "--end_date")==0){
+            end_date_flag = true;
+            end_date_index = i;
+        }else if(strcmp(argv[i], "--begin_hour")==0){
+            begin_hour_flag = true;
+            begin_hour_index = i;
+        }else if(strcmp(argv[i], "--end_hour")==0){
+            end_hour_flag = true;
+            end_hour_index = i;
+        }else if(strcmp(argv[i], "--param")==0){
+            param_flag = true;
+            param_index = i;
+        }
+    }
+    if(param_flag){
+        fill_n(blnParamArr, 200, false);
+        for(int i=param_index+1;i<argc;i++){
+            string arg = argv[i];
+            if(arg.substr(0,1)=="-"){
+                break;
+            }
+            try{
+                int selectedParam = stoi(arg);
+                blnParamArr[selectedParam] = true;
+            }catch(exception e){
+                cout << "Error in passing parameters" << endl;
+                exit(0);
+            }
+        }
+    }else{
+        fill_n(blnParamArr, 200, true);
+    }
+    if(begin_hour_flag){
+        string begin_hour = argv[begin_hour_index+1];
+        if(begin_hour.length() > 2) {
+            cout << "Error in the begin hour" << endl;
+            exit(0);
+        }
+        int intbegin_hour = stoi(begin_hour);
+        if(intbegin_hour > 23 || intbegin_hour < 0){
+            cout << "Error in the size of the begin hour" << endl;
+            exit(0);
+        }
+        arrHourRange[0] = intbegin_hour;
+    }
+    if(end_hour_flag){
+        string strend_hour = argv[end_hour_index + 1];
+        if(strend_hour.length()  > 2){
+            cout << "Error in the end hour" << endl;
+            exit(0);
+        }
+        int intendhour = stoi(strend_hour);
+        if(intendhour > 23 || intendhour < 0 || intendhour < arrHourRange[0]){
+            cout << "Error in the end hour size checking" << endl;
+            exit(0);
+        }
+        arrHourRange[1] = intendhour;
+    }
+    if((begin_date_flag && !end_date_flag) | (end_date_flag && !begin_date_flag)){
+        cout << "Must pass both begin and end date" << endl;
+        exit(0);
+    }
+    if(begin_date_flag){
+        // meaning we've passed both begin and end date flags
+        // store them 
+        string begin_date = argv[begin_date_index+1];
+        string end_date = argv[end_date_index+1];
+
+        //check their length
+        if (end_date.length() != 8 || begin_date.length() != 8){
+            cout << "Error: Begin / End date arguments have not been passed correctly" << endl;
+            exit(0);
+        }
+
+        // pass as the actual beginning and ending date
+        beginDay.at(0) = stoi(begin_date.substr(0,4));
+        beginDay.at(1) = stoi(begin_date.substr(4,2));
+        beginDay.at(2) = stoi(begin_date.substr(6,2));
+        
+        endDay.at(0) = stoi(end_date.substr(0,4));
+        endDay.at(1) = stoi(end_date.substr(4,2));
+        endDay.at(2) = stoi(end_date.substr(6,2));
+
+
+    }
+    vector<string> fipscodes(0);
+    if(fipsflag){
+        for(int i=fipsindex+1;i<argc;i++){
+            string arg = argv[i];
+            if (arg.substr(0,1) == "-"){
+                break;
+            }
+            if (arg.length() == 5){
+                fipscodes.insert(fipscodes.begin(), argv[i]);
+            }
+            else{
+                cout << "Invalid length of fips argument passed" << endl;
+                exit(0);
+            }
         }
         
-        if(begin_hour_flag){
-            string begin_hour = argv[begin_hour_index+1];
-            if(begin_hour.length() > 2) {
-                cout << "Error in the begin hour" << endl;
-                exit(0);
-            }
-            int intbegin_hour = stoi(begin_hour);
-            if(intbegin_hour > 23 || intbegin_hour < 0){
-                cout << "Error in the size of the begin hour" << endl;
-                exit(0);
-            }
-            arrHourRange[0] = intbegin_hour;
-        }
-        if(end_hour_flag){
-            string strend_hour = argv[end_hour_index + 1];
-            if(strend_hour.length()  > 2){
-                cout << "Error in the end hour" << endl;
-                exit(0);
-            }
-            int intendhour = stoi(strend_hour);
-            if(intendhour > 23 || intendhour < 0 || intendhour < arrHourRange[0]){
-                cout << "Error in the end hour size checking" << endl;
-                exit(0);
-            }
-            arrHourRange[1] = intendhour;
-        }
-        if((begin_date_flag && !end_date_flag) | (end_date_flag && !begin_date_flag)){
-            cout << "Must pass both begin and end date" << endl;
-            exit(0);
-        }
-        if(begin_date_flag){
-            // meaning we've passed both begin and end date flags
-            // store them 
-            string begin_date = argv[begin_date_index+1];
-            string end_date = argv[end_date_index+1];
-
-            //check their length
-            if (end_date.length() != 8 || begin_date.length() != 8){
-                cout << "Error: Begin / End date arguments have not been passed correctly" << endl;
-                exit(0);
-            }
-
-            // pass as the actual beginning and ending date
-            beginDay.at(0) = stoi(begin_date.substr(0,4));
-            beginDay.at(1) = stoi(begin_date.substr(4,2));
-            beginDay.at(2) = stoi(begin_date.substr(6,2));
-            
-            endDay.at(0) = stoi(end_date.substr(0,4));
-            endDay.at(1) = stoi(end_date.substr(4,2));
-            endDay.at(2) = stoi(end_date.substr(6,2));
-
-
-        }
-        vector<string> fipscodes(0);
-        if(fipsflag){
-            for(int i=fipsflag+1;i<argc;i++){
-                string arg = argv[i];
-                if (arg.substr(0,1) == "-"){
-                    break;
-                }
-                if (arg.length() == 5){
-                    fipscodes.insert(fipscodes.begin(), argv[i]);
-                }
-                else{
-                    cout << "Invalid length of fips argument passed" << endl;
-                    exit(0);
-                }
-            }
-            
-        }
-        // if all the flags are false and argc > 1, then something went wront
-        if(!begin_date_flag && !end_date_flag && !fipsflag && argc > 1 && !end_hour_flag && !begin_hour_flag){
-            cout << "Incorrect Arguments Passed" << endl;
-            exit(0);
-        }
-        // now call the cmd line to run the python file
-        string command; int status;
-        command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-13-23.py --fips ";
-        for(int i=0;i<fipscodes.size();i++){
-            command += fipscodes.at(i) + " ";
-        }
-        status = system(command.c_str());
-        if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
     }
-    fill_n(blnParamArr, 200, true);
+    // if all the flags are false and argc > 1, then something went wront
+    if(!param_flag && !begin_date_flag && !end_date_flag && !fipsflag && argc > 1 && !end_hour_flag && !begin_hour_flag){
+        cout << "Incorrect Arguments Passed" << endl;
+        exit(0);
+    }
+    // now call the cmd line to run the python file
+    string command; int status;
+    command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-13-23.py --fips ";
+    for(int i=0;i<fipscodes.size();i++){
+        command += fipscodes.at(i) + " ";
+    }
+    status = system(command.c_str());
+    if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
+
+    
     buildHours();
     defaultParams();
     readCountycsv();
@@ -759,10 +791,14 @@ bool dirExists(string filePath){
  	struct stat info;
 
 	if(stat(filePath.c_str(), &info) != 0){
-		return false;
+		// cannot access the directory, e.g. it may not exist
+        return false;
+        // printf("Error checking directory: %s", filePath.c_str());
+        // exit(0);
 	}
 	else if(info.st_mode & S_IFDIR){
-		return true;
+		// the directory already exists
+        return true;
 	}
 	else return false;
 }
@@ -891,194 +927,28 @@ void *readData(void *args){
 
 }
 
-void mapData(string date, string hour, int threadIndex){
-    string hourlyDate = date + hour;
-    for (int i = 0; i<numStations; i++){
-        Station *station = &stationArr[i];
-        // we can't directly insert the pointer to the data into the dataMap, so we need to insert a copy of the array
-        std::vector<double> valuesCpy(numParams);
-        
-        //semaphore to protect reading the values over into the copy
-        sem_wait(&valuesProtection[i]);
-        double *valuesCpy_1 = station->values[threadIndex];
-        for(int j=0; j<numParams; j++){
-            valuesCpy[j] = *(valuesCpy_1+j);
-        }
-        sem_post(&valuesProtection[i]);
-
-        sem_wait(&mapProtection[i]);
-        station->dataMap.insert({hourlyDate, valuesCpy});
-        sem_post(&mapProtection[i]);
-    }
-}
-
-void mapMonthlyData(){
-
-    for(int i=0;i<numStations;i++){
-
-        // loop through the days to find the weekly average
-        Station*station = &stationArr[i];
-        map<string, vector<double>> datamap = station->dataMap;
-        map<string, vector<double>> tmpMap; // stores the elements before the averages are found
-        map<string, vector<double>> *dailyDataMap = &station->dailydatamap;
-        map<string, vector<string>> *weeklyDataMap = &station->weeklydatamap;
-        map<string, vector<string>> weeklyAverages; // stores the averages
-        vector<double> arrMins = station->dataMap.begin()->second;
-        vector<double> arrMaxes = station->dataMap.begin()->second;
-        int expectedelements =0;
-        
-        // before finding the weekly averages, find the daily averages
-        for(auto itr = datamap.begin(); itr!=datamap.end(); ++itr){
-            expectedelements++;
-            string day = itr->first.substr(0,8);
-            int hour = stoi(itr->first.substr(8,2));
-
-            if(hour >= arrHourRange.at(1)){
-                tmpMap.insert({to_string(hour), itr->second});
-                
-                vector<double> vctrAverges(numParams);
-                for(auto tmpItr=tmpMap.begin(); tmpItr!=tmpMap.end();++tmpItr){
-                    for(int j=0; j<numParams;j++){
-                        vctrAverges[j]+=tmpItr->second[j];
-                        
-                    }
-                }
-                //found the summation of all params, now find the averages
-                for(int j=0;j<numParams;j++){
-                    vctrAverges[j] = vctrAverges[j] / tmpMap.size();
-                    if(arrMins.at(j) > itr->second.at(j)){
-                            arrMins[j] = itr->second.at(j);
-                        }
-                    if(arrMaxes.at(j) < itr->second.at(j)){
-                        arrMaxes[j] = itr->second.at(j);
-                    }
-                }
-                dailyDataMap->insert({day, vctrAverges});
-                station->dailyMaxParams.insert({day, arrMaxes});
-                station->dailyMinParams.insert({day, arrMins});
-
-                tmpMap.clear();
-            }else{
-                tmpMap.insert({to_string(hour), itr->second});
-                for(int j=0; j<numParams; j++){
-                    if(arrMins.at(j) > itr->second.at(j)){
-                        arrMins[j] = itr->second.at(j);
-                    }
-                    if(arrMaxes.at(j) < itr->second.at(j)){
-                        arrMaxes[j] = itr->second.at(j);
-                    }
-                }
-            }
-        }
-        
-        //  paramLayer, all layer's elements, used to find stdDev
-        map<int, vector<double>> elements; 
-        for(int j=0; j<numParams; j++){
-            vector<double> vctrElements(0); // make the vector of the size number of expected elements
-            elements.insert({j, vctrElements});
-        }
-        
-        string lastDay = datamap.rbegin()->first.substr(0,8);
-        int lastHour = stoi(datamap.rbegin()->first.substr(8,2));
-        int firstHour = arrHourRange.at(0);
-        // int dayItr = 0; // when this hits 6, you're on the final day of the week
-        
-        //Write the loop to detect when the next iteration will contain a different month
-        string month, nextmonth, day, year;
-
-        map<string, vector<double>>::iterator itr = datamap.begin();
-        map<string, vector<double>>::iterator nextitr;        
-        for(auto itr = datamap.begin(); itr!=datamap.end(); ++itr){
-            nextitr = next(itr,1);
-            month = itr->first.substr(4,2);
-            day = itr->first.substr(0,8);
-            year = itr->first.substr(0,4);
-
-            if(nextitr == datamap.end()) nextmonth = " ";
-            else nextmonth = nextitr->first.substr(4,2);
-
-            if(month != nextmonth){
-                tmpMap.insert({day, itr->second});
-                // loop through all values in itr->second and append them to their elements map
-                for(auto j=0; j<itr->second.size(); j++){
-                    auto nodehandler = elements.find(j);
-                    if(nodehandler != elements.end()){
-                        // insert the element into the element map's vector
-                        vector<double> vctrElem = nodehandler->second;
-                        vctrElem.insert(vctrElem.begin(),itr->second.at(j));
-                        nodehandler->second = vctrElem; // insert the vector back into the map
-                    }else{
-                        std::cerr << "\nError: unable to find key in map." << endl;
-                    }
-                }
-                // loop through the elements map, find stdDev and average
-                vector<string> vctrAverages(0);
-                for(auto elemItr = elements.rbegin(); elemItr!=elements.rend(); ++elemItr){
-                    // double*ptrmean;
-                    vector<double> thoseElementsIneed = elemItr->second;
-                    double mean = 0.0;
-                    double &refmean = mean;
-                    double stdDev = standardDev(thoseElementsIneed, refmean);
-                    // double mean = *ptrmean;
-                    string strval = std::to_string(mean); // + "+-" + std::to_string(stdDev);
-                    vctrAverages.insert(vctrAverages.begin(), strval);
-                }
-                // place the averages in the map
-                string firstofthemonth = year + month + "01";
-                string weekRange = firstofthemonth + "-" + day;
-                weeklyAverages.insert({weekRange,vctrAverages});
-
-                // wipe the tmpMap
-                tmpMap.clear();
-            }else{
-                tmpMap.insert({day, itr->second});
-                for(auto j=0; j<itr->second.size(); j++){
-                    auto nodehandler = elements.find(j);
-                    if(nodehandler != elements.end()){
-                        // insert the element into the element map's vector
-                        vector<double> vctrElem = nodehandler->second;
-                        vctrElem.insert(vctrElem.begin(),itr->second.at(j));
-                        // insert the vector back into the map
-                        nodehandler->second = vctrElem;
-                    }else{
-                        std::cerr << "\nError: unable to find key in map." << endl;
-                    }
-                }
-            }
-        }
-        ///////////////////////////////////////////////////////////////
-
-        *weeklyDataMap = weeklyAverages;
-    }
-}
-static double standardDev(vector<double> elements, double&refmean){
-    double stdDev = 0, sum=0, mean=0;
-    
-    for(int i=0;i<elements.size();i++){
-        sum+=elements.at(i);
-    }
-    refmean = sum / elements.size();
-    for(int i=0; i<elements.size(); i++){
-        stdDev += pow(elements.at(i) - refmean, 2);
-    }
-    stdDev = sqrt(stdDev / elements.size());
-    if(isnan(refmean)){
-        std::cerr << "\nError: NaN value in standard deviation calculation" << endl;
-    }
-    // refmean = &mean;
-    return stdDev;
-}
-
 void createPath(){
-    string strcmd; int status;
-    if(!dirExists(writePath)){
-            strcmd = "mkdir -p "+ writePath;
-            status = system(strcmd.c_str());
-            if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
-            
+
+    // separate the write path by slashes, pass each hypen to the dirExists function,
+    // if it doesnt exist, keep appending toa new fielpath
+    vector<string> splittedWritePath = splitonDelim(writePath, '/');
+    string writePath_1;
+    for(int i=0; i<splittedWritePath.size(); i++){
+        writePath_1.append("/" + splittedWritePath[i]);
+        if(!dirExists(writePath_1)){
+            //does not exist, need to create the path
+            if(mkdir(writePath_1.c_str(), 0777)==-1){
+                printf("Unable to create directory to write files: %s\n", writePath.c_str());
+                exit(0);
+            }
+        }
     }
+
 
     // for each of the stations passed, make a directory for their fips
+    // and then in each fips folder, make a directory for each year passed
+    vector<int> allyearspassed = {}
+    I stopped here
     for(int i=0; i<numStations; i++){
         Station * station = &stationArr[i];
         string fips = station->fipsCode;
@@ -1218,104 +1088,30 @@ void writeData(void*arg){
 
 }
 
-void writeMonthlyData(){
-    // string strcmd = "cd " + repositoryPath + "myFiles/countyInfo; python getMonthlyAvgs.py --path " + writePath;
-    // int status = system(strcmd.c_str());
-    // if(status == -1) cerr << "call to getmonthlyavs.py error" << strerror(errno) << endl;
-
-
-
-    // I. HATE. C++.
-    // for each station, if they have the same fips code, we need to add them to a map in order to group them together and find the monthly average
-    // monthly averages are done over the entire county, not station to station
-
-    map<string, vector<Station>> sameCountyStations;
-    map<string, vector<Station>>::iterator shitr;
-    Station*station;
-    for(int i=0; i<numStations; i++){
-        station = &stationArr[i];
-        string fips = station->fipsCode;
-        if(sameCountyStations.find(fips) == sameCountyStations.end()){
-            // the fips is not in the map, need to insert it
-            vector<Station> vctrStation;
-            vctrStation.insert(vctrStation.begin(), *station);
-            sameCountyStations.insert({fips, vctrStation});
-        }
-        else{
-            // the fips is already in the map, append the station to the index's station vector
-            shitr = sameCountyStations.find(fips);
-            shitr->second.insert(shitr->second.begin(), *station);
-        }
+int len(string str){
+    int length = 0;
+    for(int i=0; str[i]!= '\0';i++){
+        length++;
     }
+    return length;
+}
 
-    ///////////////////////////////////////////////////////////////////////////
-    // the sameCountyStations map is built, now we put them in an average map and find the averages
-
-    for(auto itr = sameCountyStations.begin(); itr!=sameCountyStations.end(); ++itr){
-        vector<Station> vctrSts = itr->second;
-        map<string, vector<double>> paramAverages; // key is month, val is all values for a given month
-        
-        for(int j=0;j<vctrSts.size();j++){
-            int mapsize = vctrSts.at(j).dataMap.size(); int intitr = 0; // because of a bug that would keep going past st.dataMap.end
-
-            for(auto itr2 = vctrSts.at(j).dataMap.begin(); itr2 !=vctrSts.at(j).dataMap.end(); ++itr2){
-                if(intitr >= mapsize) break;
-                else intitr++;
-                // if the month hasn't been written to before, then we need to insert it
-                if(paramAverages.find(itr2->first.substr(0,6)) == paramAverages.end()){
-                    vector<double> tmpvctr = itr2->second;
-                    paramAverages.insert({itr2->first.substr(0,6), tmpvctr});
-                }
-                else{ // the 
-                    map<string,vector<double>>::iterator pmitr = paramAverages.find(itr2->first.substr(0,6));
-                    vector<double> *tmpvctr = &pmitr->second;
-                    for(int i=0;i<numParams;i++){
-                        double &val = tmpvctr->at(i);
-                        val= val + itr2->second[i];
-                        
-                    }
-
-
-                }
-            }
-            
+vector<string> splitonDelim(string str, char sep){
+    vector<string> returnedStr;
+    int curridx = 0, i=0;
+    int startidx=0, endidx = 0;
+    while(i<=len(str)){
+        if(str[i]==sep || i==len(str)){
+            endidx=i;
+            string subStr = "";
+            subStr.append(str, startidx, endidx-startidx);
+            returnedStr.push_back(subStr);
+            curridx++;
+            startidx = endidx+1;
         }
-        ///////////////////////////// THE ABOVE CODE WORKY ///////////////////////////////////
-
-        // we have looped through all stations at a given loc, and found the summation of all of their vals,
-        // now we need to divide each one and find their averages
-        int amtToDivBy = vctrSts.size() * vctrSts.at(0).dataMap.size(); // the number of keys in each of their data maps
-        for(auto pmitr = paramAverages.begin(); pmitr !=paramAverages.end(); ++pmitr){
-            Station station = itr->second.at(0);
-            string year = pmitr->first.substr(0,4);
-            string month = pmitr->first.substr(4,2);
-            string fips = station.fipsCode;
-            string fileName = "HRRR_"+station.fipsCode.substr(0,2)+"_"+station.stateAbbrev+"_"+year+month+ ".csv";
-            string output = year+","+month+",,"+"Monthly,"+station.state+","+station.county+","+fips+",,,,";
-
-            for(int i=0; i < pmitr->second.size(); i++){
-                double val = pmitr->second[i];
-                val = val / amtToDivBy;
-                output.append(to_string(val) + ",");
-                if(objparamArr[i+1].name.find("Temperature") != string::npos){
-                        // string ymd = year + month + pmitr->first.substr(6,2);
-                        // map<string, vector<double>>::iterator dailystationitr = station.dataMap.find()
-                        // double minvalue = station.dailyMinParams.find(ymd)->second.at(i);
-                        // double maxvalue = station.dailyMaxParams.find(ymd)->second.at(i);
-                        // output.append(to_string(minvalue)+","+to_string(maxvalue)+",");
-                        output.append("-0.0,-0.0,");
-                }
-
-            }
-            output.append("\n");
-            string filePath_out = writePath + fips + "/" + year + "/";
-            string strcmd = "cd " + filePath_out + "; echo " + "\"" + output + "\" >> " + fileName;
-            int status = system(strcmd.c_str());
-            if(status == -1) std::cerr << "\nDaily File Write Error: " << strerror(errno) << endl;
-            output = "";
-        }
+        i++;
     }
-    
+    return returnedStr;
 }
 
 void garbageCollection(){
@@ -1328,7 +1124,6 @@ void garbageCollection(){
         }
         delete [] stationArr[i].values;
     }
-    delete [] objparamArr;
     delete [] stationArr;
     delete [] hours;
     if(sem_destroy(&hProtection)==-1){
