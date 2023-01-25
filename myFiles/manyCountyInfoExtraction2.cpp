@@ -168,33 +168,22 @@ void paramInfotoCsv(vector<string>);
 /* function to read the data from a passed grib file */
 void *readData(void*);
 
-
-/* function to map the data in the station's values array to the station's map */
-void mapData(string, string, int);
-
-/*function to take the weekly average of the data and place into a new map*/
-void mapMonthlyData();
-
 /*Function to find the standard deviation of the values for each week,
 takes an array of the values for the week and their average, outputs a stdDev*/
 static double standardDev(vector<double>, double&);
+
 /*Function to create the paths and files for the maps to be written to*/
 void createPath();
 
 /*functions to help create paths by finding length of string and splitting strnig on delimeter*/
 int len(string); vector<string> splitonDelim(string, char);
 
-/* function to write the data in the staion maps to a .csv file */
-void writeData(void*);
+/*function to write the data after each day is extracted*/
+void writeHourlyData();
 
 void garbageCollection();
 
 int main(int argc, char*argv[]){
-    for (auto sum : blnParamArr){
-        cout<< sum << endl;
-    }
-    exit();
-
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
 
     // function calls to initialize everything
@@ -269,10 +258,8 @@ int main(int argc, char*argv[]){
         }
         std::free(threads);
 
-        //TODO: After each day, write the values out to their respective file
-        // CREATE THE PATH, then write to the file
-        // or maybe create each path needed before reading
-
+        writeHourlyData();
+        
         intcurrentDay = getNextDay(intcurrentDay);
 
         delete [] arrThreadArgs;
@@ -842,7 +829,8 @@ void *readData(void *args){
     long numberOfPoints=0;
 
     double *lats, *lons, *values; // lats, lons, and values returned from extracted grib file
-
+    int curParamIdx =0; // the index which we will place the value into each station's 
+                        // values array
     sem_wait(&hProtection);
     while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
@@ -898,19 +886,12 @@ void *readData(void *args){
             // figuring out which index of each station's parameter array to put the values at 
             for (int i=0; i<numStations; i++){
                 Station *station = &stationArr[i];
-                int index = 0;
-                for (int j =0; j<numParams;j++){
-                    if(objparamArr[j].layer == msg_count){
-                        index = j;
-                        break;
-                    }
-                }
                 double dblCurrentValue = values[station->closestPoint[threadIndex]];
                 sem_wait(&valuesProtection[i]);
-                station->values[threadIndex][index] = dblCurrentValue;
+                station->values[threadIndex][curParamIdx] = dblCurrentValue;
                 sem_post(&valuesProtection[i]);
             }
-
+            curParamIdx++;
             std::free(lats);
             std::free(lons);
             std::free(values);
@@ -931,6 +912,7 @@ void createPath(){
 
     // separate the write path by slashes, pass each hypen to the dirExists function,
     // if it doesnt exist, keep appending toa new fielpath
+    //TODO: make sure this works right
     vector<string> splittedWritePath = splitonDelim(writePath, '/');
     string writePath_1;
     for(int i=0; i<splittedWritePath.size(); i++){
@@ -938,7 +920,7 @@ void createPath(){
         if(!dirExists(writePath_1)){
             //does not exist, need to create the path
             if(mkdir(writePath_1.c_str(), 0777)==-1){
-                printf("Unable to create directory to write files: %s\n", writePath.c_str());
+                printf("Unable to create directory to write files: %s\n", writePath_1.c_str());
                 exit(0);
             }
         }
@@ -947,45 +929,34 @@ void createPath(){
 
     // for each of the stations passed, make a directory for their fips
     // and then in each fips folder, make a directory for each year passed
-    vector<int> allyearspassed = {}
-    I stopped here
-    for(int i=0; i<numStations; i++){
-        Station * station = &stationArr[i];
+    vector<int> allyearspassed;
+    int yearRange = endDay[0] - beginDay[0];
+    for(int i=0;i<=yearRange;i++){
+        // append all years needed to the vector, including the first day
+        allyearspassed.push_back(beginDay[0]+i);
+    }
+    Station*station;
+    for(int i=0; i<numStations;i++){
+        *station=stationArr[i];
         string fips = station->fipsCode;
-        string writePath_1 = writePath + fips;
-        if(!dirExists(writePath_1)){
-            strcmd = "mkdir -p " + writePath_1;
-            status = system(strcmd.c_str());
-            if(status==-1)std::cerr << "writePathError: " << strerror(errno) << endl;
+        string writePath_2 = writePath+fips+"/";
+        if(!dirExists(writePath_2)){
+            if(mkdir(writePath_2.c_str(), 0777)==-1){
+                printf("Unable to create fips directory to write files: %s\n", writePath_2.c_str());
+                exit(0);
+            }
         }
-
-    }
-
-    // for each of the years passed, create a folder
-    // for each folder in write path, pass each year passed
-    string currpath; 
-    for (const auto &entry : std::filesystem::directory_iterator(writePath)){
-        currpath = entry.path();
-        strcmd = "cd " + currpath + "; mkdir " + to_string(beginDay.at(0));
-        status = system(strcmd.c_str());
-        if(status==-1) cerr << "WritePathERROR: " << strerror(errno) << endl;
-        
-        if(beginDay.at(0) != endDay.at(0)){
-            int years = endDay.at(0) - beginDay.at(0);
-            int currYear = beginDay.at(0)+1;
-            do{
-                // create a folder before the current year reaches the
-                // end year 
-                strcmd = "cd " + writePath + "; mkdir "+to_string(currYear);
-                status = system(strcmd.c_str());
-                if(status==-1) std::cerr << "writepatherrorrror: " << strerror(errno) << endl;
-                currYear++;
-
-            }while(currYear!= endDay.at(0));
+        // now the fips directory for the station has been created, now make the 
+        // year directories
+        for(int j=0;i<allyearspassed.size();j++){
+            string writePath_3 = writePath_2 + to_string(allyearspassed[j]) + "/";
+            if(!dirExists(writePath_3)){
+                if(mkdir(writePath_3.c_str(),0777)==-1){
+                    printf("Unable to create year directories to write to files %s\n", writePath_3.c_str());
+                }
+            }
         }
     }
-    
-
 }
 
 void writeData(void*arg){
@@ -1085,6 +1056,10 @@ void writeData(void*arg){
         output = "";
        
     }
+
+}
+
+void writeHourlyData(){
 
 }
 
