@@ -5,8 +5,7 @@ to run the data, then read the outputted csv
 
 TO START; I should only read the csv
 
-TODO: configure output paths for each fips code, year, monthly csv
-TODO: pass args for fips codes
+TODO: implement ability to pass multiple years and multiple months and multiple states
 
 ###########################33
 debug with pdb command line arg:
@@ -44,7 +43,7 @@ class extraction():
         self.parameter_typeofLevels = []
         
         self.start_date = date(2021, 4, 27)
-        self.end_date = date(2021,5,1)
+        self.end_date = date(2021,4,28)
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date- start_date).days)):
@@ -81,7 +80,7 @@ class extraction():
         # we have built the fips arg array, now call the sentinel script to make the wrfOutput
         gg.county(fips=self.passedFips)
         # scrape wrfOutput for the values we need
-        wrfOutputdirectory = self.repository_path + "WRFoutput/wrfOutput.csv"
+        wrfOutputdirectory = self.repository_path + "myFiles/pythonPygrib/WRFoutput/wrfOutput.csv"
         countycsv = pd.read_csv(wrfOutputdirectory)
         countycsv = countycsv.reset_index()
         for index, row in countycsv.iterrows():
@@ -109,9 +108,17 @@ class extraction():
                     headerFlag = False
                 else:
                     data = self.read_data(data_path, write_path, headerFlag=False)
-                self.write_data(data,write_path, single_date, single_hour, file_name)
-        write_path = self.write_path+self.station_fips[0]+'/'+self.start_date.strftime("%Y")+'/'
-        self.write_header(write_path, file_name)
+                # configure the write path to have separate directories for each of the fips codes
+                # split data into separate dfs for each of the counties
+                # data is a dictionary with keys that are the station names
+                # split data into separate dictionaries that have keys associated to 
+                # the station names
+                for fips in self.passedFips:
+                    write_path1 = self.write_path+'/'+fips+'/'+single_date.strftime("%Y")+'/'
+                    self.write_data(data,write_path1, single_date, single_hour, file_name, fips=fips)
+        for fips in self.passedFips:
+            write_path2 = self.write_path+fips+'/'+self.start_date.strftime("%Y")+'/'
+            self.write_header(write_path2, file_name)
 
 
     def read_data(self, data_path, write_path, headerFlag):
@@ -154,15 +161,22 @@ class extraction():
         
         return data_dic
 
-    def write_data(self, data, w_data_path, single_date, single_hour, file_name):
+    def write_data(self, data, w_data_path, single_date, single_hour, file_name, fips):
+        # use itr to find the correct station's data
         itr = 0
+        # find the separate 
         
         for k,v in data.items():
+            # if the station name at this index does not match the passed fips,
+            # increment the itr and continue
+            if fips != self.station_fips[itr]:
+                itr+=1
+                continue
+
             w_path = w_data_path 
             Path(w_path).mkdir(parents=True, exist_ok=True)
-            # w_path_file = w_data_path+self.station_fips[0]+'/'+self.start_date.strftime("%Y")+'/'+"HRRR_22_LA_"+self.start_date.strftime("%Y%m")+".csv"
-            # w_path_nofile = w_data_path+self.station_fips[0]+'/'+self.start_date.strftime("%Y")+'/'
-            # Path(w_path_nofile).mkdir(parents=True, exist_ok=True)
+
+            
             w_path_file = w_path + file_name
             with open(w_path_file, 'a', newline='') as file_out:
                 writer = csv.writer(file_out, delimiter=',')
