@@ -1,6 +1,8 @@
 .idea/
 .vscode/
 a.out
+*.out
+*.o
 
 #myFiles directory
 myFiles/a.out

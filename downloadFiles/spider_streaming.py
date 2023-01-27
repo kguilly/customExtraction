@@ -15,31 +15,37 @@ from datetime import date, timedelta
 class spider():
     
     def __init__(self):
-        self.version = 1.0
-        self.info = 'grab weather data'
+        self.version = 2.0
+        self.info = 'grab weather data, add streaming mode'
         self.data_path = 'data/'
+        
         self.url = "http://home.chpc.utah.edu/~u0553130/Brian_Blaylock/cgi-bin/hrrr_download.cgi"
         self.manager = Manager()
         self.store_data = self.manager.dict()
         self.cache = {}
         self.lock = RLock()
 
-        self.worker = 12
+        self.worker = 3
 
         self.WAIT_TIME_SECONDS = 1*60*30    # 30 min
         self.logger = None
 
-    def log(self):
+    def log(self, mode='streaming'):
         self.logger = None
         now = datetime.datetime.now()
-        self.logger = logging.getLogger('weather_spider_')
+        self.logger = logging.getLogger('weather_'+mode+'_')
         self.logger.setLevel(logging.INFO)
-        fh = logging.FileHandler('Log/weather_spider'+str(now.year)+str(now.month)+str(now.day))
+        self.path_check("Log/")
+        fh = logging.FileHandler('Log/weather_'+mode+str(now.year)+str(now.month)+str(now.day))
         fh.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
 
+    def path_check(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+                
 
     def grab_html(self):
         headers = {'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Safari/537.36'}
@@ -186,7 +192,7 @@ class spider():
                 while 1:
                     alive = False
                     for s in threads_list:
-                        alive = alive or s.isAlive()
+                        alive = alive or s.is_alive()
                     if not alive:
                         break
 
@@ -208,7 +214,7 @@ class spider():
             except:
                 self.logger.info('sleep one minute')
                 grab_flag = True
-                time.sleep(60)
+                time.sleep(20)
 
 
             
@@ -233,10 +239,28 @@ class spider():
             cdate = day.strftime('%Y-%m-%d')
             cdate_split = cdate.split('-')
             cdate_new = cdate_split[0]+cdate_split[1]+cdate_split[2]
+            self.data_path += cdate_split[0]+'/'
+            self.run(check_date=cdate_new)
+
+    def streaming(self):
+        self.log(mode='streaming')
+        edate = datetime.date.today()
+        bdate = edate - timedelta(days=1)
+
+
+        delta = edate - bdate
+        for i in range(delta.days):    # do not grab current day
+            day = bdate + timedelta(days=i)
+            cdate = day.strftime('%Y-%m-%d')
+            cdate_split = cdate.split('-')
+            cdate_new = cdate_split[0]+cdate_split[1]+cdate_split[2]
             self.data_path = 'data/'+cdate_split[0]+'/'
             self.run(check_date=cdate_new)
 
 
+
+
+            
 
 
 
@@ -244,4 +268,5 @@ class spider():
 
 if __name__ == "__main__":
     s = spider()
-    s.request_range(begin_date="20190101", end_date="20180501")    # for example: "20190101" or None
+    s.streaming()
+    # s.request_range(begin_date="20220101", end_date="20220103")    # for example: "20191231" or None
