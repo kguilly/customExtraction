@@ -4,9 +4,10 @@ build/
 a.out
 *.out
 *.o
-*scratch*
 
 #myFiles directory
+myFiles/scratch
+myFiles/scratch.cpp
 myFiles/a.out
 myFiles/extractWRFData3
 myFiles/grib_print_data.o
