@@ -45,9 +45,9 @@ double totalTime;
 vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 4, 29};   // NOT INCLUSIVEe
+vector<int> endDay = {2021, 5, 2};   // NOT INCLUSIVEe
 
-vector<int> arrHourRange = {0,2}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                    // accepts hours from 0 to 23 (IS INCLUSIVE)
 
@@ -852,7 +852,7 @@ void *readData(void *args){
                                    // from the grib file
         vctrHeader.clear();
         vctrHeader.push_back("Year");vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
-        vctrHeader.push_back("Daily/Monthly"); vctrHeader.push_back("State");vctrHeader.push_back("County");
+        vctrHeader.push_back("State");vctrHeader.push_back("County");
         vctrHeader.push_back("GridIndex"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat");
         vctrHeader.push_back("lon(-180 to 180)");
     }
@@ -1095,8 +1095,8 @@ void writeHourlyData(bool header_write_flag, vector<string>formattedDay){
         for(int j=0; j<intHourRange; j++){
             // append the init info to strOutput:
             // Year, Month, Day, Daily/Monthly, State, County, GridIndex, FIPS code, lat, lon
-            strOutput.append(year+","+month+","+formattedDay.at(2)+","+to_string(currHour)+","+"Daily"+","+station.state+","); 
-            strOutput.append(station.county+","+station.name+","+station.fipsCode+","+to_string(station.lat)+","+to_string(station.lon));
+            strOutput.append(year+","+month+","+formattedDay.at(2)+","+to_string(currHour)+","+station.state+","); 
+            strOutput.append(station.county+","+station.name+","+station.fipsCode+","+to_string(station.lat)+","+to_string(station.lon)+",");
             for(int k=0; k< numParams; k++){
                 // write out station.values[j][k]
                 // outputFile << station.values[j][k] << ",";

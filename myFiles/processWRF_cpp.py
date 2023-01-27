@@ -8,8 +8,8 @@ import sys
 
 class formatWRF():
     def __init__(self):
-        self.wrf_data_path = ""
-        self.repository_path = ""
+        self.wrf_data_path = "/home/kaleb/Desktop/cppWRFExtract_1-26/"
+        self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
 
     def main(self):
         self.readargs()
@@ -18,6 +18,10 @@ class formatWRF():
             print("Error, file list is less than one. List: ", csvFiles)
             exit(0)
         for file in csvFiles:
+            # if the file is open elsewhere, or if the file is already a processed file, skip
+            if(file.find("daily_monthly")!=-1 or file.find(".~lock.")!=-1):
+                print("Skipping file: %s" % (file))
+                continue
             print(file)
             df = self.removeUnkn(file=file)
             # print(df)
@@ -89,7 +93,7 @@ class formatWRF():
         dftoreturn = pd.DataFrame(columns=list(df.columns))
         # dftoreturn.drop(columns='Hour', inplace=True)
         dftoreturn.rename(columns= {'Hour': 'Daily/Monthly'}, inplace=True)
-
+        # print(df)
         for col in dftoreturn:
             if col.rfind('Temperature') != -1:
                 # need to insert new columns at index of temperature 
@@ -104,24 +108,38 @@ class formatWRF():
         ##########################################
         grouped_gridindex = df.groupby(df.GridIndex)
         # for each station
-        for i in range(len(grouped_gridindex.size())):
-            gridindexDf = grouped_gridindex.get_group(i)
+        # for i in range(len(grouped_gridindex.size())):
+        # for each station df
+        for gridgroupdf in grouped_gridindex:
+            # print(gridgroupdf[1])
+            gridindexDf = pd.DataFrame(gridgroupdf[1])
+            # print(gridindexDf)
             grouped_day = gridindexDf.groupby(gridindexDf.Day)
+            # print(type(grouped_day))
+            # print(grouped_day)
+            
+
+            # grouped_day = pd.DataFrame(grouped_day[1])
+            # print(grouped_day)
 
             # for each day in each station
-            for j in range(len(grouped_day.size())):
+            for group in grouped_day:
                 try:
-                    station_dayDf = grouped_day.get_group(j)
-                    # print(station_dayDf)
+                    current_day = group[0]
+                    station_dayDf = pd.DataFrame(group[1])
                 except:
+                    print("Did not grab grouped_day.get_group(%s)"%(group))
                     continue
                 avgedRow = []
+                # print(station_dayDf)
 
                 for col in station_dayDf:
                     if col.rfind('Hour') != -1:
                         avgedRow.append('Daily')
-                    elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('Day') != -1 or col.rfind('State') != -1 or col.rfind('County') != -1 or col.rfind('GridIndex') != -1 or col.rfind('FIPS Code') != -1 or col.rfind('Lat') != -1 or col.rfind('Lon(-180') != -1:
+                    elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('Day') != -1 or col.rfind('State') != -1 or col.rfind('County') != -1 or col.rfind('GridIndex') != -1 or col.rfind('FIPS Code') != -1 or col.rfind('lat') != -1 or col.rfind('lon(-180') != -1:
                         avgedRow.append(station_dayDf[col].iloc[0])
+                        # avgedRow.concat()
+                        # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
                     else:
                         # get the average of the row and append it to the avg list
                         try:
@@ -138,11 +156,42 @@ class formatWRF():
         # print(dftoreturn)
         return dftoreturn
 
+        #     for j in range(len(grouped_day.size())):
+        #         try:
+        #             station_dayDf = grouped_day.get_group(j)
+        #             # print(station_dayDf)
+        #         except:
+        #             print("Did not grab grouped_day.get_group(%s)"%(j))
+        #             continue
+        #         avgedRow = []
+
+        #         for col in station_dayDf:
+        #             if col.rfind('Hour') != -1:
+        #                 avgedRow.append('Daily')
+        #             elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('Day') != -1 or col.rfind('State') != -1 or col.rfind('County') != -1 or col.rfind('GridIndex') != -1 or col.rfind('FIPS Code') != -1 or col.rfind('Lat') != -1 or col.rfind('Lon(-180') != -1:
+        #                 avgedRow.append(station_dayDf[col].iloc[0])
+        #             else:
+        #                 # get the average of the row and append it to the avg list
+        #                 try:
+        #                     avgedRow.append(station_dayDf[col].mean())
+        #                 except:
+        #                     avgedRow.append('NaN')
+        #                 # if the column is temperature, find the min, max, then append
+        #                 if col.rfind("Temperature") != -1:
+        #                     avgedRow.append(station_dayDf[col].min())
+        #                     avgedRow.append(station_dayDf[col].max())
+                
+        #         # now that all the columns have been collected, we need to append the row to the dftoreturn
+        #         dftoreturn.loc[len(dftoreturn)] = avgedRow
+        # # print(dftoreturn)
+        # return dftoreturn
+
     def monthlyAvgs(self, df=pd.DataFrame()):
 
         monthlyavgs = []
         # for each column in df (not Year, Month, Day, State, County, GridIndex, FIPS Code, Lat, Lon(-180 to 180)), find avg and append to bottom
         # for Year, Month, State, County, write the first Index, for day write 'Monthly Average'
+        
         writeavgflag = False
         for col in df:
             if col.rfind('Maximum/Composite') != -1:
@@ -160,12 +209,13 @@ class formatWRF():
                 # find the average of the column and append to the monthlyavg arr
                 try:
                     monthlyavgs.append(df[col].mean())
+                    # monthlyavgs.append(df[col].values.mean())
                 except:
                     monthlyavgs.append('NaN')
         # df.loc[len(df)] = monthlyavgs
         # df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]))
         df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]), ignore_index=True)
-        print(df)
+        # print(df)
         return df
 
     def dftocsv(self, df=pd.DataFrame(), fullfilepath=''):
