@@ -11,7 +11,7 @@ TODO: implement ability to pass multiple years and multiple months and multiple 
 debug with pdb command line arg:
 python3 -m pdb extractWRF_passFips.py --fips <fips codes> 
 '''
-
+import time
 import csv
 import pygrib
 import numpy as np
@@ -25,7 +25,7 @@ class extraction():
     def __init__(self):
         self.info = 'extract wrf information from a grib2 file for a given location'
         self.wrf_data_path = "/media/kaleb/extraSpace/wrf/"
-        self.write_path = "/home/kaleb/Desktop/pythonWRFOutput_1-25/"
+        self.write_path = "/home/kaleb/Desktop/pythonWRFOutput_1-26/"
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/" # POINT TO CURRENT REPO: should end in "/customExtraction/"
 
         self.passedFips = ["22107", "22007"]
@@ -34,6 +34,8 @@ class extraction():
         self.st_latlons = []
         # need to configure unique names
         self.st_names = []
+        self.st_states = []
+        self.st_stateabbrevs = []
         self.st_indexes = []
         self.parameter = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82,83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104,  105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146]
         self.parameter_layerNum = []
@@ -42,8 +44,8 @@ class extraction():
         self.parameter_levels = []
         self.parameter_typeofLevels = []
         
-        self.start_date = date(2021, 4, 27)
-        self.end_date = date(2021,4,28)
+        self.start_date = date(2021, 4, 28)
+        self.end_date = date(2021,5,2)
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date- start_date).days)):
@@ -94,11 +96,21 @@ class extraction():
             latlons = tuple(latlons)
             self.st_latlons.append(latlons)
 
+    def getstates(self):
+        file_path = self.repository_path + "myFiles/countyInfo/us-state-ansi-fips2.csv"
+        df = pd.read_csv(file_path, dtype=str)
+        for fips in self.station_fips:
+            state_fips = fips[0:2]
+            for index, row in df.iterrows():
+                if row['st'] == state_fips:
+                    self.st_stateabbrevs.append(row['stusps'])
+                    self.st_states.append(row['stname'])
     
     def read_loop(self):
         self.readArgs()
+        self.getstates()
         headerFlag = True
-        file_name = "HRRR_22_LA_"+self.start_date.strftime("%Y%m")+".csv"
+        # file_name = "HRRR_22_LA_"+self.start_date.strftime("%Y%m")+".csv"
         for single_date in self.daterange(self.start_date, self.end_date):
             for single_hour in self.hourrange():
                 data_path = self.wrf_data_path+single_date.strftime("%Y")+"/"+single_date.strftime("%Y%m%d")+"/"+"hrrr."+single_date.strftime("%Y%m%d")+"."+single_hour+".00.grib2"
@@ -108,17 +120,19 @@ class extraction():
                     headerFlag = False
                 else:
                     data = self.read_data(data_path, write_path, headerFlag=False)
-                # configure the write path to have separate directories for each of the fips codes
-                # split data into separate dfs for each of the counties
-                # data is a dictionary with keys that are the station names
-                # split data into separate dictionaries that have keys associated to 
-                # the station names
+
+                itr=0
                 for fips in self.passedFips:
-                    write_path1 = self.write_path+'/'+fips+'/'+single_date.strftime("%Y")+'/'
-                    self.write_data(data,write_path1, single_date, single_hour, file_name, fips=fips)
+                    write_path1 = self.write_path+fips+'/'+single_date.strftime("%Y")+'/'
+                    file_name_1 = "HRRR_"+fips[0:2]+self.st_stateabbrevs[itr]+single_date.strftime("%Y%m")+".csv"
+                    self.write_data(data,write_path1, single_date, single_hour, file_name_1, fips=fips)
+                    itr+=1
+        itr=0
         for fips in self.passedFips:
-            write_path2 = self.write_path+fips+'/'+self.start_date.strftime("%Y")+'/'
-            self.write_header(write_path2, file_name)
+            write_path2 = self.write_path+fips+'/'+single_date.strftime("%Y")+'/'
+            file_name_2 = "HRRR_"+fips[0:2]+self.st_stateabbrevs[itr]+single_date.strftime("%Y%m")+".csv"
+            self.write_header(write_path2, file_name_2)
+            itr+=1
 
 
     def read_data(self, data_path, write_path, headerFlag):
@@ -186,7 +200,7 @@ class extraction():
                 write_list.append(single_date.strftime("%m"))
                 write_list.append(single_date.strftime("%d"))
                 write_list.append(single_hour)
-                write_list.append('LA')
+                write_list.append(self.st_states[itr])
                 write_list.append(self.st_names[itr])
                 write_list.append(self.st_indexes[itr])
                 write_list.append(self.station_fips[itr])
@@ -208,7 +222,18 @@ class extraction():
             header.append(name + '('+unit+')')
         df.to_csv(file_path, header=header)
 
+start_time = time.time()
 e = extraction()
 e.read_loop()
+time_sec = time.time() - start_time
+h=0
+m=0
+if(time_sec // 60 > 1):
+    m = time_sec // 60
+    time_sec = time_sec - (m*60)
+if(m//60 > 1):
+    h = m // 60
+    m = m - (h*60)
+print("\n\nRuntime:\nHours: %d, Minutes: %d, Seconds: %s\n"%(h, m, time_sec))
 
 

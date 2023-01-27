@@ -42,10 +42,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 6, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 6, 2};   // NOT INCLUSIVEe
+vector<int> endDay = {2021, 4, 29};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,2}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -53,11 +53,11 @@ vector<int> arrHourRange = {0,2}; // array for the range of hours one would like
 
 int intHourRange; 
 
-string filePath = "/home/kaleb/Desktop/weekInputData/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/WRFDataThreaded/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/cppWRFExtract_1-26/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -93,7 +93,7 @@ struct threadArgs{
 };
 
 Station *stationArr; 
-bool blnParamArr[200]; // TEMPORARY FIX
+bool *blnParamArr; 
                         // this will be used to quickly index whether a parameter needs to be 
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
@@ -121,7 +121,7 @@ void handleInput(int, char**);
 void defaultStations(); void readCountycsv(); void matchState();
 void getStateAbbreviations();
 // similar to default station, but for the parameter arrays
-void defaultParams();
+void defaultParams(bool);
 
 void buildHours();// builds the hour arrays given the hour range specified
 
@@ -240,6 +240,7 @@ int main(int argc, char*argv[]){
         std::free(threads);
 
         writeHourlyData(header_write_flag, strCurrentDay);
+        header_write_flag = true;
 
         if(formatDay(getNextDay(intcurrentDay)).at(1)!=strCurrentDay.at(1)){
             *ptrHeader_flag = true;
@@ -251,20 +252,33 @@ int main(int argc, char*argv[]){
     }
     delete [] blnParamArr;
 
-
+    string strcmd; int status;
+    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
+    strcmd += repositoryPath+" --wrf_path " + writePath;
+    status = system(strcmd.c_str());
+    if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
     garbageCollection();
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
     totalTime+= (endTotal.tv_nsec - startTotal.tv_nsec) / 1000000.0;
-    printf("\n\nRuntime in ms:: %f\n", totalTime);
+    int h=0, m=0;
+    double sec;
+    sec = totalTime / 1000;
+    if(sec/60 > 1){
+        m = int (sec) / 60;
+        sec = sec - (m*60);
+    }
+    if(m/60 > 1){
+        h = int (m) / 60;
+        m = m - (h*60);
+    }
+    printf("\n\nRuntime:\nHours: %s, Minutes: %s, Seconds %f\n", to_string(h).c_str(), to_string(m).c_str(), sec);
 
 
     return 0;
  }
 
 void handleInput(int argc, char* argv[]){
-    // TODO: add a --param arg that allows the user to select one or multiple specific integer parameters
-    // these parameters will be set in the bln param array // NEED to tell python about this
     vector<string> vctrstrBeginDay = formatDay(beginDay);
     // check to see if the correct arguments have been passed to fill the parameter and/or 
     // station arrays
@@ -319,7 +333,7 @@ void handleInput(int argc, char* argv[]){
         }
     }
     if(param_flag){
-        fill_n(blnParamArr, 200, false);
+        blnParamArr = new bool[200]; 
         for(int i=param_index+1;i<argc;i++){
             string arg = argv[i];
             if(arg.substr(0,1)=="-"){
@@ -333,8 +347,6 @@ void handleInput(int argc, char* argv[]){
                 exit(0);
             }
         }
-    }else{
-        fill_n(blnParamArr, 200, true);
     }
     if(begin_hour_flag){
         string begin_hour = argv[begin_hour_index+1];
@@ -412,21 +424,61 @@ void handleInput(int argc, char* argv[]){
         exit(0);
     }
     // now call the cmd line to run the python file
-    string command; int status;
-    command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-13-23.py --fips ";
-    for(int i=0;i<fipscodes.size();i++){
-        command += fipscodes.at(i) + " ";
+    if(fipsflag){
+        string command; int status;
+        command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-13-23.py --fips ";
+        for(int i=0;i<fipscodes.size();i++){
+            command += fipscodes.at(i) + " ";
+        }
+        status = system(command.c_str());
+        if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
     }
-    status = system(command.c_str());
-    if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
 
     
     buildHours();
-    defaultParams();
+    defaultParams(param_flag);
     readCountycsv();
     matchState();
     getStateAbbreviations();
         
+}
+void defaultParams(bool param_flag){
+    string paramline;
+    ifstream paramFile;
+    string paramfiledir = repositoryPath + "myFiles/countyInfo/parameterInfo.csv";
+    paramFile.open(paramfiledir);
+    if(!paramFile){
+        cerr << "Error: the PARAMETER file could not be opened.\n";
+        exit(1);
+    }
+    vector<string> paramRow;
+    bool firstline = true;
+    int countParams = 0;
+    while(getline(paramFile, paramline)){
+        paramRow.clear();
+        if(firstline){ // do not include the header
+            firstline = false;
+            continue;
+        }
+        stringstream s(paramline);
+        string currLine;
+        while(getline(s, currLine, ',')){
+            paramRow.push_back(currLine);
+        }
+        if(paramRow.size() > 2){
+            countParams++;
+        }
+    }
+    numParams = countParams;
+
+
+    // build the boolean param array
+    if(!param_flag){
+        blnParamArr = new bool[numParams+1];
+        for (int i = 0; i<numParams; i++){
+            blnParamArr[i+1] = true;
+        }    
+    }
 }
 void getStateAbbreviations(){
     // read the us-state-ansi-fips.csv file into a map, 
@@ -513,7 +565,7 @@ void readCountycsv(){
     map<string, Station> tmpStationMap;
     string strLine;
     ifstream filewrfdata;
-    string path_to_data_file = repositoryPath + "myFiles/WRFoutput/wrfOutput.csv";
+    string path_to_data_file = repositoryPath + "myFiles/countyInfo/WRFoutput/wrfOutput.csv";
     filewrfdata.open(path_to_data_file);
     if(!filewrfdata){
         cerr << "Error: the WRFOUTPUT file could not be opened.\n";
@@ -799,7 +851,7 @@ void *readData(void *args){
         thread_header_flag = true; // this is the chosen thread to get the keys (header) 
                                    // from the grib file
         vctrHeader.clear();
-        vctrHeader.push_back("Year");vctrHeader.push_back("Month");vctrHeader.push_back("Day");
+        vctrHeader.push_back("Year");vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
         vctrHeader.push_back("Daily/Monthly"); vctrHeader.push_back("State");vctrHeader.push_back("County");
         vctrHeader.push_back("GridIndex"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat");
         vctrHeader.push_back("lon(-180 to 180)");
@@ -883,7 +935,7 @@ void *readData(void *args){
                     fprintf(stderr, "Error: unable to create keys iterator while reading params\n");
                     exit(1);
                 }
-                string strUnits, strName, strValue, strHeader;
+                string strUnits, strName, strValue, strHeader, strnametosendout;
                 while(codes_keys_iterator_next(kiter)){
                     const char*name = codes_keys_iterator_get_name(kiter);
                     vlen = MAX_VAL_LEN;
@@ -892,12 +944,15 @@ void *readData(void *args){
                     strName = name, strValue = value_1;
                     if(strName.find("name")!=string::npos){
                         strValue.erase(remove(strValue.begin(), strValue.end(), ','), strValue.end());
-                        strHeader.append(to_string(msg_count)+"_"+strValue);
+                        //strHeader.append(to_string(msg_count)+"_"+strValue);
+                        strnametosendout = to_string(msg_count)+"_"+strValue;
                     }
                     else if(strName.find("units")!=string::npos){
-                        strHeader.append("("+strValue+")");
+                        //strHeader.append("("+strValue+")");
+                        strUnits = "(" + strValue + ")";
                     }
                 }
+                strHeader = strnametosendout + " " + strUnits;
                 vctrHeader.push_back(strHeader);
             }
             // if it is the first time, extract the index
@@ -945,7 +1000,6 @@ void createPath(){
 
     // separate the write path by slashes, pass each hypen to the dirExists function,
     // if it doesnt exist, keep appending toa new fielpath
-    //TODO: make sure this works right
     vector<string> splittedWritePath = splitonDelim(writePath, '/');
     string writePath_1;
     for(int i=0; i<splittedWritePath.size(); i++){
@@ -968,10 +1022,10 @@ void createPath(){
         // append all years needed to the vector, including the first day
         allyearspassed.push_back(beginDay[0]+i);
     }
-    Station*station;
+    Station station;
     for(int i=0; i<numStations;i++){
-        *station=stationArr[i];
-        string fips = station->fipsCode;
+        station=stationArr[i];
+        string fips = station.fipsCode;
         string writePath_2 = writePath+fips+"/";
         if(!dirExists(writePath_2)){
             if(mkdir(writePath_2.c_str(), 0777)==-1){
@@ -993,22 +1047,38 @@ void createPath(){
 }
 
 void writeHourlyData(bool header_write_flag, vector<string>formattedDay){
-    /* 
-    Year, Month, Day, Daily/Monthly, State, County, GridIndex, FIPS Code,
-    lat, lon(-180 to 180), the all the values from heada vecta
-    
-    for each station
-        naviage to directory
-        open monthly file
-        check header_write_flag
-        for each hour:
-            append: Year, Month, Day, Daily/Monthly, State, County, GridIndex,
-                FIPS Code, lat, lon(-180 to 180)
-            for each value in values: 
-                append to output string
-        write output string to file
 
-    */
+
+    if(!header_write_flag){
+        // grab the station fips code, if the current station fips cannot be found
+        // in the vector, write out the header and append the current fips code
+        // to the vector
+        string fips = ""; Station station;
+        vector<string> fipsCodes;
+        for (int i=0; i<numStations; i++){
+            station = stationArr[i];
+            fips = station.fipsCode;
+            if(find(fipsCodes.begin(), fipsCodes.end(), fips)==fipsCodes.end()){
+                // the header for this file has not been written to yet,
+                // find the directory of the file, clear it, and write the header
+                // to it
+                fipsCodes.push_back(fips);
+                string year = formattedDay.at(0); string month = formattedDay.at(1);
+                string fipsDir = writePath+fips+"/";
+                string yearDir = fipsDir+year+"/";
+                string fileName = "HRRR_"+fips+"_"+station.stateAbbrev+"_"+year+month+".csv";
+                ofstream outputFile(yearDir+fileName);
+                for(int j=0; j<vctrHeader.size();j++){
+                    outputFile << vctrHeader.at(j) << ",";
+                }
+                outputFile << "\n";
+                outputFile.close();
+
+                
+            }
+        }
+    }
+
     string year = formattedDay.at(0); string month = formattedDay.at(1);
     string fipsDir;
     Station station;
@@ -1019,9 +1089,32 @@ void writeHourlyData(bool header_write_flag, vector<string>formattedDay){
         
         string yearDir = fipsDir+year+"/";
         string fileName = "HRRR_"+fips+"_"+station.stateAbbrev+"_"+year+month+".csv";
-
-        // TODO: open the filename at the directory and write each element from the 
-        // values array to the appropriate file.
+        string strOutput;
+        // loop through the station's values array
+        int currHour = arrHourRange.at(0);
+        for(int j=0; j<intHourRange; j++){
+            // append the init info to strOutput:
+            // Year, Month, Day, Daily/Monthly, State, County, GridIndex, FIPS code, lat, lon
+            strOutput.append(year+","+month+","+formattedDay.at(2)+","+to_string(currHour)+","+"Daily"+","+station.state+","); 
+            strOutput.append(station.county+","+station.name+","+station.fipsCode+","+to_string(station.lat)+","+to_string(station.lon));
+            for(int k=0; k< numParams; k++){
+                // write out station.values[j][k]
+                // outputFile << station.values[j][k] << ",";
+                // append the value and the comma to the output string
+                strOutput.append(to_string(station.values[j][k])+",");
+            }
+            // strOutput.append("\n");
+            // append strOutput to the file and clear the string
+            string strCommand; int status;
+            strCommand = "cd " + yearDir + "; echo \"" + strOutput + "\" >> "+fileName;
+            status = system(strCommand.c_str());
+            if(status==-1) std::cerr << "\nWrite to file error in writeHourlyData: " << strerror(errno) << endl;
+            strOutput = "";
+            currHour++;
+        }
+        
+        
+        
     }
 
 }
