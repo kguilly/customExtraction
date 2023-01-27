@@ -1,8 +1,10 @@
+build/
 .idea/
 .vscode/
 a.out
 *.out
 *.o
+*scratch*
 
 #myFiles directory
 myFiles/a.out
