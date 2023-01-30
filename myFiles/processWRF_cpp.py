@@ -25,6 +25,9 @@ class formatWRF():
             print(file)
             df = self.removeUnkn(file=file)
             # print(df)
+            df = self.fixCountyNames(df=df)
+            # df = self.windSpeed_vpd(df=df)
+
             df = self.dailyAvgMinMax(df=df)
             # get the monthly average
             df = self.monthlyAvgs(df=df)
@@ -84,6 +87,71 @@ class formatWRF():
         
         # print(df)
         return df
+
+    def fixCountyNames(self, df:pd.DataFrame()):
+        # find the column for the county name
+        # for each element, capitalize, and then if they have the term 
+        # 'PARISH' or 'COUNTY' then remove it
+        idx=0
+        for row in df['County']:
+            row = row.upper()
+            if(row.rfind('COUNTY')!=-1):
+                rowarr = row.split("COUNTY")
+                row = ""
+                for elem in rowarr:
+                    row+=elem
+                # print(row)
+
+            if(row.rfind('PARISH')!=-1):
+                rowarr = row.split("PARISH")
+                row = ""
+                for elem in rowarr:
+                    row+=elem
+                # print(row)
+            df.at[idx,'County'] = row
+            idx+=1
+
+        # print(df['County'])
+
+
+    # def windSpeed_vpd(self, df:pd.DataFrame()):
+    #     # turn the columns for U comp and V comp of wind
+    #     # into numpy ndarrays, then feed into the get_wind_speed 
+    #     # functions. delete the U comp and V comp columns, make a new
+    #     # column "Wind Speed(m s**-1)" and put the return value as the 
+    #     # values of the column
+
+    #     # turn the columns for temperature and humidity into numpy
+    #     # ndarrays, then feed into get_vpd function, make a new
+    #     # column "Vapor Pressure Deficit (kPa)" and put the return 
+    #     # value as the values of the column
+
+    # def get_wind_speed(U: np.ndarray, V: np.ndarray) -> np.ndarray:
+    #     '''
+    #     Calculate the average wind speed
+    #     :param U: array_like, U component of wind in 1000 hPa (i.e., layer 32 in HRRR)
+    #     :param V: array_like, V component of wind in 1000 hPa (i.e., layer 32 in HRRR)
+    #     :return:
+    #     '''
+    #     return np.sqrt(np.power(U, 2) + np.power(V, 2))
+
+
+    # def get_VPD(T: np.ndarray, RH: np.ndarray) -> np.ndarray:
+    #     '''
+    #     Calculate the Vapor Pressure Deficit (VPD), unit: kPa
+    #     :param T: array_like, temperate (unit: K) at 2 metre (layer 54 in HRRR)
+    #     :param RH: array_like, relative humidity at 2 metre (i.e., layer 58 in HRRR)
+    #     :return:
+    #     '''
+
+    #     # covert the temperature in Kelvin to the temperature in Celsius
+    #     T = T - 273.15
+    #     E = 7.5 * T / (237.3 + T)
+    #     VP_sat = 610.7 * np.power(10, E) / 1000
+    #     VP_air = VP_sat * RH / 100
+    #     VPD = VP_sat - VP_air
+
+    #     return VPD
 
     def dailyAvgMinMax(self, df=pd.DataFrame()):
         # find the daily averages as well as the daily mins and maxes, return the df
@@ -155,36 +223,6 @@ class formatWRF():
                 dftoreturn.loc[len(dftoreturn)] = avgedRow
         # print(dftoreturn)
         return dftoreturn
-
-        #     for j in range(len(grouped_day.size())):
-        #         try:
-        #             station_dayDf = grouped_day.get_group(j)
-        #             # print(station_dayDf)
-        #         except:
-        #             print("Did not grab grouped_day.get_group(%s)"%(j))
-        #             continue
-        #         avgedRow = []
-
-        #         for col in station_dayDf:
-        #             if col.rfind('Hour') != -1:
-        #                 avgedRow.append('Daily')
-        #             elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('Day') != -1 or col.rfind('State') != -1 or col.rfind('County') != -1 or col.rfind('GridIndex') != -1 or col.rfind('FIPS Code') != -1 or col.rfind('Lat') != -1 or col.rfind('Lon(-180') != -1:
-        #                 avgedRow.append(station_dayDf[col].iloc[0])
-        #             else:
-        #                 # get the average of the row and append it to the avg list
-        #                 try:
-        #                     avgedRow.append(station_dayDf[col].mean())
-        #                 except:
-        #                     avgedRow.append('NaN')
-        #                 # if the column is temperature, find the min, max, then append
-        #                 if col.rfind("Temperature") != -1:
-        #                     avgedRow.append(station_dayDf[col].min())
-        #                     avgedRow.append(station_dayDf[col].max())
-                
-        #         # now that all the columns have been collected, we need to append the row to the dftoreturn
-        #         dftoreturn.loc[len(dftoreturn)] = avgedRow
-        # # print(dftoreturn)
-        # return dftoreturn
 
     def monthlyAvgs(self, df=pd.DataFrame()):
 
