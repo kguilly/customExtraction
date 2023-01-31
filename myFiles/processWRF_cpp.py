@@ -35,7 +35,7 @@ class formatWRF():
             df = self.moreRenaming(df=df)
             
             # get the upper right and lower left corners of the gridIdx
-            df = self.getGridCorners(df=df)
+            df = self.reorderCols(df=df)
 
             # write out to new csv
             self.dftocsv(df=df, fullfilepath=file)
@@ -84,7 +84,7 @@ class formatWRF():
         df = pd.read_csv(file, header=0)
         # print(df)
         try:
-            df.rename(columns={"2 metre temperature (K)":"Temperature(K)", "2 metre relative humidity (%)" : "Relative Humidity(%)"}, inplace=True)
+            df.rename(columns={"2 metre temperature (K)":"Temperature (K)", "2 metre relative humidity (%)" : "Relative Humidity (%)"}, inplace=True)
             df.rename(columns={"Wind speed (gust) (m s**-1)":"Wind Gust (m s**-1)"}, inplace=True)
             df.drop(columns='Unnamed: 0', inplace=True)
         except:
@@ -147,7 +147,7 @@ class formatWRF():
         relh = df['Relative Humidity(%)'].to_numpy()
 
         wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
-        df['Wind Speed(m s**-1)'] = wind_speed
+        df['Wind Speed (m s**-1)'] = wind_speed
         
         vpd = self.get_VPD(temp, relh)
         df['Vapor Pressure Deficit (kPa)'] = vpd
@@ -270,7 +270,7 @@ class formatWRF():
                 monthlyavgs.append(df[col].iloc[0])
             elif (col.rfind('lat') != -1 or col.rfind('lon') !=-1) and col.rfind('elative')==-1:
                 monthlyavgs.append('N/A')
-            elif col.rfind('Grid Index') != -1:
+            elif col.rfind('Grid Index') != -1 or col.rfind('Day')!=-1:
                 monthlyavgs.append('N/A')
             else:
                 # find the average of the column and append to the monthlyavg arr
@@ -285,11 +285,12 @@ class formatWRF():
         return df
 
     def moreRenaming(self, df=pd.DataFrame()):
-        df['Day'].astype(int)
-        df['Month'].astype(int)
-        
+        df['Day'] = df['Day'].astype(int)
+        df['Month'] = df['Month'].astype(int)
+        df.rename(columnns={"lat(llcrnr)": "Lat(llcrnr)", "lon(llcrnr)":"Lon(llcrnr)"}, inplace=True)
+        df.rename(columns={"lat(urcrnr)":"Lat(urcrnr)", "lon(urcrnr)":"Lon(urcrnr)"}, inplace=True)
         df.rename(columns={"Total Precipitation (kg m**-2)":"Precipitation (kg m**-2)"}, inplace=True)
-        df.rename(columns={"Downward short-wave radiation flux (W m**-2)": "Downward Short-Wave Radiation (W m**-2)"}, inplace=True)
+        df.rename(columns={"Downward short-wave radiation flux (W m**-2)": "Downward Short-Wave Radiation Flux (W m**-2)"}, inplace=True)
 
         for col in df:
             if col.rfind('elative Humidi') != -1:
@@ -301,7 +302,7 @@ class formatWRF():
                 continue
         return df
 
-    def getGridCorners(self, df=pd.DataFrame()):
+    def reorderCols(self, df=pd.DataFrame()):
         return df
 
     def dftocsv(self, df=pd.DataFrame(), fullfilepath=''):
