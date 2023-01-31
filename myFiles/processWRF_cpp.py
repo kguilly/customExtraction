@@ -194,7 +194,7 @@ class formatWRF():
                 # need to insert new columns at index of temperature 
                 index = dftoreturn.columns.get_loc(col)
                 dftoreturn.insert(index+1, "Max Temperature (K)", value=None,allow_duplicates=True)
-                dftoreturn.insert(index+1, "Min Temperatrue (K)", value=None,allow_duplicates=True)
+                dftoreturn.insert(index+1, "Min Temperature (K)", value=None,allow_duplicates=True)
         # print(list(dftoreturn.columns))
 
        
