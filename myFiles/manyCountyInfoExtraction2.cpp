@@ -47,7 +47,7 @@ vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days.
                                      // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2021, 4, 29};   // NOT INCLUSIVEe
 
-vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
+vector<int> arrHourRange = {0,0}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
                                    // accepts hours from 0 to 23 (IS INCLUSIVE)
 
@@ -720,9 +720,9 @@ void semaphoreInit(){
 
 void convertLatLons(){
     for(int i=0; i<numStations;i++){
-        Station station = stationArr[i];
-        station.lonll = (station.lonll +360); // circle, going clockwise vs counterclockwise
-        station.lonur = (station.lonur+360);
+        Station *station = &stationArr[i];
+        station->lonll = (station->lonll +360); // circle, going clockwise vs counterclockwise
+        station->lonur = (station->lonur+360);
     }
 }
 
@@ -969,9 +969,9 @@ void *readData(void *args){
             }
             // if it is the first time, extract the index
             if (flag == true){
-                
+                Station *station;
                 for(int i =0; i<numStations; i++){
-                    Station *station = &stationArr[i];
+                    station = &stationArr[i];
                     float avglat = (station->latll + station->latur) / 2;
                     float avglon = (station->lonll + station->lonur) / 2;
                     int closestPoint = 0;
