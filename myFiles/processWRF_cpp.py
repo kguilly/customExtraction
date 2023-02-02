@@ -22,18 +22,23 @@ class formatWRF():
             if(file.find("daily_monthly")!=-1 or file.find(".~lock.")!=-1):
                 print("Skipping file: %s" % (file))
                 continue
-            print(file)
+            print("Opening File: %s" % file)
             df = self.removeUnkn(file=file)
             # print(df)
             df = self.fixCountyNames(df=df)
-            df = self.windSpeed_vpd(df=df)
 
             df = self.dailyAvgMinMax(df=df)
+
+            # based off of the daily averages, calculate the VPD
+            df = self.windSpeed_vpd(df=df)
+
+            # before getting the monthly average, need to convert the lons back
+            df = self.convert_lons(df=df)
+
             # get the monthly average
             df = self.monthlyAvgs(df=df)
 
             df = self.more_renaming(df=df)
-
             # write out to new csv
             self.dftocsv(df=df, fullfilepath=file)
 
@@ -143,11 +148,12 @@ class formatWRF():
         column "Vapor Pressure Deficit (kPa)" and put the return 
         value as the values of the column
         """
-        u_comp_wind = df['U component of wind (m s**-1)'].to_numpy()
-        v_comp_wind = df['V component of wind (m s**-1)'].to_numpy()
+        u_comp_wind = df['U component of wind (m s**-1)'].to_numpy().astype(dtype=float)
+        v_comp_wind = df['V component of wind (m s**-1)'].to_numpy().astype(dtype=float)
         df.drop(columns=['U component of wind (m s**-1)', 'V component of wind (m s**-1)'], inplace=True)
-        temp = df['Temperature(K)'].to_numpy()
-        relh = df['Relative Humidity (%)'].to_numpy()
+
+        temp = np.asarray(df['Temperature(K)'].values)
+        relh = np.asarray(df['Relative Humidity (%)'].values)
 
         wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
         df['Wind Speed (m s**-1)'] = wind_speed
@@ -309,12 +315,25 @@ class formatWRF():
         # Changing the order of the column to fit fudong's needed format:
         df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'Grid Index', 'FIPS Code',
                  'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
-                 'Temperature (K)', 'Min Temperature (K)', 'Max Temperature (K)', 'Relative Humidity (%)',
-                 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
-                 'Precipitation (kg m**-2)', 'Downward Shortwave Radiation Flux (W m**-2)',
+                 'Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
+                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
+                  'Downward Shortwave Radiation Flux (W m**-2)',
                  'Vapor Pressure Deficit (kPa)']]
         return df
 
+    def convert_lons(self, df=pd.DataFrame()):
+        for col in df:
+            if col.rfind('lon(') != -1:
+                # if the column has the name 'lon' in it, then we want to convert the value from the range
+                # of 0 to 360 to -180 to 180
+                df[col] = df[col].astype(float)
+                vals = df[col].values
+                newvals = []
+                for val in vals:
+                    newvals.append(val-360)
+
+                df[col].replace(to_replace=df[col].values, value=newvals, inplace=True)
+        return df
     def dftocsv(self, df=pd.DataFrame(), fullfilepath=''):
         filepathsep = fullfilepath.split('/')
         newfilepath = ''
