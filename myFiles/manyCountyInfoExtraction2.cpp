@@ -42,7 +42,7 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 4, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
+vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
 vector<int> endDay = {2021, 5, 1};   // NOT INCLUSIVEe
@@ -57,7 +57,7 @@ string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. Fil
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/WRFextract_2-1/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFextract_testingPrecip/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -452,6 +452,7 @@ void handleInput(int argc, char* argv[]){
     getStateAbbreviations();
         
 }
+
 void defaultParams(bool param_flag){
     string paramline;
     ifstream paramFile;
@@ -490,6 +491,7 @@ void defaultParams(bool param_flag){
         }    
     }
 }
+
 void getStateAbbreviations(){
     // read the us-state-ansi-fips.csv file into a map, 
     // KEY: fips, VALUE: abbrev
@@ -863,7 +865,7 @@ void *readData(void *args){
         thread_header_flag = true; // this is the chosen thread to get the keys (header) 
                                    // from the grib file
         vctrHeader.clear();
-        vctrHeader.push_back("Year");vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
+        vctrHeader.push_back("Year"); vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
         vctrHeader.push_back("State");vctrHeader.push_back("County");
         vctrHeader.push_back("Grid Index"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat(llcrnr)");
         vctrHeader.push_back("lon(llcrnr)"); vctrHeader.push_back("lat(urcrnr)");vctrHeader.push_back("lon(urcrnr)");
@@ -911,8 +913,6 @@ void *readData(void *args){
         assert(h);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
-
-        
             // extract the data
             CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
@@ -968,7 +968,7 @@ void *readData(void *args){
                 vctrHeader.push_back(strHeader);
             }
             // if it is the first time, extract the index
-            if (flag == true){
+            if (flag){
                 Station *station;
                 for(int i =0; i<numStations; i++){
                     station = &stationArr[i];

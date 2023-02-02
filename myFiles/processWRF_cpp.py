@@ -330,10 +330,11 @@ class formatWRF():
                 vals = df[col].values
                 newvals = []
                 for val in vals:
-                    newvals.append(val-360)
+                    newvals.append(round(val-360, 6))
 
                 df[col].replace(to_replace=df[col].values, value=newvals, inplace=True)
         return df
+
     def dftocsv(self, df=pd.DataFrame(), fullfilepath=''):
         filepathsep = fullfilepath.split('/')
         newfilepath = ''
