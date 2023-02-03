@@ -255,8 +255,8 @@ class spider():
 if __name__ == "__main__":
     # add arguments 
     parser = argparse.ArgumentParser(description='enter a date range')
-    parser.add_argument('--begin_date', default=None, type=str, help='the beginning date')
-    parser.add_argument('--end_date', default=None, type=str, help='the end date')
+    parser.add_argument('--begin_date', default="20150101", type=str, help='the beginning date')
+    parser.add_argument('--end_date', default="20150102", type=str, help='the end date')
     args = parser.parse_args()
     bd = args.begin_date
     ed=args.end_date

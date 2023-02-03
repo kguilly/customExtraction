@@ -53,11 +53,11 @@ vector<int> arrHourRange = {0,23}; // array for the range of hours one would lik
 
 int intHourRange; 
 
-string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/mnt/wrf/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/WRFextract_testingPrecip/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFextract_2-2/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -257,13 +257,13 @@ int main(int argc, char*argv[]){
     string strcmd; int status;
     strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
     strcmd += repositoryPath+" --wrf_path " + writePath;
-    status = system(strcmd.c_str());
-    if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
+    // status = system(strcmd.c_str());
+    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
 
     strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
     strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
-    status = system(strcmd.c_str());
-    if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
+    // status = system(strcmd.c_str());
+    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
 
 
     garbageCollection();
