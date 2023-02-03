@@ -128,7 +128,7 @@ def county(fips=None, write_path=""):
 if __name__ == '__main__':
     # demo()
     parser = argparse.ArgumentParser(description='enter the fips code')
-    parser.add_argument("--fips", default='22055', nargs="+", help='The 5 digit fips code')
+    parser.add_argument("--fips", default='22121', nargs="+", help='The 5 digit fips code')
     parser.add_argument("--write_path", default='/home/kaleb/Documents/GitHub/customExtraction/myFiles/countyInfo/', help="path to write to")
     args = parser.parse_args()
     fips=args.fips

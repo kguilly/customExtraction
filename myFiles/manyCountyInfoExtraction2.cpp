@@ -42,10 +42,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 4, 29};   // NOT INCLUSIVEe
+vector<int> endDay = {2021, 5, 1};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -53,11 +53,11 @@ vector<int> arrHourRange = {0,23}; // array for the range of hours one would lik
 
 int intHourRange; 
 
-string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/mnt/wrf/";  // path to "data" folder. File expects structure to be: 
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/cppWRFExtract_1-30/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFextract_2-2/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -257,13 +257,13 @@ int main(int argc, char*argv[]){
     string strcmd; int status;
     strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
     strcmd += repositoryPath+" --wrf_path " + writePath;
-    status = system(strcmd.c_str());
-    if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
+    // status = system(strcmd.c_str());
+    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
 
     strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
     strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
-    status = system(strcmd.c_str());
-    if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
+    // status = system(strcmd.c_str());
+    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
 
 
     garbageCollection();
@@ -452,6 +452,7 @@ void handleInput(int argc, char* argv[]){
     getStateAbbreviations();
         
 }
+
 void defaultParams(bool param_flag){
     string paramline;
     ifstream paramFile;
@@ -490,6 +491,7 @@ void defaultParams(bool param_flag){
         }    
     }
 }
+
 void getStateAbbreviations(){
     // read the us-state-ansi-fips.csv file into a map, 
     // KEY: fips, VALUE: abbrev
@@ -720,9 +722,9 @@ void semaphoreInit(){
 
 void convertLatLons(){
     for(int i=0; i<numStations;i++){
-        Station station = stationArr[i];
-        station.lonll = (station.lonll +360); // circle, going clockwise vs counterclockwise
-        station.lonur = (station.lonur+360);
+        Station *station = &stationArr[i];
+        station->lonll = (station->lonll +360); // circle, going clockwise vs counterclockwise
+        station->lonur = (station->lonur+360);
     }
 }
 
@@ -863,7 +865,7 @@ void *readData(void *args){
         thread_header_flag = true; // this is the chosen thread to get the keys (header) 
                                    // from the grib file
         vctrHeader.clear();
-        vctrHeader.push_back("Year");vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
+        vctrHeader.push_back("Year"); vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
         vctrHeader.push_back("State");vctrHeader.push_back("County");
         vctrHeader.push_back("Grid Index"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat(llcrnr)");
         vctrHeader.push_back("lon(llcrnr)"); vctrHeader.push_back("lat(urcrnr)");vctrHeader.push_back("lon(urcrnr)");
@@ -911,8 +913,6 @@ void *readData(void *args){
         assert(h);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
-
-        
             // extract the data
             CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
@@ -968,10 +968,10 @@ void *readData(void *args){
                 vctrHeader.push_back(strHeader);
             }
             // if it is the first time, extract the index
-            if (flag == true){
-                
+            if (flag){
+                Station *station;
                 for(int i =0; i<numStations; i++){
-                    Station *station = &stationArr[i];
+                    station = &stationArr[i];
                     float avglat = (station->latll + station->latur) / 2;
                     float avglon = (station->lonll + station->lonur) / 2;
                     int closestPoint = 0;
