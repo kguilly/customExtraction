@@ -19,9 +19,20 @@ H = Herbie(
     fxx=pred_hours,
     save_dir=save_dir,
     verbose=True,
-    overwrite=True
+    overwrite=False
 )
-H.download(":APCP:")
+dt2 = date + " 11:00"
+H2 = Herbie(
+    dt2,
+    model="hrrr",
+    product="nat",
+    save_dir=save_dir,
+    fxx=pred_hours,
+    verbose=True,
+    overwrite=False
+)
+# H2.download(":APCP:")
+exit()
 
 grib_path = save_dir + "hrrr/" + date + \
             '/subset_d7b2ef06__hrrr.t00z.wrfnatf06.grib2'

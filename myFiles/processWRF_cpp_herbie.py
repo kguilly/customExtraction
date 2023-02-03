@@ -121,7 +121,9 @@ class formatWRF():
         return df
 
     def grab_precip(self, df: pd.DataFrame()) -> pd.DataFrame():
-
+        # there's a way to do this in memory, however, the documentation
+        # on doing so is very subpar, so I will skip that for now, take
+        # the route which I know and download, then use pygrib to extract
         return df
 
     def fixCountyNames(self, df: pd.DataFrame()):
