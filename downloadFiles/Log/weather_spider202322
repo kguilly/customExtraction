@@ -1,0 +1,8 @@
+2023-02-02 11:18:03,505 - weather_spider_ - INFO - data check
+2023-02-02 11:18:03,505 - weather_spider_ - INFO - worker: 0
+2023-02-02 11:18:03,505 - weather_spider_ - INFO - worker: 1
+2023-02-02 11:18:03,505 - weather_spider_ - INFO - worker: 2
+2023-02-02 11:18:03,573 - weather_spider_ - INFO - start downloading: data/2015/20150101/hrrr.20150101.00.00.grib2
+2023-02-02 11:18:03,711 - weather_spider_ - INFO - start downloading: data/2015/20150101/hrrr.20150101.01.00.grib2
+2023-02-02 11:18:03,838 - weather_spider_ - INFO - start downloading: data/2015/20150101/hrrr.20150101.02.00.grib2
+2023-02-02 11:18:05,200 - weather_spider_ - INFO - sleep one minute

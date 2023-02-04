@@ -42,10 +42,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
+vector<int> beginDay = {2023, 1, 31}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 5, 1};   // NOT INCLUSIVEe
+vector<int> endDay = {2023, 2, 3};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -53,11 +53,11 @@ vector<int> arrHourRange = {0,23}; // array for the range of hours one would lik
 
 int intHourRange; 
 
-string filePath = "/mnt/wrf/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be:
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/WRFextract_2-2/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFextract_2-3/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    

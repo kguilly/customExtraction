@@ -45,8 +45,8 @@ class extraction():
         self.parameter_levels = []
         self.parameter_typeofLevels = []
         
-        self.start_date = date(2021, 4, 28)
-        self.end_date = date(2021,5,2)
+        self.start_date = date(2023, 1, 31)
+        self.end_date = date(2023,2,2)
 
     def daterange(self, start_date, end_date):
         for n in range(int((end_date- start_date).days)):
@@ -160,10 +160,10 @@ class extraction():
                 self.parameter_typeofLevels.append(tmpmsgs.typeOfLevel)
 
             data = tmpmsgs.values
-            for val in data:
-                for sub_val in val:
-                    if sub_val > 0:
-                        print("Layer: %s, Param: %s, Value: %s" % (p, tmpmsgs.name, sub_val))
+            # for val in data:
+            #     for sub_val in val:
+            #         if sub_val > 0:
+            #             # print("Layer: %s, Param: %s, Value: %s" % (p, tmpmsgs.name, sub_val))
                         
             for(l_lt, l_ln), l_info in zip(self.st_latlons, self.st_names): ### should fix
                 if flag == 1:

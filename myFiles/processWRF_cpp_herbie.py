@@ -6,10 +6,13 @@ from datetime import date, timedelta
 from pathlib import Path
 import sys
 
+import pygrib
+from herbie import Herbie
+
 
 class formatWRF():
     def __init__(self):
-        self.wrf_data_path = "/home/kaleb/Desktop/cppWRFExtract_1-30/Hourly/"
+        self.wrf_data_path = "/home/kaleb/Desktop/WRFextract_2-3/Hourly/"
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
 
     def main(self):
@@ -121,9 +124,116 @@ class formatWRF():
         return df
 
     def grab_precip(self, df: pd.DataFrame()) -> pd.DataFrame():
-        # there's a way to do this in memory, however, the documentation
-        # on doing so is very subpar, so I will skip that for now, take
-        # the route which I know and download, then use pygrib to extract
+        """
+        :param df: - input df of extracted hourly WRF data
+        :return: df - with the appended "total precipitation" column
+
+        Pseudo Code:
+        for each day:
+            store day
+            for each hour:
+                store hour
+                search file path:
+                if path DNE:
+                    make herbie obj and download file
+                open file as grib obj
+                match latlons to closest point of df's latlons
+                append value to precip_df
+        merge precip_df with df
+        return df
+        """
+        herb_dir = self.wrf_data_path + "herbie_data/"
+        precip_values = []
+        first_itr_flag = True
+        for i in range(len(df)):
+            year = df['Year'].iloc[i]
+            month = df['Month'].iloc[i]
+            day = df['Day'].iloc[i]
+            hour = df['Hour'].iloc[i]
+            p_lt_dict = {}
+            p_ln_dict = {}
+
+            if first_itr_flag:
+                first_itr_flag = False
+                if int(hour) == 0:
+                    precip_values.append(0)
+                    continue
+            prev_hour = 0
+            if hour < 10:
+                if hour == 0:
+                    prev_hour = df['Hour'].iloc[len(df)-1]
+                else:
+                    prev_hour = '0' + str(int(hour) - 1)
+            else:
+                prev_hour = str(int(hour-1))
+
+            # calculate the middle lat and lon of the current grid point
+            lat_st_mid = (df['lat(llcrnr)'].iloc[i] + df['lat(urcrnr)'].iloc[i]) / 2
+            lon_st_mid = (df['lon(llcrnr)'].iloc[i] + df['lon(urcrnr)'].iloc[i]) / 2
+
+            if month < 10:
+                month = '0' + str(month)
+            else:
+                month = str(month)
+            herb_dir_1 = herb_dir + "hrrr/" + str(year) + str(month) + str(day) + '/'
+            herb_flag = False
+
+            # if the directory dne or if the hour's file dne, then call pygrib
+            if not Path(herb_dir_1).exists():
+                herb_flag = True
+            else:
+                found_flag = False
+                for file in sorted(os.listdir(herb_dir_1)):
+                    if file.rfind('hrrr.t' + str(prev_hour) + 'z.') != -1:
+                        found_flag = True
+
+                if not found_flag:
+                    herb_flag = True
+
+            if herb_flag:
+                # grab the previous hour's prediction and
+                str_date = str(year) + str(month) + str(day) + " " + str(prev_hour) + ":00"
+                H = Herbie(
+                    str_date,
+                    model="hrrr",
+                    product="nat",
+                    fxx=1, # only predict one hour in advance
+                    save_dir=herb_dir,
+                    verbose=True,
+                    overwrite=True
+                )
+                H.download(":APCP")
+
+            # now that the file is downloaded, need to search the dir to find it, then
+            # open it as pygrib obj, and get the appropriate value
+            for file in sorted(os.listdir(herb_dir_1)):
+                if file.rfind('hrrr.t' + str(prev_hour) + 'z.') != -1:
+                    # call pygrib to open the file and match to the nearest point in the avglats and lons
+                    grib = pygrib.open(herb_dir_1+file)
+                    try:
+                        grib_msgs = grib[1]
+                    except OSError:
+                        print("Error when opening the herbie HRRR file")
+                        exit()
+
+                    data = grib_msgs.values
+                    lt, ln = grib_msgs.latlons()
+                    st_lt_m = np.full_like(lt, lat_st_mid)
+                    st_ln_m = np.full_like(ln, lon_st_mid)
+                    dis_mat = (lt - st_lt_m)**2 + (ln - st_ln_m)**2
+                    p_lt, p_ln = np.unravel_index(dis_mat.argmin(), dis_mat.shape) # the coordinates of the
+                                                                                   # closest points
+                    index = str(df['Day'].iloc[i])
+                    p_lt_dict[index] = []
+                    p_ln_dict[index] = []
+                    p_lt_dict[index].append(p_lt)
+                    p_ln_dict[index].append(p_ln)
+                    value = data[p_lt_dict[index], p_ln_dict[index]]
+                    precip_values.append(value)
+
+        df['Total Precipitation (kg m**-2)'] = precip_values
+
+
         return df
 
     def fixCountyNames(self, df: pd.DataFrame()):
@@ -226,19 +336,12 @@ class formatWRF():
         # look for a more efficient way to do this
         ##########################################
         grouped_gridindex = df.groupby(df['Grid Index'])
-        # for each station
-        # for i in range(len(grouped_gridindex.size())):
         # for each station df
         for gridgroupdf in grouped_gridindex:
             # print(gridgroupdf[1])
             gridindexDf = pd.DataFrame(gridgroupdf[1])
             # print(gridindexDf)
             grouped_day = gridindexDf.groupby(gridindexDf.Day)
-            # print(type(grouped_day))
-            # print(grouped_day)
-
-            # grouped_day = pd.DataFrame(grouped_day[1])
-            # print(grouped_day)
 
             # for each day in each station
             for group in grouped_day:
