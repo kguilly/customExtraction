@@ -438,7 +438,7 @@ class formatWRF():
         # Changing the order of the column to fit fudong's needed format:
         df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'Grid Index', 'FIPS Code',
                  'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
-                 'Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
+                 'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
                  'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
                  'Downward Shortwave Radiation Flux (W m**-2)',
                  'Vapor Pressure Deficit (kPa)']]
