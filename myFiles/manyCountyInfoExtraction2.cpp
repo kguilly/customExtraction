@@ -856,22 +856,7 @@ void *readData(void *args){
     vector<string> strCurrentDay = (*threadArg).strCurrentDay;
     bool *ptrHeader_flag = (*threadArg).header_flag;
     bool thread_header_flag = (*threadArg).thread_header_flag;
-    
 
-    // check to see if the header needs to be formulated
-    sem_wait(&headerProtection);
-    if(*ptrHeader_flag == true){
-        *ptrHeader_flag = false;
-        thread_header_flag = true; // this is the chosen thread to get the keys (header) 
-                                   // from the grib file
-        vctrHeader.clear();
-        vctrHeader.push_back("Year"); vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
-        vctrHeader.push_back("State");vctrHeader.push_back("County");
-        vctrHeader.push_back("Grid Index"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat(llcrnr)");
-        vctrHeader.push_back("lon(llcrnr)"); vctrHeader.push_back("lat(urcrnr)");vctrHeader.push_back("lon(urcrnr)");
-    }
-    sem_post(&headerProtection);
-    
 
     printf("\nOpening File: %s", filePath2.c_str());
 
@@ -882,8 +867,24 @@ void *readData(void *args){
     }
     catch(string file){
         printf("\nError: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
-        exit(0);
+        pthread_exit(0);
+        return(void*) nullptr;
     }
+    // check to see if the header needs to be formulated
+    sem_wait(&headerProtection);
+    if(*ptrHeader_flag == true){
+        *ptrHeader_flag = false;
+        thread_header_flag = true; // this is the chosen thread to get the keys (header)
+        // from the grib file
+        vctrHeader.clear();
+        vctrHeader.push_back("Year"); vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
+        vctrHeader.push_back("State");vctrHeader.push_back("County");
+        vctrHeader.push_back("Grid Index"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat(llcrnr)");
+        vctrHeader.push_back("lon(llcrnr)"); vctrHeader.push_back("lat(urcrnr)");vctrHeader.push_back("lon(urcrnr)");
+    }
+    sem_post(&headerProtection);
+
+
     // unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
     //                                           CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
     codes_grib_multi_support_on(NULL);
