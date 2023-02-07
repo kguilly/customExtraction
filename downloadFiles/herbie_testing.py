@@ -14,7 +14,7 @@ pred_hours = 5
 
 dt2 = date + " 00:00"
 H2 = Herbie(
-    dt2,
+    dt,
     model="hrrr",
     product="nat",
     save_dir=save_dir,
@@ -22,12 +22,8 @@ H2 = Herbie(
     verbose=True,
     overwrite=False
 )
-H2.tell_me_everything()
-# H2.download(":APCP:surface:")
-balls = H2.xarray(":APCP:")
-points = balls.herbie.nearest_points(points=[(-91.0198, 30.2241)])
-print(points.tp)
-exit()
+
+H2.download(":APCP:")
 
 grib_path = '/home/kaleb/data/hrrr/20230201/subset_d7b5ef06__hrrr.t00z.wrfnatf23.grib2'
 grib = pygrib.open(grib_path)

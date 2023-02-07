@@ -50,9 +50,13 @@ class formatWRF():
             # write out to new csv
             self.dftocsv(df=df, fullfilepath=file)
 
-            # from the grab_precip file, we had to download some files,
-            # since we no longer need them, we can go ahead and delete them
-            self.cleanup()
+        # from the grab_precip file, we had to download some files,
+        # since we no longer need them, we can go ahead and delete them
+        self.cleanup() # have not implemented yet
+
+        self.concat_states()
+
+
 
     def readargs(self):
         if (len(sys.argv) > 1):
@@ -150,8 +154,6 @@ class formatWRF():
             month = df['Month'].iloc[i]
             day = df['Day'].iloc[i]
             hour = df['Hour'].iloc[i]
-            p_lt_dict = {}
-            p_ln_dict = {}
 
             if first_itr_flag:
                 first_itr_flag = False
@@ -159,7 +161,7 @@ class formatWRF():
                     precip_values.append(0)
                     continue
             prev_hour = 0
-            if hour < 10:
+            if hour <= 10:
                 if hour == 0:
                     prev_hour = df['Hour'].iloc[len(df)-1]
                 else:
@@ -171,65 +173,62 @@ class formatWRF():
             lat_st_mid = (df['lat(llcrnr)'].iloc[i] + df['lat(urcrnr)'].iloc[i]) / 2
             lon_st_mid = (df['lon(llcrnr)'].iloc[i] + df['lon(urcrnr)'].iloc[i]) / 2
 
+            # convert the lons from (0, 360) to (-180, 180)
+            lon_st_mid -= 360
+
             if month < 10:
                 month = '0' + str(month)
             else:
                 month = str(month)
-            herb_dir_1 = herb_dir + "hrrr/" + str(year) + str(month) + str(day) + '/'
-            herb_flag = False
+            if day < 10:
+                day = '0' + str(day)
+            else:
+                day = str(day)
 
-            # if the directory dne or if the hour's file dne, then call pygrib
-            if not Path(herb_dir_1).exists():
+            # try to find the herbie file, if it has not been created yet, set
+            # the herb flag and download it
+            herb_flag = False
+            herb_dir_1 = herb_dir + "hrrr/" + str(year) + str(month) + str(day) + '/'
+
+            if not os.path.exists(herb_dir_1):
                 herb_flag = True
             else:
-                found_flag = False
+                file_found = False
                 for file in sorted(os.listdir(herb_dir_1)):
-                    if file.rfind('hrrr.t' + str(prev_hour) + 'z.') != -1:
-                        found_flag = True
-
-                if not found_flag:
+                    if file.rfind('hrrr.t'+str(prev_hour)+'z.') != -1:
+                        file_found = True
+                if not file_found:
                     herb_flag = True
 
             if herb_flag:
-                # grab the previous hour's prediction and
                 str_date = str(year) + str(month) + str(day) + " " + str(prev_hour) + ":00"
-                H = Herbie(
-                    str_date,
-                    model="hrrr",
-                    product="nat",
-                    fxx=1, # only predict one hour in advance
-                    save_dir=herb_dir,
-                    verbose=True,
-                    overwrite=True
-                )
-                H.download(":APCP")
+                herb_obj = Herbie(str_date, model='hrrr',
+                              product='nat',save_dir=herb_dir,
+                              fxx=1, verbose=True,
+                              overwrite=False).download(":APCP:surface:")
 
-            # now that the file is downloaded, need to search the dir to find it, then
-            # open it as pygrib obj, and get the appropriate value
+            # open the file with pygrib and index the closest point to the st
+            grib_file_name = ""
             for file in sorted(os.listdir(herb_dir_1)):
-                if file.rfind('hrrr.t' + str(prev_hour) + 'z.') != -1:
-                    # call pygrib to open the file and match to the nearest point in the avglats and lons
-                    grib = pygrib.open(herb_dir_1+file)
-                    try:
-                        grib_msgs = grib[1]
-                    except OSError:
-                        print("Error when opening the herbie HRRR file")
-                        exit()
-
-                    data = grib_msgs.values
-                    lt, ln = grib_msgs.latlons()
-                    st_lt_m = np.full_like(lt, lat_st_mid)
-                    st_ln_m = np.full_like(ln, lon_st_mid)
-                    dis_mat = (lt - st_lt_m)**2 + (ln - st_ln_m)**2
-                    p_lt, p_ln = np.unravel_index(dis_mat.argmin(), dis_mat.shape) # the coordinates of the
-                                                                                   # closest points
-                    index = str(df['Day'].iloc[i])
-                    p_lt_dict[index] = []
-                    p_ln_dict[index] = []
-                    p_lt_dict[index].append(p_lt)
-                    p_ln_dict[index].append(p_ln)
-                    value = data[p_lt_dict[index], p_ln_dict[index]]
-                    precip_values.append(value)
+                if file.rfind('hrrr.t'+str(prev_hour)+'z.') != -1:
+                    grib_file_name = file
+                    break
+            try:
+                grib = pygrib.open(herb_dir_1 + grib_file_name)
+                # print("Opening file: %s" % herb_dir_1 + grib_file_name)
+            except:
+                print("Error when opening grib file: %s" % herb_dir_1 + grib_file_name)
+                exit()
+            g = grib[1]
+            grib.close()
+            lats, lons = g.latlons()
+            values = g.values
+            lat_matrix = np.full_like(lats, lat_st_mid)
+            lon_matrix = np.full_like(lons, lon_st_mid)
+            distance_matrix = (lats - lat_matrix) ** 2 + (lons - lon_matrix) ** 2
+            p_lat, p_lon = np.unravel_index(distance_matrix.argmin(), distance_matrix.shape)
+            val = values[p_lat, p_lon]
+            precip_values.append(val)
 
         df['Total Precipitation (kg m**-2)'] = precip_values
 
@@ -363,6 +362,8 @@ class formatWRF():
                         avgedRow.append(station_dayDf[col].iloc[0])
                         # avgedRow.concat()
                         # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
+                    elif col.rfind('Precipitation') != -1:
+                        avgedRow.append(station_dayDf[col].sum())
                     else:
                         # get the average of the row and append it to the avg list
                         try:
@@ -409,7 +410,9 @@ class formatWRF():
                 except:
                     monthlyavgs.append('NaN')
 
-        df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]), ignore_index=True)
+        # df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]), ignore_index=True)
+        # df = pd.concat([df, pd.Series(monthlyavgs)], ignore_index=True, axis=0, join='outer')
+        df.loc[len(df.index)] = monthlyavgs
         # print(df)
         return df
 
@@ -472,6 +475,40 @@ class formatWRF():
 
     def cleanup(self):
         ...
+
+    def concat_states(self):
+        """
+            Concat all fips files from the same state into one single monthly file
+            pseudo code:
+                df_states = pd.df
+                for fips folder in daily/monthly dir:
+                    fips_dir = ...
+                    for monthly file in fips_dir:
+                        df_states[<statefips>_yyyy_mm].append(fullfiledir)
+                for col in df_states:
+                    df_out = pd.df
+                    for len(col):
+                        df_out = pd.merge(df_out, col.df)
+                    df_out.to_csv()
+        """
+        filepathsep = self.wrf_data_path.split('/')
+        hourly_file_path = ''
+        for i in range(len(filepathsep) - 1):
+            if filepathsep[i].rfind("Hourly") != -1:
+                break
+            hourly_file_path += filepathsep[i] + '/'
+        hourly_file_path += "Daily_Monthly/"
+
+        df_states = pd.DataFrame()
+        for fips_folder in sorted(os.listdir(hourly_file_path)):
+            fips_dir = hourly_file_path + fips_folder + '/'
+            for monthly_file in sorted(os.listdir(fips_dir)):
+                state_fips = monthly_file[5:7]
+                state_abbrev = monthly_file[11:13]
+                year = monthly_file[14:18]
+                month = monthly_file[18:20]
+                col_name = state_fips + '_' + year + '_' + month
+                df_states[col_name]
 
 f = formatWRF()
 f.main()
