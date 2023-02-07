@@ -420,7 +420,7 @@ class formatWRF():
         df['Month'] = df['Month'].astype(int)
 
         df.rename(columns={"Total Precipitation (kg m**-2)": "Precipitation (kg m**-2)"}, inplace=True)
-        df.rename(columns={"Temperature(K)": "Temperature (K)"}, inplace=True)
+        df.rename(columns={"Temperature(K)": "Avg Temperature (K)"}, inplace=True)
         df.rename(columns={"Downward short-wave radiation flux (W m**-2)":
                                "Downward Shortwave Radiation Flux (W m**-2)"}, inplace=True)
         df.rename(columns={"lat(llcrnr)": "Lat (llcrnr)", "lon(llcrnr)": "Lon (llcrnr)"}, inplace=True)
@@ -538,6 +538,7 @@ class formatWRF():
             file_path_out += 'data/' + year + '/' + state_abbrev + '/' + 'HRRR_' + state_fips + '_' + \
                              state_abbrev + '_' + year + '-' + month + '.csv'
             df_out.to_csv(file_path_out)
+
 
 f = formatWRF()
 f.main()
