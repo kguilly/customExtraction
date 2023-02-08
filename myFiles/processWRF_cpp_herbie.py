@@ -12,7 +12,7 @@ from herbie import Herbie
 
 class formatWRF():
     def __init__(self):
-        self.wrf_data_path = "/home/kaleb/Desktop/WRFextract_2-3/Hourly/"
+        self.wrf_data_path = "/home/kaleb/Desktop/testing_2-8/Hourly/"
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
 
     def main(self):
@@ -24,7 +24,7 @@ class formatWRF():
         for file in csvFiles:
             # if the file is open elsewhere, or if the file is already a processed file, skip
             if (file.find("daily_monthly") != -1 or file.find(".~lock.") != -1):
-                print("Skipping file: %s" % (file))
+                print("Skipping file: %s" % file)
                 continue
             print("Opening File: %s" % file)
             df = self.removeUnkn(file=file)
@@ -202,10 +202,15 @@ class formatWRF():
 
             if herb_flag:
                 str_date = str(year) + str(month) + str(day) + " " + str(prev_hour) + ":00"
-                herb_obj = Herbie(str_date, model='hrrr',
-                              product='nat',save_dir=herb_dir,
-                              fxx=1, verbose=True,
-                              overwrite=False).download(":APCP:surface:")
+                try:
+                    herb_obj = Herbie(str_date, model='hrrr',
+                                  product='nat',save_dir=herb_dir,
+                                  fxx=1, verbose=True,
+                                  overwrite=False).download(":APCP:surface:")
+                except:
+                    print("Herb obj not found for %s" % str_date)
+                    precip_values.append(0)
+                    continue
 
             # open the file with pygrib and index the closest point to the st
             grib_file_name = ""
@@ -402,6 +407,8 @@ class formatWRF():
                 monthlyavgs.append('N/A')
             elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1:
                 monthlyavgs.append('N/A')
+            elif col.rfind('recipitation') != -1:
+                monthlyavgs.append(df[col].sum())
             else:
                 # find the average of the column and append to the monthlyavg arr
                 try:
