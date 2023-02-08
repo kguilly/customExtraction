@@ -427,7 +427,7 @@ class formatWRF():
         df['Month'] = df['Month'].astype(int)
 
         df.rename(columns={"Total Precipitation (kg m**-2)": "Precipitation (kg m**-2)"}, inplace=True)
-        df.rename(columns={"Temperature(K)": "Temperature (K)"}, inplace=True)
+        df.rename(columns={"Temperature(K)": "Avg Temperature (K)"}, inplace=True)
         df.rename(columns={"Downward short-wave radiation flux (W m**-2)":
                                "Downward Shortwave Radiation Flux (W m**-2)"}, inplace=True)
         df.rename(columns={"lat(llcrnr)": "Lat (llcrnr)", "lon(llcrnr)": "Lon (llcrnr)"}, inplace=True)
@@ -445,7 +445,7 @@ class formatWRF():
         # Changing the order of the column to fit fudong's needed format:
         df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'Grid Index', 'FIPS Code',
                  'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
-                 'Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
+                 'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
                  'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
                  'Downward Shortwave Radiation Flux (W m**-2)',
                  'Vapor Pressure Deficit (kPa)']]
@@ -545,6 +545,7 @@ class formatWRF():
             file_path_out += 'data/' + year + '/' + state_abbrev + '/' + 'HRRR_' + state_fips + '_' + \
                              state_abbrev + '_' + year + '-' + month + '.csv'
             df_out.to_csv(file_path_out)
+
 
 f = formatWRF()
 f.main()
