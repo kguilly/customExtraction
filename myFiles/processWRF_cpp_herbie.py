@@ -143,6 +143,8 @@ class formatWRF():
                 df.drop(columns=col, inplace=True)
             elif col.rfind('Unnamed:') != -1:
                 df.drop(columns=col, inplace=True)
+            elif col.rfind("Precipitation") != -1:
+                df.drop(columns=col, inplace=True)
 
         df['Grid Index'] = df['Grid Index'].astype(int)
         df['Day'] = df['Day'].astype(int)
