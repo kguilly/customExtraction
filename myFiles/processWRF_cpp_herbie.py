@@ -5,6 +5,7 @@ import numpy as np
 from datetime import date, timedelta
 from pathlib import Path
 import sys
+import time
 
 import pygrib
 from herbie import Herbie
@@ -22,6 +23,7 @@ class formatWRF():
             print("Error, file list is less than one. List: ", csvFiles)
             exit(0)
         for file in csvFiles:
+            start_time = time.time()
             # if the file is open elsewhere, or if the file is already a processed file, skip
             if (file.find("daily_monthly") != -1 or file.find(".~lock.") != -1):
                 print("Skipping file: %s" % file)
@@ -50,12 +52,33 @@ class formatWRF():
             # write out to new csv
             self.dftocsv(df=df, fullfilepath=file)
 
+            time_sec = time.time() - start_time
+            h = 0
+            m = 0
+            if (time_sec // 60 > 1):
+                m = time_sec // 60
+                time_sec = time_sec - (m * 60)
+            if (m // 60 > 1):
+                h = m // 60
+                m = m - (h * 60)
+            print("\n\nSingle File Extraction time: %s\nHours: %d, Minutes: %d, Seconds: %s\n" % (file,h, m, time_sec))
+
         # from the grab_precip file, we had to download some files,
         # since we no longer need them, we can go ahead and delete them
         self.cleanup() # have not implemented yet
 
+        start_time = time.time()
         self.concat_states()
-
+        time_sec = time.time() - start_time
+        h = 0
+        m = 0
+        if (time_sec // 60 > 1):
+            m = time_sec // 60
+            time_sec = time_sec - (m * 60)
+        if (m // 60 > 1):
+            h = m // 60
+            m = m - (h * 60)
+        print("\n\nConcatentation Time: %s\nHours: %d, Minutes: %d, Seconds: %s\n" % (h, m, time_sec))
 
 
     def readargs(self):
@@ -278,15 +301,15 @@ class formatWRF():
         column "Vapor Pressure Deficit (kPa)" and put the return
         value as the values of the column
         """
-        u_comp_wind = df['U component of wind (m s**-1)'].to_numpy().astype(dtype=float)
-        v_comp_wind = df['V component of wind (m s**-1)'].to_numpy().astype(dtype=float)
-        df.drop(columns=['U component of wind (m s**-1)', 'V component of wind (m s**-1)'], inplace=True)
+        # u_comp_wind = df['U component of wind (m s**-1)'].to_numpy().astype(dtype=float)
+        # v_comp_wind = df['V component of wind (m s**-1)'].to_numpy().astype(dtype=float)
+        # df.drop(columns=['U component of wind (m s**-1)', 'V component of wind (m s**-1)'], inplace=True)
 
         temp = np.asarray(df['Temperature(K)'].values)
         relh = np.asarray(df['Relative Humidity (%)'].values)
 
-        wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
-        df['Wind Speed (m s**-1)'] = wind_speed
+        # wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
+        # df['Wind Speed (m s**-1)'] = wind_speed
 
         vpd = self.get_VPD(temp, relh)
         df['Vapor Pressure Deficit (kPa)'] = vpd
@@ -367,7 +390,7 @@ class formatWRF():
                         avgedRow.append(station_dayDf[col].iloc[0])
                         # avgedRow.concat()
                         # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
-                    elif col.rfind('Precipitation') != -1:
+                    elif col.rfind('Precipitation') != -1 or col.rfind('radiation') != -1:
                         avgedRow.append(station_dayDf[col].sum())
                     else:
                         # get the average of the row and append it to the avg list
@@ -407,8 +430,13 @@ class formatWRF():
                 monthlyavgs.append('N/A')
             elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1:
                 monthlyavgs.append('N/A')
-            elif col.rfind('recipitation') != -1:
-                monthlyavgs.append(df[col].sum())
+            elif col.rfind('recipitation') != -1 or col.rfind('radiation') != -1:
+                df_new = df.sort_values(['Day'], axis=1)
+                last_day = df_new['Day'].iloc(len(df)-1)
+                first_day = df_new['Day'].iloc(0)
+                sum = df[col].sum()
+                val = sum / (last_day - first_day + 1)
+                monthlyavgs.append(val)
             else:
                 # find the average of the column and append to the monthlyavg arr
                 try:
@@ -429,9 +457,11 @@ class formatWRF():
         df.rename(columns={"Total Precipitation (kg m**-2)": "Precipitation (kg m**-2)"}, inplace=True)
         df.rename(columns={"Temperature(K)": "Avg Temperature (K)"}, inplace=True)
         df.rename(columns={"Downward short-wave radiation flux (W m**-2)":
-                               "Downward Shortwave Radiation Flux (W m**-2)"}, inplace=True)
+                           "Downward Shortwave Radiation Flux (W m**-2)"}, inplace=True)
         df.rename(columns={"lat(llcrnr)": "Lat (llcrnr)", "lon(llcrnr)": "Lon (llcrnr)"}, inplace=True)
         df.rename(columns={"lat(urcrnr)": "Lat (urcrnr)", "lon(urcrnr)": "Lon (urcrnr)"}, inplace=True)
+        df.rename(columns={"U component of wind (m s**-1)": "U Component of Wind (m s**-1)",
+                           "V component of wind (m s**-1)": "V Component of Wind (m s **-1)"}, inplace=True)
 
         for col in df:
             if col.rfind('elative Humidi') != -1:
@@ -446,7 +476,8 @@ class formatWRF():
         df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'Grid Index', 'FIPS Code',
                  'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
                  'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
-                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
+                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'U Component of Wind (m s**-1)',
+                 'V Component of Wind (m s**-1)',
                  'Downward Shortwave Radiation Flux (W m**-2)',
                  'Vapor Pressure Deficit (kPa)']]
         return df
@@ -516,7 +547,7 @@ class formatWRF():
                 month = monthly_file[18:20]
                 col_name = state_fips + '_' + year + '_' + month
                 full_path = fips_dir+monthly_file
-                if not col_name in df_states:
+                if col_name not in df_states:
                     df_states[col_name] = []
                 df_states[col_name].append(full_path)
 
@@ -525,7 +556,10 @@ class formatWRF():
             df_out = pd.DataFrame()
             for file in df_states[col]:
                 df = pd.read_csv(file)
-                df_out = df_out.merge(df, how='outer')
+                if df_out.empty:
+                    df_out = df
+                else:
+                    df_out = df_out.merge(df, how='outer')
 
             file_path_out = ''
             file_path_out_sep = self.wrf_data_path.split('/')
@@ -542,9 +576,11 @@ class formatWRF():
             year = yyyymmcsv[0:4]
             month = yyyymmcsv[4:6]
             state_abbrev = needed_info_sep[2]
-            file_path_out += 'data/' + year + '/' + state_abbrev + '/' + 'HRRR_' + state_fips + '_' + \
+            file_path_out += 'data/' + year + '/' + state_abbrev + '/'
+            file_path_with_file = file_path_out + 'HRRR_' + state_fips + '_' + \
                              state_abbrev + '_' + year + '-' + month + '.csv'
-            df_out.to_csv(file_path_out)
+            Path(file_path_out).mkdir(parents=True, exist_ok=True)
+            df_out.to_csv(file_path_with_file)
 
 
 f = formatWRF()
