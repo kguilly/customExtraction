@@ -78,7 +78,7 @@ class formatWRF():
         if (m // 60 > 1):
             h = m // 60
             m = m - (h * 60)
-        print("\n\nConcatentation Time: %s\nHours: %d, Minutes: %d, Seconds: %s\n" % (h, m, time_sec))
+        print("\n\nConcatentation Time:\nHours: %d, Minutes: %d, Seconds: %s\n" % (h, m, time_sec))
 
 
     def readargs(self):
@@ -431,9 +431,9 @@ class formatWRF():
             elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1:
                 monthlyavgs.append('N/A')
             elif col.rfind('recipitation') != -1 or col.rfind('radiation') != -1:
-                df_new = df.sort_values(['Day'], axis=1)
-                last_day = df_new['Day'].iloc(len(df)-1)
-                first_day = df_new['Day'].iloc(0)
+                df_new = df.sort_values(by=['Day'])
+                last_day = df_new['Day'][len(df)-1]
+                first_day = df_new['Day'][0]
                 sum = df[col].sum()
                 val = sum / (last_day - first_day + 1)
                 monthlyavgs.append(val)
@@ -461,7 +461,7 @@ class formatWRF():
         df.rename(columns={"lat(llcrnr)": "Lat (llcrnr)", "lon(llcrnr)": "Lon (llcrnr)"}, inplace=True)
         df.rename(columns={"lat(urcrnr)": "Lat (urcrnr)", "lon(urcrnr)": "Lon (urcrnr)"}, inplace=True)
         df.rename(columns={"U component of wind (m s**-1)": "U Component of Wind (m s**-1)",
-                           "V component of wind (m s**-1)": "V Component of Wind (m s **-1)"}, inplace=True)
+                           "V component of wind (m s**-1)": "V Component of Wind (m s**-1)"}, inplace=True)
 
         for col in df:
             if col.rfind('elative Humidi') != -1:
