@@ -433,11 +433,12 @@ class formatWRF():
             elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1:
                 monthlyavgs.append('N/A')
             elif col.rfind('recipitation') != -1 or col.rfind('radiation') != -1:
-                df_new = df.sort_values(by=['Day'])
-                last_day = df_new['Day'][len(df)-1]
+                df_new = df.sort_values(by=['Day', 'Grid Index'])
+                last_day = df_new['Day'][len(df_new)-1]
                 first_day = df_new['Day'][0]
+                total_grid_indexes = df_new['Grid Index'][len(df_new)-1] + 1
                 sum = df[col].sum()
-                val = sum / (last_day - first_day + 1)
+                val = sum / ((last_day - first_day + 1) * total_grid_indexes)
                 monthlyavgs.append(val)
             else:
                 # find the average of the column and append to the monthlyavg arr
