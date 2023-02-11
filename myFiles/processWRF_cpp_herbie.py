@@ -13,8 +13,8 @@ from herbie import Herbie
 
 class formatWRF():
     def __init__(self):
-        self.wrf_data_path = "/home/kaleb/Desktop/testing_2-8/Hourly/"
-        self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
+        self.wrf_data_path = "/Users/kkjesus/Desktop/2-7_hourly_data_FINAL/WRFextract_2-2/Hourly/"
+        self.repository_path = "/Users/kkjesus/Documents/GitHub/customExtraction/"
 
     def main(self):
         self.readargs()
@@ -234,7 +234,13 @@ class formatWRF():
             except:
                 print("Error when opening grib file: %s" % herb_dir_1 + grib_file_name)
                 exit()
-            g = grib[1]
+            try:
+                g = grib[1]
+            except:
+                grib.close()
+                print("No messages in file %s" % herb_dir_1 + grib_file_name)
+                precip_values.append(0)
+                continue
             grib.close()
             lats, lons = g.latlons()
             values = g.values
