@@ -23,7 +23,7 @@ class formatWRF():
             print("Error, file list is less than one. List: ", csvFiles)
             exit(0)
         for file in csvFiles:
-            start_time = time.time()
+            # start_time = time.time()
             # if the file is open elsewhere, or if the file is already a processed file, skip
             if (file.find("daily_monthly") != -1 or file.find(".~lock.") != -1):
                 print("Skipping file: %s" % file)
@@ -52,33 +52,18 @@ class formatWRF():
             # write out to new csv
             self.dftocsv(df=df, fullfilepath=file)
 
-            time_sec = time.time() - start_time
-            h = 0
-            m = 0
-            if (time_sec // 60 > 1):
-                m = time_sec // 60
-                time_sec = time_sec - (m * 60)
-            if (m // 60 > 1):
-                h = m // 60
-                m = m - (h * 60)
-            print("\n\nSingle File Extraction time: %s\nHours: %d, Minutes: %d, Seconds: %s\n" % (file,h, m, time_sec))
+            # time_sec = time.time() - start_time
+            # h = 0
+            # m = 0
+            # if (time_sec // 60 > 1):
+            #     m = time_sec // 60
+            #     time_sec = time_sec - (m * 60)
+            # if (m // 60 > 1):
+            #     h = m // 60
+            #     m = m - (h * 60)
+            # print("\n\nSingle File Extraction time: %s\nHours: %d, Minutes: %d, Seconds: %s\n" % (file,h, m, time_sec))
 
-        # from the grab_precip file, we had to download some files,
-        # since we no longer need them, we can go ahead and delete them
-        self.cleanup() # have not implemented yet
-
-        start_time = time.time()
         self.concat_states()
-        time_sec = time.time() - start_time
-        h = 0
-        m = 0
-        if (time_sec // 60 > 1):
-            m = time_sec // 60
-            time_sec = time_sec - (m * 60)
-        if (m // 60 > 1):
-            h = m // 60
-            m = m - (h * 60)
-        print("\n\nConcatentation Time:\nHours: %d, Minutes: %d, Seconds: %s\n" % (h, m, time_sec))
 
 
     def readargs(self):
@@ -303,15 +288,15 @@ class formatWRF():
         column "Vapor Pressure Deficit (kPa)" and put the return
         value as the values of the column
         """
-        # u_comp_wind = df['U component of wind (m s**-1)'].to_numpy().astype(dtype=float)
-        # v_comp_wind = df['V component of wind (m s**-1)'].to_numpy().astype(dtype=float)
+        u_comp_wind = df['U component of wind (m s**-1)'].to_numpy().astype(dtype=float)
+        v_comp_wind = df['V component of wind (m s**-1)'].to_numpy().astype(dtype=float)
         # df.drop(columns=['U component of wind (m s**-1)', 'V component of wind (m s**-1)'], inplace=True)
 
         temp = np.asarray(df['Temperature(K)'].values)
         relh = np.asarray(df['Relative Humidity (%)'].values)
 
-        # wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
-        # df['Wind Speed (m s**-1)'] = wind_speed
+        wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
+        df['Wind Speed (m s**-1)'] = wind_speed
 
         vpd = self.get_VPD(temp, relh)
         df['Vapor Pressure Deficit (kPa)'] = vpd
@@ -476,13 +461,12 @@ class formatWRF():
                 continue
 
         # Changing the order of the column to fit fudong's needed format:
-        df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'Grid Index', 'FIPS Code',
+        df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'FIPS Code','Grid Index',
                  'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
                  'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
-                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'U Component of Wind (m s**-1)',
-                 'V Component of Wind (m s**-1)',
-                 'Downward Shortwave Radiation Flux (W m**-2)',
-                 'Vapor Pressure Deficit (kPa)']]
+                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
+                 'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
+                 'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)']]
         return df
 
     def convert_lons(self, df=pd.DataFrame()):
@@ -513,9 +497,6 @@ class formatWRF():
         write_path = newfilepath + filepathsep[len(filepathsep) - 1]
         df.to_csv(write_path, index=False)
         return
-
-    def cleanup(self):
-        ...
 
     def concat_states(self):
         """
@@ -558,7 +539,7 @@ class formatWRF():
         for col in df_states:
             df_out = pd.DataFrame()
             for file in df_states[col]:
-                df = pd.read_csv(file)
+                df = pd.read_csv(file, na_filter=False, na_values='N/A')
                 if df_out.empty:
                     df_out = df
                 else:
@@ -583,8 +564,9 @@ class formatWRF():
             file_path_with_file = file_path_out + 'HRRR_' + state_fips + '_' + \
                              state_abbrev + '_' + year + '-' + month + '.csv'
             Path(file_path_out).mkdir(parents=True, exist_ok=True)
+            # replace all null values with 'N/A'
+            # df_out.replace(np.nan, 'N/A')
             df_out.to_csv(file_path_with_file)
 
 
-f = formatWRF()
-f.main()
+formatWRF().main()
