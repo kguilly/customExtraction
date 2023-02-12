@@ -212,15 +212,9 @@ class formatWRF():
 
             if herb_flag:
                 str_date = str(year) + str(month) + str(day) + " " + str(prev_hour) + ":00"
-                try:
-                    herb_obj = Herbie(str_date, model='hrrr',
-                                  product='nat',save_dir=herb_dir,
-                                  fxx=1, verbose=True,
-                                  overwrite=False).download(":APCP:surface:")
-                except:
-                    print("Herb obj not found for %s" % str_date)
-                    precip_values.append(0)
-                    continue
+                print("Herb obj not found for %s" % str_date)
+                precip_values.append(0)
+                continue
 
             # open the file with pygrib and index the closest point to the st
             grib_file_name = ""
