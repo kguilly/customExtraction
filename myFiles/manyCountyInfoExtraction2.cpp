@@ -254,16 +254,16 @@ int main(int argc, char*argv[]){
     }
     delete [] blnParamArr;
 
-    string strcmd; int status;
-    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
-    strcmd += repositoryPath+" --wrf_path " + writePath;
-    // status = system(strcmd.c_str());
-    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
-
-    strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
-    strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
-    // status = system(strcmd.c_str());
-    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
+//    string strcmd; int status;
+//    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
+//    strcmd += repositoryPath+" --wrf_path " + writePath;
+//    // status = system(strcmd.c_str());
+//    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
+//
+//    strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
+//    strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
+//    // status = system(strcmd.c_str());
+//    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
 
 
     garbageCollection();

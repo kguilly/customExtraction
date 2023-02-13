@@ -5,10 +5,10 @@ from herbie import Herbie
 from datetime import datetime, timedelta
 import os
 import pathlib
-year = "2018"
+year = "2021"
 herb_dir = "/home/kaleb/Desktop/herbie_data_" + year + '/'
-start_day = "0515"
-start_time = "06:00"
+start_day = "1203"
+start_time = "01:00"
 dt = year + start_day + ' ' + start_time
 
 dtobj = datetime.strptime(dt, "%Y%m%d %H:%M")
