@@ -23,7 +23,7 @@ from herbie import Herbie
                 df_out = pd.merge(df_out, col.df)
             df_out.to_csv()
 """
-data_path = '/home/kaleb/Desktop/wrf/Hourly/'
+data_path = '/home/kaleb/Desktop/2-7_hourly_data_FINAL/WRFextract_2-2/Hourly/'
 filepathsep = data_path.split('/')
 hourly_file_path = ''
 for i in range(len(filepathsep) - 1):
@@ -57,7 +57,7 @@ for col in df_states:
             df_out = df_out.merge(df, how='outer')
 
     file_path_out = ''
-    file_path_out_sep = self.wrf_data_path.split('/')
+    file_path_out_sep = data_path.split('/')
     for i in range(len(file_path_out_sep) - 1):
         if file_path_out_sep[i].rfind("Hourly") != -1:
             break
