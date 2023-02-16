@@ -10,8 +10,8 @@ class HerbDownload():
     def __init__(self):
         self.info = "Download hourly HRRR WRF data for a select date range"
         self.data_path = "/home/kaleb/data/" # the path to download the WRF data
-        self.begin_date = "20160101" # format: yyyymmdd
-        self.end_date = "20170101" # not inclusive of last day
+        self.begin_date = "20190101" # format: yyyymmdd
+        self.end_date = "20190401" # not inclusive of last day
         self.start_time = "00:00"
 
     def main(self):

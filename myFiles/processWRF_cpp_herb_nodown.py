@@ -13,7 +13,7 @@ from herbie import Herbie
 
 class formatWRF():
     def __init__(self):
-        self.wrf_data_path = "/home/kaleb/Desktop/2-7_hourly_data_FINAL/WRFextract_2-2/Hourly/"
+        self.wrf_data_path = "/home/kaleb/Desktop/2017data/Hourly/"
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
 
     def main(self):
