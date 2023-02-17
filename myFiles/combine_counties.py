@@ -23,15 +23,15 @@ from herbie import Herbie
                 df_out = pd.merge(df_out, col.df)
             df_out.to_csv()
 """
-data_path = '/home/kaleb/Desktop/2-7_hourly_data_FINAL/WRFextract_2-2/Hourly/'
+data_path = '/home/kaleb/Desktop/2021data/'
 filepathsep = data_path.split('/')
-hourly_file_path = ''
-for i in range(len(filepathsep) - 1):
-    if filepathsep[i].rfind("Hourly") != -1:
-        break
-    hourly_file_path += filepathsep[i] + '/'
-hourly_file_path += "Daily_Monthly/"
-
+# hourly_file_path = ''
+# for i in range(len(filepathsep) - 1):
+#     if filepathsep[i].rfind("Hourly") != -1:
+#         break
+#     hourly_file_path += filepathsep[i] + '/'
+# hourly_file_path += "Daily_Monthly/"
+hourly_file_path = data_path
 df_states = {}
 for fips_folder in sorted(os.listdir(hourly_file_path)):
     fips_dir = hourly_file_path + fips_folder + '/'
