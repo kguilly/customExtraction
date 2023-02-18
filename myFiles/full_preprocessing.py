@@ -17,7 +17,7 @@ class PreprocessWRF:
         self.begin_hour = 0
         self.end_hour = 23
         self.begin_date = "20230131"  # format as "yyyymmdd"
-        self.end_date = "20230202"
+        self.end_date = "20230201"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
@@ -35,7 +35,15 @@ class PreprocessWRF:
         # the data is read into hourly, stately files, now read them into daily / monthly files
         csvFiles = self.reopen_files()
         for file in csvFiles:
-            df = pd.read_csv(file, header=0, na_filter=False, na_values='N/A')
+            # df = pd.read_csv(file, header=None,
+            #                  names=['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'FIPS Code', 'Grid Index',
+            #                         'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
+            #                         'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
+            #                         'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
+            #                         'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
+            #                         'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)'],
+            #                  na_filter=False, na_values='N/A')
+            df = pd.read_csv(file, header=None, index_col=False, na_filter=False, na_values='N/A')
             df = self.wind_speed_vpd(df=df)
             df = self.dailyAvgMinMax(df=df)
             df = self.dailyAvgMinMax(df=df)
@@ -420,7 +428,7 @@ class PreprocessWRF:
                         except:
                             avgedRow.append('NaN')
                         # if the column is temperature, find the min, max, then append
-                        if col.rfind("Temperature") != -1:
+                        if col == 'Avg Temperature (K)':
                             avgedRow.append(station_dayDf[col].min())
                             avgedRow.append(station_dayDf[col].max())
 
@@ -455,7 +463,7 @@ class PreprocessWRF:
                 first_day = df_new['Day'][0]
                 total_grid_indexes = df_new['Grid Index'][len(df_new) - 1] + 1
                 sum = df[col].sum()
-                val = sum / ((last_day - first_day + 1) * total_grid_indexes)
+                val = sum / ((int(last_day) - int(first_day) + 1) * total_grid_indexes)
                 monthlyavgs.append(val)
             else:
                 # find the average of the column and append to the monthlyavg arr
