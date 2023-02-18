@@ -43,7 +43,7 @@ class PreprocessWRF:
             #                         'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
             #                         'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)'],
             #                  na_filter=False, na_values='N/A')
-            df = pd.read_csv(file, header=None, index_col=False, na_filter=False, na_values='N/A')
+            df = pd.read_csv(file, index_col=False, na_filter=False, na_values='N/A')
             df = self.wind_speed_vpd(df=df)
             df = self.dailyAvgMinMax(df=df)
             df = self.dailyAvgMinMax(df=df)
