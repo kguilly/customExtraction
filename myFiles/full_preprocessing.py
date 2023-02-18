@@ -2,32 +2,47 @@ import pandas as pd
 from herbie import Herbie
 import numpy as np
 from datetime import date, timedelta, datetime
+import time
 import sys
 import os
 import geo_grid_recent as gg
 from pathlib import Path
+import threading
 
 
-class PreprocessWRF():
+class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/full_preprocessing_output/"
 
         self.begin_hour = 0
         self.end_hour = 23
-        self.begin_date = "20200101"  # format as "yyyymmdd"
-        self.end_date = "20200102"
+        self.begin_date = "20230131"  # format as "yyyymmdd"
+        self.end_date = "20230202"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
 
     def main(self):
+        start_time = time.time()
         self.handle_args()
         every_county_df = pd.read_csv("./WRFoutput/wrfOutput.csv")
         param_dict_arr = self.separate_by_state(df=every_county_df)
         state_abbrev_df = self.get_state_abbrevs(df=every_county_df)
         every_county_df['county'] = every_county_df['county'].apply(self.fix_county_names)
-        self.read_data(df=every_county_df, dict=param_dict_arr, state_abbrev_df=state_abbrev_df)
+        self.read_data(df=every_county_df, st_dict=param_dict_arr, state_abbrev_df=state_abbrev_df)
+
+        # the data is read into hourly, stately files, now read them into daily / monthly files
+        csvFiles = self.reopen_files()
+        for file in csvFiles:
+            df = pd.read_csv(file, header=0, na_filter=False, na_values='N/A')
+            df = self.wind_speed_vpd(df=df)
+            df = self.dailyAvgMinMax(df=df)
+            df = self.dailyAvgMinMax(df=df)
+            df = self.monthlyAvgs(df=df)
+            self.final_sendoff(df=df)
+        finish = time.time()
+        print("\n\n------------- %s seconds ---------------" % (start_time - finish))
 
     def handle_args(self):
         if len(sys.argv) > 1:
@@ -106,7 +121,7 @@ class PreprocessWRF():
         val.strip()
         return val
 
-    def read_data(self, df=pd.DataFrame, dict={}, state_abbrev_df=pd.DataFrame):
+    def read_data(self, df=pd.DataFrame, st_dict={}, state_abbrev_df=pd.DataFrame):
         """
 
         :param df: a df acting as the object, holding all of the
@@ -122,92 +137,109 @@ class PreprocessWRF():
 
         # for each hour in each day passed, try to read all the parameters that fudong needs
         # if the file cannot be found, then print a statement notifying the user and append 0s continue
-        dt = self.begin_date + " " + self.begin_hour
-        dtobj = datetime.strptime(dt, "%Y%m%d %H:%M")
-        while 1:
-            print(dtobj)
-            # check to see if we're on the last hour or the last day
-            next_hour = dtobj + timedelta(hours=1)
-            if next_hour.strftime("%Y%m%d") == self.end_date:
-                break
-            elif dtobj.strftime("%H:%M") == self.end_hour:
-                next_hour = datetime.strptime(dtobj.strftime("%Y%m%d") + " " + self.begin_hour, "%Y%m%d %H:%M")
+        begin_day_dt = datetime.strptime(self.begin_date, "%Y%m%d")
+        end_day_dt = datetime.strptime(self.end_date, "%Y%m%d")
+        begin_hour_dt = datetime.strptime(self.begin_hour, "%H:%M")
+        end_hour_dt = datetime.strptime(self.end_hour, "%H:%M")
 
-            try:
-                herb = Herbie(dtobj, model='hrrr', product='sfc',
-                              save_dir=self.write_path, verbose=False,
-                              priority=['pando', 'pando2', 'aws', 'nomads',
-                                        'ecmwf', 'aws-old', 'google', 'azure'],
-                              fxx=0, overwrite=False)
-            except:
-                print("Could not find grib object for date: %s" % dtobj.date())
-                dtobj = next_hour
-                continue
-            try:
-                precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
-                                     save_dir=self.write_path, verbose=False,
-                                     priority=['pando', 'pando2', 'aws', 'nomads',
-                                               'ecmwf', 'aws-old', 'google', 'azure'],
-                                     fxx=1, overwrite=False)
-            except:
-                print("Could not find precipitation object for date: %s" % dtobj.date())
-                dtobj = next_hour
-                continue
+        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60*60)
+        date_range = (end_day_dt - begin_day_dt).days
+        threads = []
+        for i in range(0, date_range):
+            for j in range(0, hour_range):
+                dtobj = begin_day_dt + timedelta(days=i, hours=j)
+                dict = st_dict
+                t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names, state_abbrev_df,
+                                                                      df))
+                t.start()
+                threads.append(t)
+        for t in threads:
+            t.join()
 
+    def threaded_read(self, dtobj:datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
+        # check to see if we're on the last hour or the last day
+        try:
+            herb = Herbie(dtobj, model='hrrr', product='sfc',
+                          save_dir=self.write_path, verbose=False,
+                          priority=['pando', 'pando2', 'aws', 'nomads',
+                                    'ecmwf', 'aws-old', 'google', 'azure'],
+                          fxx=0, overwrite=False)
+        except:
+            print("Could not find grib object for date: %s" % dtobj.date())
+            return
+        try:
+            precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
+                                 save_dir=self.write_path, verbose=False,
+                                 priority=['pando', 'pando2', 'aws', 'nomads',
+                                           'ecmwf', 'aws-old', 'google', 'azure'],
+                                 fxx=1, overwrite=False)
+        except:
+            print("Could not find precipitation object for date: %s" % dtobj.date())
+            return
+
+        try:
             temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m").herbie.nearest_points(points=lon_lats, names=grid_names)
-            precip_herb_obj = precip_herb.xarray(":APCP:surface:").herbie.nearest_points(points=lon_lats, names=grid_names)
-            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats, names=grid_names)
+            precip_herb_obj = precip_herb.xarray(":APCP:surface:").herbie.nearest_points(points=lon_lats,
+                                                                                         names=grid_names)
+            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats,
+                                                                                   names=grid_names)
             dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats, names=grid_names)
             gust_obj = herb.xarray(":GUST:").herbie.nearest_points(points=lon_lats, names=grid_names)
+        except:
+            print("One of the search strings failed for date: %s" % dtobj.date())
+            return
+        # each index of these values arrays will correspond to the index in the grid_names array
+        temp_vals = temp_rh_obj.t2m.values
+        precip_vals = precip_herb_obj.tp.values
+        dswrf_vals = dswrf_obj.dswrf.values
+        rh_vals = temp_rh_obj.r2.values
+        u_wind_vals = u_v_wind_obj.u.values
+        v_wind_vals = u_v_wind_obj.v.values
+        gust_vals = gust_obj.gust.values
 
-            # each index of these values arrays will correspond to the index in the grid_names array
-            temp_vals = temp_rh_obj.t2m.values
-            precip_vals = precip_herb_obj.tp.values
-            dswrf_vals = dswrf_obj.dswrf.values
-            rh_vals = temp_rh_obj.r2.values
-            u_wind_vals = u_v_wind_obj.u.values
-            v_wind_vals = u_v_wind_obj.v.values
-            gust_vals = gust_obj.gust.values
+        # match the parameter to the index in the dict, then write out to file
+        grid_name_idx = 0
+        for stateFips in dict:
+            for countyFips in dict[stateFips]:
+                for countyIndex in dict[stateFips][countyFips]:
+                    if not grid_names[grid_name_idx] == countyFips + "_" + str(countyIndex):
+                        # find the correct grid_name_idx
+                        grid_name_idx = -1
+                        for i in range(len(grid_names)):
+                            if grid_names[i] == countyFips + "_" + str(countyIndex):
+                                grid_name_idx = i
+                                break
+                        if grid_name_idx == -1:
+                            print("Error when finding the matching county in grid_names.")
+                            exit()
 
-            # match the parameter to the index in the dict, then write out to file
-            grid_name_idx = 0
-            for stateFips in dict:
-                for countyFips in dict[stateFips]:
-                    for countyIndex in dict[stateFips][countyFips]:
-                        if not grid_names[grid_name_idx] == countyFips + "_" + str(countyIndex):
-                            # find the correct grid_name_idx
-                            grid_name_idx = -1
-                            for i in range(len(grid_names)):
-                                if grid_names[i] == countyFips + "_" + str(countyIndex):
-                                    grid_name_idx = i
-                                    break
-                            if grid_name_idx == -1:
-                                print("Error when finding the matching county in grid_names.")
-                                exit()
-
-                        # append the values to the index of the dictionary
-                        #  Year, Month, Day, Daily/Monthly, State, County, FIPS Code, Grid Index,
-                        # Lat (llcrnr), Lon (llcrnr), Lat (urcrnr), Lon (urcrnr), Avg Temperature (K),
-                        # Precipitation (kg m**-2), Relative Humidity (%), Wind Gust (m s**-1),
-                        # U Component of Wind (m s**-1), V Component of Wind (m s**-1), Downward Shortwave
-                        # Radiation Flux (W m**-2)
-                        state_abbrev = state_abbrev_df['stusps'].where(state_abbrev_df['st']==int(stateFips)).dropna().values[0]
-                        county_name = df['county'].where(df['FIPS'] == int(countyFips)).dropna().values[0]
-                        df_idx = df.index[(df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[0]
-                        dict[stateFips][countyFips][countyIndex].append([str(dtobj.year), str(dtobj.month),
-                                                                        str(dtobj.day), 'Daily', state_abbrev, county_name,
-                                                                        str(countyFips), str(countyIndex), df['lat (llcrnr)'][df_idx],
-                                                                        df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx],
-                                                                        df['lon (urcrnr)'][df_idx], temp_vals[grid_name_idx],
-                                                                        precip_vals[grid_name_idx], rh_vals[grid_name_idx],
-                                                                        gust_vals[grid_name_idx], u_wind_vals[grid_name_idx],
-                                                                        v_wind_vals[grid_name_idx], dswrf_vals[grid_name_idx]])
-                        # append this to the end of the appropriate file
+                    # append the values to the index of the dictionary
+                    #  Year, Month, Day, Daily/Monthly, State, County, FIPS Code, Grid Index,
+                    # Lat (llcrnr), Lon (llcrnr), Lat (urcrnr), Lon (urcrnr), Avg Temperature (K),
+                    # Precipitation (kg m**-2), Relative Humidity (%), Wind Gust (m s**-1),
+                    # U Component of Wind (m s**-1), V Component of Wind (m s**-1), Downward Shortwave
+                    # Radiation Flux (W m**-2)
+                    state_abbrev = \
+                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == int(stateFips)).dropna().values[0]
+                    county_name = df['county'].where(df['FIPS'] == int(countyFips)).dropna().values[0]
+                    df_idx = df.index[
+                        (df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[
+                        0]
+                    dict[stateFips][countyFips][countyIndex].append(
+                        [str(dtobj.strftime("%Y")), str(dtobj.strftime("%m")),
+                         str(dtobj.strftime("%d")), 'Daily', state_abbrev, county_name,
+                         str(countyFips), str(countyIndex), df['lat (llcrnr)'][df_idx],
+                         df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx],
+                         df['lon (urcrnr)'][df_idx], temp_vals[grid_name_idx],
+                         precip_vals[grid_name_idx], rh_vals[grid_name_idx],
+                         gust_vals[grid_name_idx], u_wind_vals[grid_name_idx],
+                         v_wind_vals[grid_name_idx], dswrf_vals[grid_name_idx]])
+                    # append this to the end of the appropriate file
+                    with threading.Lock():
                         self.write_dict_row(row=dict[stateFips][countyFips][countyIndex][0])
-                        # clear the array
-                        dict[stateFips][countyFips][countyIndex] = []
-                        grid_name_idx += 1
-            dtobj = next_hour
+                    # clear the array
+                    dict[stateFips][countyFips][countyIndex] = []
+                    grid_name_idx += 1
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
         """
@@ -243,8 +275,7 @@ class PreprocessWRF():
         month = row[1]
         county_fips = row[6]
         state_fips = county_fips[0:2]
-        output_directory = self.write_path + "daily_data/" + year + '/' + state_abbrev + '/' + \
-                           county_fips + '/'
+        output_directory = self.write_path + "daily_data/" + year + '/' + state_abbrev + '/'
         # if it does not already exist, make it
         Path(output_directory).mkdir(parents=True, exist_ok=True)
         output_file_path = output_directory + "HRRR_" + state_fips + '_' + state_abbrev + '_' + year\
@@ -265,6 +296,211 @@ class PreprocessWRF():
             f.write(str(r) + ',')
         f.write('\n')
         f.close()
+
+    def reopen_files(self):
+        csvFiles = []
+        directory = self.write_path + "daily_data/"
+        for year_folders in sorted(os.listdir(directory)):
+            year_path = directory + year_folders + '/'
+            if not os.path.isdir(year_path):
+                continue
+            for state in sorted(os.listdir(year_path)):
+                state_path = year_path + state + '/'
+                for file in sorted(os.listdir(state_path)):
+                    full_path = state_path + file
+                    csvFiles.append(full_path)
+
+        return csvFiles
+
+    def wind_speed_vpd(self, df=pd.DataFrame()):
+        """
+               turn the columns for U comp and V comp of wind
+               into numpy ndarrays, then feed into the get_wind_speed
+               functions. delete the U comp and V comp columns, make a new
+               column "Wind Speed(m s**-1)" and put the return value as the
+               values of the column
+
+               turn the columns for temperature and humidity into numpy
+               ndarrays, then feed into get_vpd function, make a new
+               column "Vapor Pressure Deficit (kPa)" and put the return
+               value as the values of the column
+               """
+        u_comp_wind = df['U Component of Wind (m s**-1)'].to_numpy().astype(dtype=float)
+        v_comp_wind = df['V Component of Wind (m s**-1)'].to_numpy().astype(dtype=float)
+        # df.drop(columns=['U Component of Wind (m s**-1)', 'V component of wind (m s**-1)'], inplace=True)
+
+        temp = np.asarray(df['Avg Temperature (K)'].values)
+        relh = np.asarray(df['Relative Humidity (%)'].values)
+
+        wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
+        df['Wind Speed (m s**-1)'] = wind_speed
+
+        vpd = self.get_VPD(temp, relh)
+        df['Vapor Pressure Deficit (kPa)'] = vpd
+
+        return df
+
+    def get_wind_speed(self, U: np.ndarray, V: np.ndarray) -> np.ndarray:
+        '''
+        Calculate the average wind speed
+        :param U: array_like, U component of wind in 1000 hPa (i.e., layer 32 in HRRR)
+        :param V: array_like, V component of wind in 1000 hPa (i.e., layer 32 in HRRR)
+        :return:
+        '''
+        return np.sqrt(np.power(U, 2) + np.power(V, 2))
+
+    def get_VPD(self, T: np.ndarray, RH: np.ndarray) -> np.ndarray:
+        '''
+        Calculate the Vapor Pressure Deficit (VPD), unit: kPa
+        :param T: array_like, temperate (unit: K) at 2 metre (layer 54 in HRRR)
+        :param RH: array_like, relative humidity at 2 metre (i.e., layer 58 in HRRR)
+        :return:
+        '''
+
+        # covert the temperature in Kelvin to the temperature in Celsius
+        T = T - 273.15
+        E = 7.5 * T / (237.3 + T)
+        VP_sat = 610.7 * np.power(10, E) / 1000
+        VP_air = VP_sat * RH / 100
+        VPD = VP_sat - VP_air
+
+        return VPD
+
+    def dailyAvgMinMax(self, df=pd.DataFrame()):
+        df.sort_values(['Day'], inplace=True)
+        dftoreturn = pd.DataFrame(columns=list(df.columns))
+        # dftoreturn.drop(columns='Hour', inplace=True)
+        # print(df)
+        for col in dftoreturn:
+            if col == 'Avg Temperature (K)':
+                # need to insert new columns at index of temperature
+                index = dftoreturn.columns.get_loc(col)
+                dftoreturn.insert(index + 1, "Max Temperature (K)", value=None, allow_duplicates=True)
+                dftoreturn.insert(index + 1, "Min Temperature (K)", value=None, allow_duplicates=True)
+        # print(list(dftoreturn.columns))
+        ##########################################
+        # look for a more efficient way to do this
+        ##########################################
+        grouped_gridindex = df.groupby(df['Grid Index'])
+        # for each station df
+        for gridgroupdf in grouped_gridindex:
+            # print(gridgroupdf[1])
+            gridindexDf = pd.DataFrame(gridgroupdf[1])
+            # print(gridindexDf)
+            grouped_day = gridindexDf.groupby(gridindexDf.Day)
+
+            # for each day in each station
+            for group in grouped_day:
+                try:
+                    current_day = group[0]
+                    station_dayDf = pd.DataFrame(group[1])
+                except:
+                    print("Did not grab grouped_day.get_group(%s)" % (group))
+                    continue
+                avgedRow = []
+                # print(station_dayDf)
+
+                for col in station_dayDf:
+                    if col.rfind('Hour') != -1:
+                        avgedRow.append('Daily')
+                    elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind(
+                            'Day') != -1 or col.rfind(
+                            'State') != -1 or col.rfind('County') != -1 or col.rfind(
+                        'Grid Index') != -1 or col.rfind(
+                        'FIPS Code') != -1 or col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1:
+                        avgedRow.append(station_dayDf[col].iloc[0])
+                        # avgedRow.concat()
+                        # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
+                    elif col.rfind('Precipitation') != -1 or col.rfind('radiation') != -1:
+                        avgedRow.append(station_dayDf[col].sum())
+                    else:
+                        # get the average of the row and append it to the avg list
+                        try:
+                            avgedRow.append(station_dayDf[col].mean())
+                        except:
+                            avgedRow.append('NaN')
+                        # if the column is temperature, find the min, max, then append
+                        if col.rfind("Temperature") != -1:
+                            avgedRow.append(station_dayDf[col].min())
+                            avgedRow.append(station_dayDf[col].max())
+
+                # now that all the columns have been collected, we need to append the row to the dftoreturn
+                dftoreturn.loc[len(dftoreturn)] = avgedRow
+        return dftoreturn
+
+    def monthlyAvgs(self, df=pd.DataFrame()):
+        monthlyavgs = []
+        # for each column in df (not Year, Month, Day, State, County, GridIndex, FIPS Code, Lat, Lon(-180 to 180)), find avg and append to bottom
+        # for Year, Month, State, County, write the first Index, for day write 'Monthly Average'
+
+        # writeavgflag = False
+        for col in df:
+            # if col.rfind('Maximum/Composite') != -1:
+            #     writeavgflag = True
+
+            # if not writeavgflag:
+            #     # do sum
+            if col.rfind('Daily/Monthly') != -1:
+                monthlyavgs.append("Monthly")
+            elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('State') != -1 or col.rfind(
+                    'County') != -1 or col.rfind('FIPS') != -1:
+                monthlyavgs.append(df[col].iloc[0])
+            elif (col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1) and col.rfind('elative') == -1:
+                monthlyavgs.append('N/A')
+            elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1:
+                monthlyavgs.append('N/A')
+            elif col.rfind('recipitation') != -1 or col.rfind('radiation') != -1:
+                df_new = df.sort_values(by=['Day', 'Grid Index'])
+                last_day = df_new['Day'][len(df_new) - 1]
+                first_day = df_new['Day'][0]
+                total_grid_indexes = df_new['Grid Index'][len(df_new) - 1] + 1
+                sum = df[col].sum()
+                val = sum / ((last_day - first_day + 1) * total_grid_indexes)
+                monthlyavgs.append(val)
+            else:
+                # find the average of the column and append to the monthlyavg arr
+                try:
+                    monthlyavgs.append(df[col].mean())
+                    # monthlyavgs.append(df[col].values.mean())
+                except:
+                    monthlyavgs.append('NaN')
+
+        # df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]), ignore_index=True)
+        # df = pd.concat([df, pd.Series(monthlyavgs)], ignore_index=True, axis=0, join='outer')
+        df.loc[len(df.index)] = monthlyavgs
+        # print(df)
+        for col in df:
+            if col.rfind('elative Hum') != -1:
+                df[col] = df[col].round(decimals=1)
+                continue
+            try:
+                df[col] = df[col].round(decimals=3)
+            except:
+                continue
+        df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'FIPS Code', 'Grid Index',
+                 'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
+                 'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
+                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
+                 'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
+                 'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)']]
+
+        return df
+
+    def final_sendoff(self, df=pd.DataFrame(), fullfilepath = ''):
+        fullpathsep = fullfilepath.split('/')
+        newfilepath = ''
+        state_abbrev = ''
+        year = ''
+        for i in range(len(fullpathsep)):
+            if fullpathsep[i].rfind('daily_data') != -1:
+                state_abbrev = fullpathsep[i+2]
+                year = fullpathsep[i+1]
+            newfilepath += fullpathsep[i] + '/'
+        newfilepath += "monthly_data/" + year + '/' + state_abbrev + '/'
+        Path(newfilepath).mkdir(parents=True, exist_ok=True)
+        write_path = newfilepath + fullpathsep[len(fullpathsep)-1]
+        df.to_csv(write_path, index=False)
+        return
 
 if __name__ == "__main__":
     p = PreprocessWRF()
