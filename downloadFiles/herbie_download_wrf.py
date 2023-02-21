@@ -27,14 +27,22 @@ class HerbDownload():
                               fxx=0,
                               overwrite=False)
             except:
-                print("Could not find grib object for date: %s" % dtobj.date())
+                print("Could not find grib object for date: %s" % dtobj.strftime("%Y%m%d"))
+                next_hour = dtobj + timedelta(hours=1)
+                if next_hour.strftime("%Y%m%d") == self.end_date:
+                    break
+                dtobj = next_hour
+                continue
+            try:
+                herb.download()
+            except:
+                print("Could not DOWNLOAD %s" % dtobj.strftime("%Y%m%d"))
                 next_hour = dtobj + timedelta(hours=1)
                 if next_hour.strftime("%Y%m%d") == self.end_date:
                     break
                 dtobj = next_hour
                 continue
 
-            herb.download()
             original_file_name = self.data_path + "hrrr/" + str(dtobj.strftime("%Y%m%d"))\
                                 + '/' + 'hrrr.t' + str(dtobj.strftime("%H")) + 'z.wrfsfcf00.grib2'
             changed_file_path = self.data_path + "wrf/" + str(dtobj.year) + '/'\
