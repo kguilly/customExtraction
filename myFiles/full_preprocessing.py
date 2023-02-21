@@ -14,10 +14,8 @@ class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/full_preprocessing_output/"
 
-        self.begin_hour = 0
-        self.end_hour = 23
-        self.begin_date = "20230131"  # format as "yyyymmdd"
-        self.end_date = "20230201"
+        self.begin_date = "20201201"  # format as "yyyymmdd"
+        self.end_date = "20210101"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
@@ -35,22 +33,13 @@ class PreprocessWRF:
         # the data is read into hourly, stately files, now read them into daily / monthly files
         csvFiles = self.reopen_files()
         for file in csvFiles:
-            # df = pd.read_csv(file, header=None,
-            #                  names=['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'FIPS Code', 'Grid Index',
-            #                         'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
-            #                         'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
-            #                         'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
-            #                         'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
-            #                         'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)'],
-            #                  na_filter=False, na_values='N/A')
             df = pd.read_csv(file, index_col=False, na_filter=False, na_values='N/A')
             df = self.wind_speed_vpd(df=df)
             df = self.dailyAvgMinMax(df=df)
-            df = self.dailyAvgMinMax(df=df)
             df = self.monthlyAvgs(df=df)
-            self.final_sendoff(df=df)
+            self.final_sendoff(df=df, fullfilepath=file)
         finish = time.time()
-        print("\n\n------------- %s seconds ---------------" % (start_time - finish))
+        print("\n\n------------- %s seconds ---------------" % (finish - start_time))
 
     def handle_args(self):
         if len(sys.argv) > 1:
@@ -129,7 +118,7 @@ class PreprocessWRF:
         val.strip()
         return val
 
-    def read_data(self, df=pd.DataFrame, st_dict={}, state_abbrev_df=pd.DataFrame):
+    def read_data(self, df=pd.DataFrame(), st_dict={}, state_abbrev_df=pd.DataFrame()):
         """
 
         :param df: a df acting as the object, holding all of the
@@ -166,44 +155,9 @@ class PreprocessWRF:
 
     def threaded_read(self, dtobj:datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
         # check to see if we're on the last hour or the last day
-        try:
-            herb = Herbie(dtobj, model='hrrr', product='sfc',
-                          save_dir=self.write_path, verbose=False,
-                          priority=['pando', 'pando2', 'aws', 'nomads',
-                                    'ecmwf', 'aws-old', 'google', 'azure'],
-                          fxx=0, overwrite=False)
-        except:
-            print("Could not find grib object for date: %s" % dtobj.date())
-            return
-        try:
-            precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
-                                 save_dir=self.write_path, verbose=False,
-                                 priority=['pando', 'pando2', 'aws', 'nomads',
-                                           'ecmwf', 'aws-old', 'google', 'azure'],
-                                 fxx=1, overwrite=False)
-        except:
-            print("Could not find precipitation object for date: %s" % dtobj.date())
-            return
 
-        try:
-            temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m").herbie.nearest_points(points=lon_lats, names=grid_names)
-            precip_herb_obj = precip_herb.xarray(":APCP:surface:").herbie.nearest_points(points=lon_lats,
-                                                                                         names=grid_names)
-            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats,
-                                                                                   names=grid_names)
-            dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats, names=grid_names)
-            gust_obj = herb.xarray(":GUST:").herbie.nearest_points(points=lon_lats, names=grid_names)
-        except:
-            print("One of the search strings failed for date: %s" % dtobj.date())
-            return
-        # each index of these values arrays will correspond to the index in the grid_names array
-        temp_vals = temp_rh_obj.t2m.values
-        precip_vals = precip_herb_obj.tp.values
-        dswrf_vals = dswrf_obj.dswrf.values
-        rh_vals = temp_rh_obj.r2.values
-        u_wind_vals = u_v_wind_obj.u.values
-        v_wind_vals = u_v_wind_obj.v.values
-        gust_vals = gust_obj.gust.values
+        gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals = self.grab_herbie_arrays(
+            dtobj, lon_lats, grid_names)
 
         # match the parameter to the index in the dict, then write out to file
         grid_name_idx = 0
@@ -229,13 +183,15 @@ class PreprocessWRF:
                     # Radiation Flux (W m**-2)
                     state_abbrev = \
                         state_abbrev_df['stusps'].where(state_abbrev_df['st'] == int(stateFips)).dropna().values[0]
+                    state_name = \
+                        state_abbrev_df['stname'].where(state_abbrev_df['st'] == int(stateFips)).dropna().values[0]
                     county_name = df['county'].where(df['FIPS'] == int(countyFips)).dropna().values[0]
                     df_idx = df.index[
                         (df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[
                         0]
                     dict[stateFips][countyFips][countyIndex].append(
                         [str(dtobj.strftime("%Y")), str(dtobj.strftime("%m")),
-                         str(dtobj.strftime("%d")), 'Daily', state_abbrev, county_name,
+                         str(dtobj.strftime("%d")), str(dtobj.strftime("%H")), 'Daily', state_name.upper(), county_name,
                          str(countyFips), str(countyIndex), df['lat (llcrnr)'][df_idx],
                          df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx],
                          df['lon (urcrnr)'][df_idx], temp_vals[grid_name_idx],
@@ -244,10 +200,66 @@ class PreprocessWRF:
                          v_wind_vals[grid_name_idx], dswrf_vals[grid_name_idx]])
                     # append this to the end of the appropriate file
                     with threading.Lock():
-                        self.write_dict_row(row=dict[stateFips][countyFips][countyIndex][0])
+                        self.write_dict_row(row=dict[stateFips][countyFips][countyIndex][0], state_abbrev=state_abbrev)
                     # clear the array
                     dict[stateFips][countyFips][countyIndex] = []
                     grid_name_idx += 1
+
+    def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
+        try:
+            herb = Herbie(dtobj, model='hrrr', product='sfc',
+                          save_dir=self.write_path, verbose=False,
+                          priority=['pando', 'pando2', 'aws', 'nomads',
+                                    'google', 'azure', 'ecmwf', 'aws-old'],
+                          fxx=0, overwrite=False)
+        except:
+            print("Could not find grib object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+            herb = None
+        try:
+            precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
+                                 save_dir=self.write_path, verbose=False,
+                                 priority=['pando', 'pando2', 'aws', 'nomads',
+                                           'google', 'azure', 'ecmwf', 'aws-old'],
+                                 fxx=1, overwrite=False)
+        except:
+            print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+            precip_herb = None
+
+        # index out each of the necessary points with their search string and place them into arrays to be sorted
+        # some may fail so they have been put into try catch blocks
+        try:
+            temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m").herbie.nearest_points(points=lon_lats, names=grid_names)
+            temp_vals = temp_rh_obj.t2m.values
+            rh_vals = temp_rh_obj.r2.values
+        except:
+            temp_vals = np.zeros((len(grid_names),))
+            rh_vals = np.zeros((len(grid_names),))
+        try:
+            precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(points=lon_lats,
+                                                                                         names=grid_names)
+            precip_vals = precip_herb_obj.tp.values
+        except:
+            precip_vals = np.zeros((len(grid_names),))
+        try:
+            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats,
+                                                                                   names=grid_names)
+            u_wind_vals = u_v_wind_obj.u.values
+            v_wind_vals = u_v_wind_obj.v.values
+        except:
+            u_wind_vals = np.zeros((len(grid_names),))
+            v_wind_vals = np.zeros((len(grid_names),))
+        try:
+            dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats, names=grid_names)
+            dswrf_vals = dswrf_obj.dswrf.values
+        except:
+            dswrf_vals = np.zeros((len(grid_names),))
+        try:
+            gust_obj = herb.xarray(":GUST:", remove_grib=True).herbie.nearest_points(points=lon_lats, names=grid_names)
+            gust_vals = gust_obj.gust.values
+        except:
+            gust_vals = np.zeros((len(grid_names),))
+
+        return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
         """
@@ -268,7 +280,7 @@ class PreprocessWRF:
 
         return names, lon_lats
 
-    def write_dict_row(self, row=[]):
+    def write_dict_row(self, row=[], state_abbrev=''):
         """
 
         :param row: a single row from a dictionary, containing all the necessary information
@@ -279,9 +291,9 @@ class PreprocessWRF:
         # write path + daily_data + year + state_abbrev + countyFips + monthly file
         # <HRRR_<state_fips>_<state_abbrev>_<year>-<month>>.csv
         year = row[0]
-        state_abbrev = row[4]
+        state_name = row[5]
         month = row[1]
-        county_fips = row[6]
+        county_fips = row[7]
         state_fips = county_fips[0:2]
         output_directory = self.write_path + "daily_data/" + year + '/' + state_abbrev + '/'
         # if it does not already exist, make it
@@ -292,7 +304,7 @@ class PreprocessWRF:
         if not os.path.exists(output_file_path):
             # make the file
             f = open(output_file_path, mode='wt')
-            f.write('Year,Month,Day,Daily/Monthly,State,County,FIPS Code,Grid Index,' +
+            f.write('Year,Month,Day,Hour,Daily/Monthly,State,County,FIPS Code,Grid Index,' +
                     'Lat (llcrnr),Lon (llcrnr),Lat (urcrnr),Lon (urcrnr),Avg Temperature (K),' +
                     'Precipitation (kg m**-2),Relative Humidity (%),Wind Gust (m s**-1),' +
                     'U Component of Wind (m s**-1),V Component of Wind (m s**-1),' +
@@ -375,6 +387,7 @@ class PreprocessWRF:
         return VPD
 
     def dailyAvgMinMax(self, df=pd.DataFrame()):
+        df.drop(columns='Hour', inplace=True)
         df.sort_values(['Day'], inplace=True)
         dftoreturn = pd.DataFrame(columns=list(df.columns))
         # dftoreturn.drop(columns='Hour', inplace=True)
@@ -389,51 +402,53 @@ class PreprocessWRF:
         ##########################################
         # look for a more efficient way to do this
         ##########################################
-        grouped_gridindex = df.groupby(df['Grid Index'])
-        # for each station df
-        for gridgroupdf in grouped_gridindex:
-            # print(gridgroupdf[1])
-            gridindexDf = pd.DataFrame(gridgroupdf[1])
-            # print(gridindexDf)
-            grouped_day = gridindexDf.groupby(gridindexDf.Day)
+        grouped_counties = df.groupby(df['County'])
+        for county in grouped_counties:
+            countydf = pd.DataFrame(county[1])
+            grouped_gridindex = countydf.groupby(df['Grid Index'])
 
-            # for each day in each station
-            for group in grouped_day:
-                try:
-                    current_day = group[0]
-                    station_dayDf = pd.DataFrame(group[1])
-                except:
-                    print("Did not grab grouped_day.get_group(%s)" % (group))
-                    continue
-                avgedRow = []
-                # print(station_dayDf)
+            # for each station df
+            for gridgroupdf in grouped_gridindex:
+                # print(gridgroupdf[1])
+                gridindexDf = pd.DataFrame(gridgroupdf[1])
+                # print(gridindexDf)
+                grouped_day = gridindexDf.groupby(gridindexDf.Day)
 
-                for col in station_dayDf:
-                    if col.rfind('Hour') != -1:
-                        avgedRow.append('Daily')
-                    elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind(
-                            'Day') != -1 or col.rfind(
-                            'State') != -1 or col.rfind('County') != -1 or col.rfind(
-                        'Grid Index') != -1 or col.rfind(
-                        'FIPS Code') != -1 or col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1:
-                        avgedRow.append(station_dayDf[col].iloc[0])
-                        # avgedRow.concat()
-                        # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
-                    elif col.rfind('Precipitation') != -1 or col.rfind('radiation') != -1:
-                        avgedRow.append(station_dayDf[col].sum())
-                    else:
-                        # get the average of the row and append it to the avg list
-                        try:
-                            avgedRow.append(station_dayDf[col].mean())
-                        except:
-                            avgedRow.append('NaN')
-                        # if the column is temperature, find the min, max, then append
-                        if col == 'Avg Temperature (K)':
-                            avgedRow.append(station_dayDf[col].min())
-                            avgedRow.append(station_dayDf[col].max())
+                # for each day in each station
+                for group in grouped_day:
+                    try:
+                        current_day = group[0]
+                        station_dayDf = pd.DataFrame(group[1])
+                    except:
+                        print("Did not grab grouped_day.get_group(%s)" % (group))
+                        continue
+                    avgedRow = []
+                    # print(station_dayDf)
 
-                # now that all the columns have been collected, we need to append the row to the dftoreturn
-                dftoreturn.loc[len(dftoreturn)] = avgedRow
+                    for col in station_dayDf:
+                        if col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind(
+                                'Day') != -1 or col.rfind(
+                                'State') != -1 or col.rfind('County') != -1 or col.rfind(
+                                'Grid Index') != -1 or col.rfind(
+                                'FIPS Code') != -1 or col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1:
+                            avgedRow.append(station_dayDf[col].iloc[0])
+                            # avgedRow.concat()
+                            # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
+                        elif col.rfind('Precipitation') != -1 or col.rfind('radiation') != -1:
+                            avgedRow.append(station_dayDf[col].sum())
+                        else:
+                            # get the average of the row and append it to the avg list
+                            try:
+                                avgedRow.append(station_dayDf[col].mean())
+                            except:
+                                avgedRow.append('NaN')
+                            # if the column is temperature, find the min, max, then append
+                            if col == 'Avg Temperature (K)':
+                                avgedRow.append(station_dayDf[col].min())
+                                avgedRow.append(station_dayDf[col].max())
+
+                    # now that all the columns have been collected, we need to append the row to the dftoreturn
+                    dftoreturn.loc[len(dftoreturn)] = avgedRow
         return dftoreturn
 
     def monthlyAvgs(self, df=pd.DataFrame()):
@@ -450,12 +465,12 @@ class PreprocessWRF:
             #     # do sum
             if col.rfind('Daily/Monthly') != -1:
                 monthlyavgs.append("Monthly")
-            elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('State') != -1 or col.rfind(
-                    'County') != -1 or col.rfind('FIPS') != -1:
+            elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('State') != -1:
                 monthlyavgs.append(df[col].iloc[0])
             elif (col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1) and col.rfind('elative') == -1:
                 monthlyavgs.append('N/A')
-            elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1:
+            elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1 or col.rfind('County') != -1 or \
+                    col.rfind('FIPS') != -1:
                 monthlyavgs.append('N/A')
             elif col.rfind('recipitation') != -1 or col.rfind('radiation') != -1:
                 df_new = df.sort_values(by=['Day', 'Grid Index'])
@@ -503,6 +518,7 @@ class PreprocessWRF:
             if fullpathsep[i].rfind('daily_data') != -1:
                 state_abbrev = fullpathsep[i+2]
                 year = fullpathsep[i+1]
+                break
             newfilepath += fullpathsep[i] + '/'
         newfilepath += "monthly_data/" + year + '/' + state_abbrev + '/'
         Path(newfilepath).mkdir(parents=True, exist_ok=True)
