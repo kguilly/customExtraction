@@ -33,6 +33,7 @@ class PreprocessWRF:
         # the data is read into hourly, stately files, now read them into daily / monthly files
         csvFiles = self.reopen_files()
         for file in csvFiles:
+            print("Get Monthly Avg for %s" % file)
             df = pd.read_csv(file, index_col=False, na_filter=False, na_values='N/A')
             df = self.wind_speed_vpd(df=df)
             df = self.dailyAvgMinMax(df=df)
@@ -141,17 +142,19 @@ class PreprocessWRF:
 
         hour_range = (end_hour_dt - begin_hour_dt).seconds // (60*60)
         date_range = (end_day_dt - begin_day_dt).days
-        threads = []
+
         for i in range(0, date_range):
+            threads = []
             for j in range(0, hour_range):
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
                 dict = st_dict
-                t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names, state_abbrev_df,
-                                                                      df))
+                t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+                                                                      state_abbrev_df, df))
                 t.start()
                 threads.append(t)
-        for t in threads:
-            t.join()
+
+            for t in threads:
+                t.join()
 
     def threaded_read(self, dtobj:datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
         # check to see if we're on the last hour or the last day
