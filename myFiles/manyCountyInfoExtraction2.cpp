@@ -42,10 +42,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2021, 4, 28}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.  
+vector<int> beginDay = {2023, 1, 31}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2021, 5, 2};   // NOT INCLUSIVEe
+vector<int> endDay = {2023, 2, 3};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -53,11 +53,11 @@ vector<int> arrHourRange = {0,23}; // array for the range of hours one would lik
 
 int intHourRange; 
 
-string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be: 
+string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be:
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
 
-string writePath = "/home/kaleb/Desktop/cppWRFExtract_1-26/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/WRFextract_2-3/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -70,8 +70,10 @@ struct Station{
     string stateAbbrev;
     string county;
     string fipsCode;
-    float lat;
-    float lon;
+    float latll; // each grid index will include the lat and lons of 
+    float lonll; // the lower left and upper right corners
+    float latur;
+    float lonur;
     double **values; // holds the values of the parameters. Index of this array will 
                     // correspond to index if the Parameter array. This will be a single hour's data
     int* closestPoint;
@@ -252,11 +254,18 @@ int main(int argc, char*argv[]){
     }
     delete [] blnParamArr;
 
-    string strcmd; int status;
-    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
-    strcmd += repositoryPath+" --wrf_path " + writePath;
-    status = system(strcmd.c_str());
-    if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
+//    string strcmd; int status;
+//    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
+//    strcmd += repositoryPath+" --wrf_path " + writePath;
+//    // status = system(strcmd.c_str());
+//    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
+//
+//    strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
+//    strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
+//    // status = system(strcmd.c_str());
+//    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
+
+
     garbageCollection();
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
     totalTime = (endTotal.tv_sec - startTotal.tv_sec) * 1000.0;
@@ -296,21 +305,21 @@ void handleInput(int argc, char* argv[]){
             cout<<"customExtraction/myFiles/countyInfo/WRFOutput/. \n\n";
             cout<<"Currently, the possible parameters to pass are as follows:\n";
             cout<<"--fips...............FIPs code of the county you would like\n";
-            cout<<"                     to extract information from.";
+            cout<<"                     to extract information from.\n";
             cout<<"--begin_date.........First WRF day to read from, format\n";
-            cout<<"                     as YYYYmmdd";
+            cout<<"                     as YYYYmmdd\n";
             cout<<"--end_date...........Last WRF day to read from, format\n";
-            cout<<"                     as YYYYmmdd";
+            cout<<"                     as YYYYmmdd\n";
             cout<<"--begin_hour.........First hour's worth of WRF data to\n";
-            cout<<"                     read from for each day passed.";
-            cout<<"--end_hour...........Last hour to read from";
+            cout<<"                     read from for each day passed.\n";
+            cout<<"--end_hour...........Last hour to read from\n";
             cout<<"--param..............Integer number of the layer(s) of \n";
             cout<<"                     Grib files to read from\n\n";
             cout<<"NOTE: arg which can have multiple inputs (fips, param)\n";
             cout<<"are read from either until the end of the arg list or until\n";
             cout<<"the next arg is reached. Flags cannot be stacked, e.g. only\n";
             cout<<"pass args with the double hyphen.\n";
-            cout<<"Questions / Comments: guillotkaleb01@gmail.com";
+            cout<<"Questions / Comments: guillotkaleb01@gmail.com\n\n";
 
             exit(0);
         }
@@ -426,10 +435,11 @@ void handleInput(int argc, char* argv[]){
     // now call the cmd line to run the python file
     if(fipsflag){
         string command; int status;
-        command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-13-23.py --fips ";
+        command = "cd " + repositoryPath + "myFiles/countyInfo/sentinel-hub ; python geo_gridedit_1-30-23.py --fips ";
         for(int i=0;i<fipscodes.size();i++){
             command += fipscodes.at(i) + " ";
         }
+        command += " --write_path " + repositoryPath + "myFiles/countyInfo/";
         status = system(command.c_str());
         if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
     }
@@ -442,6 +452,7 @@ void handleInput(int argc, char* argv[]){
     getStateAbbreviations();
         
 }
+
 void defaultParams(bool param_flag){
     string paramline;
     ifstream paramFile;
@@ -480,6 +491,7 @@ void defaultParams(bool param_flag){
         }    
     }
 }
+
 void getStateAbbreviations(){
     // read the us-state-ansi-fips.csv file into a map, 
     // KEY: fips, VALUE: abbrev
@@ -587,7 +599,8 @@ void readCountycsv(){
         }
         // row[0] = indx, row[1] = fips, row[2] = statefips, row[3] = county, 4 = lat, 5 = lon
         Station st; st.name = row.at(0); st.fipsCode = row.at(1); st.county = "\""+row.at(3)+"\"";
-        st.lat = stof(row.at(4)); st.lon = stof(row.at(5));
+        st.latur = stof(row.at(4)); st.lonur = stof(row.at(5));
+        st.latll = stof(row.at(6)); st.lonll = stof(row.at(7));
         string stationMapidx = st.fipsCode + "_" + st.name;
         tmpStationMap.insert({stationMapidx, st});
         arridx++;
@@ -709,8 +722,9 @@ void semaphoreInit(){
 
 void convertLatLons(){
     for(int i=0; i<numStations;i++){
-        Station station = stationArr[i];
-        station.lon = (station.lon +360); // circle, going clockwise vs counterclockwise
+        Station *station = &stationArr[i];
+        station->lonll = (station->lonll +360); // circle, going clockwise vs counterclockwise
+        station->lonur = (station->lonur+360);
     }
 }
 
@@ -842,22 +856,7 @@ void *readData(void *args){
     vector<string> strCurrentDay = (*threadArg).strCurrentDay;
     bool *ptrHeader_flag = (*threadArg).header_flag;
     bool thread_header_flag = (*threadArg).thread_header_flag;
-    
 
-    // check to see if the header needs to be formulated
-    sem_wait(&headerProtection);
-    if(*ptrHeader_flag == true){
-        *ptrHeader_flag = false;
-        thread_header_flag = true; // this is the chosen thread to get the keys (header) 
-                                   // from the grib file
-        vctrHeader.clear();
-        vctrHeader.push_back("Year");vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
-        vctrHeader.push_back("State");vctrHeader.push_back("County");
-        vctrHeader.push_back("GridIndex"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat");
-        vctrHeader.push_back("lon(-180 to 180)");
-    }
-    sem_post(&headerProtection);
-    
 
     printf("\nOpening File: %s", filePath2.c_str());
 
@@ -868,8 +867,24 @@ void *readData(void *args){
     }
     catch(string file){
         printf("\nError: could not open filename %s in directory %s", fileName.c_str(), file.c_str());
-        exit(0);
+        pthread_exit(0);
+        return(void*) nullptr;
     }
+    // check to see if the header needs to be formulated
+    sem_wait(&headerProtection);
+    if(*ptrHeader_flag == true){
+        *ptrHeader_flag = false;
+        thread_header_flag = true; // this is the chosen thread to get the keys (header)
+        // from the grib file
+        vctrHeader.clear();
+        vctrHeader.push_back("Year"); vctrHeader.push_back("Month");vctrHeader.push_back("Day");vctrHeader.push_back("Hour");
+        vctrHeader.push_back("State");vctrHeader.push_back("County");
+        vctrHeader.push_back("Grid Index"); vctrHeader.push_back("FIPS Code");vctrHeader.push_back("lat(llcrnr)");
+        vctrHeader.push_back("lon(llcrnr)"); vctrHeader.push_back("lat(urcrnr)");vctrHeader.push_back("lon(urcrnr)");
+    }
+    sem_post(&headerProtection);
+
+
     // unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
     //                                           CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
     codes_grib_multi_support_on(NULL);
@@ -899,8 +914,6 @@ void *readData(void *args){
         assert(h);
         msg_count++; // will be in layer 1 on the first run
         if (blnParamArr[msg_count] == true){
-
-        
             // extract the data
             CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
@@ -945,7 +958,7 @@ void *readData(void *args){
                     if(strName.find("name")!=string::npos){
                         strValue.erase(remove(strValue.begin(), strValue.end(), ','), strValue.end());
                         //strHeader.append(to_string(msg_count)+"_"+strValue);
-                        strnametosendout = to_string(msg_count)+"_"+strValue;
+                        strnametosendout = strValue;
                     }
                     else if(strName.find("units")!=string::npos){
                         //strHeader.append("("+strValue+")");
@@ -956,14 +969,16 @@ void *readData(void *args){
                 vctrHeader.push_back(strHeader);
             }
             // if it is the first time, extract the index
-            if (flag == true){
-                
+            if (flag){
+                Station *station;
                 for(int i =0; i<numStations; i++){
-                    Station *station = &stationArr[i];
+                    station = &stationArr[i];
+                    float avglat = (station->latll + station->latur) / 2;
+                    float avglon = (station->lonll + station->lonur) / 2;
                     int closestPoint = 0;
                     for (int j=0; j<numberOfPoints;j++){
-                        double distance = pow(lats[j]- station->lat, 2) + pow(lons[j]-station->lon, 2);
-                        double closestDistance = pow(lats[closestPoint] - station->lat, 2) + pow(lons[closestPoint] - station->lon,2);
+                        double distance = pow(lats[j]- avglat, 2) + pow(lons[j]-avglon, 2);
+                        double closestDistance = pow(lats[closestPoint] - avglat, 2) + pow(lons[closestPoint] - avglon,2);
                         if(distance < closestDistance) closestPoint = j;
                     }
                     station->closestPoint[threadIndex] = closestPoint;
@@ -1000,6 +1015,7 @@ void createPath(){
 
     // separate the write path by slashes, pass each hypen to the dirExists function,
     // if it doesnt exist, keep appending toa new fielpath
+    writePath += "Hourly/"; // the data we'll be extracting will be separate from the daily/monthly format
     vector<string> splittedWritePath = splitonDelim(writePath, '/');
     string writePath_1;
     for(int i=0; i<splittedWritePath.size(); i++){
@@ -1094,13 +1110,17 @@ void writeHourlyData(bool header_write_flag, vector<string>formattedDay){
         int currHour = arrHourRange.at(0);
         for(int j=0; j<intHourRange; j++){
             // append the init info to strOutput:
-            // Year, Month, Day, Daily/Monthly, State, County, GridIndex, FIPS code, lat, lon
+            // Year, Month, Day, Daily/Monthly, State, County, Grid Index, FIPS code, lat, lon
             strOutput.append(year+","+month+","+formattedDay.at(2)+","+to_string(currHour)+","+station.state+","); 
-            strOutput.append(station.county+","+station.name+","+station.fipsCode+","+to_string(station.lat)+","+to_string(station.lon)+",");
+            strOutput.append(station.county+","+station.name+","+station.fipsCode+","+to_string(station.latll)+","+to_string(station.lonll)+",");
+            strOutput.append(to_string(station.latur)+","+to_string(station.lonur)+",");
             for(int k=0; k< numParams; k++){
                 // write out station.values[j][k]
                 // outputFile << station.values[j][k] << ",";
                 // append the value and the comma to the output string
+                if(k>=vctrHeader.size()-12){
+                    break;
+                }
                 strOutput.append(to_string(station.values[j][k])+",");
             }
             // strOutput.append("\n");

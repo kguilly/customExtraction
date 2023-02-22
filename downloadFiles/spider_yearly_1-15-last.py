@@ -15,9 +15,9 @@ class spider_runna():
 
     def __init__(self):
         self.email = "guillotkaleb01@gmail.com"
-        self.year = "2020"
-        self.spider_file_path = "/home/kalebg/Documents/GitHub/customExtraction/downloadFiles/"
-        self.spider_output_path = "/home/kalebg/Documents/GitHub/customExtraction/data/"
+        self.year = "2015"
+        self.spider_file_path = "/home/kaleb/Documents/GitHub/customExtraction/downloadFiles/"
+        self.spider_output_path = "/home/kaleb/Documents/GitHub/customExtraction/data/"
 
     def email_me(self):
         # send me an email to tell me that you're done
