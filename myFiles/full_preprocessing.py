@@ -14,8 +14,8 @@ class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/full_preprocessing_output/"
 
-        self.begin_date = "20201201"  # format as "yyyymmdd"
-        self.end_date = "20210101"
+        self.begin_date = "20180701"  # format as "yyyymmdd"
+        self.end_date = "20180801"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
@@ -63,12 +63,37 @@ class PreprocessWRF:
                 self.passedFips = []
                 for i in range(fips_index, len(sys.argv)):
                     arg = sys.argv[i]
-                    if len(arg) == 5:
-                        # the correct length for a fips code
-                        self.passedFips.append(arg)
+                    if arg.upper().rfind("STATE") != -1:
+                        sep = arg.split('=')
+                        states = sep[1].split(',')
+                        for j in range(len(states)):
+                            states[j] = states[j].strip()
+                            states[j] = states[j].upper()
+                            # print(states[j])
+                        all_county_df = pd.read_csv("./countyInfo/countyFipsandCoordinates.csv", dtype=str)
+                        state_abbrev_df = pd.read_csv("./countyInfo/us-state-ansi-fips2.csv", dtype=str)
+                        county_fips = []
+                        for state in states:
+                            this_state_fips = \
+                                state_abbrev_df['st'].where(state_abbrev_df['stusps'] == state).dropna().values[0]
+                            county_fips_from_state = all_county_df[
+                                all_county_df['fips_code'].str.startswith(this_state_fips)]
+                            county_fips_from_state = county_fips_from_state['fips_code'].dropna().values
+                            county_fips.append(county_fips_from_state)
+                        for arr in county_fips:
+                            for val in arr:
+                                self.passedFips.append(val)
+
                     else:
-                        print("Error, the incorrect length of fips argument passed, please try again")
-                        exit(0)
+                        if len(arg) == 5:
+                            # the correct length for a fips code
+                            self.passedFips.append(arg)
+                        else:
+                            print("Error, the incorrect length of fips argument passed, please try again")
+                            exit(0)
+            if len(self.passedFips) < 1:
+                print("Must pass fips codes")
+                exit(0)
             gg.county(fips=self.passedFips)
 
     def separate_by_state(self, df=pd.DataFrame()):
@@ -98,7 +123,7 @@ class PreprocessWRF:
                      st = state fips and stusps = state abbreviation
         """
         state_file_path = "./countyInfo/us-state-ansi-fips2.csv"
-        state_abbrev_df = pd.read_csv(state_file_path)
+        state_abbrev_df = pd.read_csv(state_file_path, dtype=str)
         return state_abbrev_df
 
     def fix_county_names(self, val):
@@ -140,11 +165,12 @@ class PreprocessWRF:
         begin_hour_dt = datetime.strptime(self.begin_hour, "%H:%M")
         end_hour_dt = datetime.strptime(self.end_hour, "%H:%M")
 
-        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60*60)
+        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60)
         date_range = (end_day_dt - begin_day_dt).days
 
         for i in range(0, date_range):
             threads = []
+            print(begin_day_dt + timedelta(days=i))
             for j in range(0, hour_range):
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
                 dict = st_dict
@@ -156,7 +182,7 @@ class PreprocessWRF:
             for t in threads:
                 t.join()
 
-    def threaded_read(self, dtobj:datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
+    def threaded_read(self, dtobj: datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
         # check to see if we're on the last hour or the last day
 
         gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals = self.grab_herbie_arrays(
@@ -213,7 +239,7 @@ class PreprocessWRF:
             herb = Herbie(dtobj, model='hrrr', product='sfc',
                           save_dir=self.write_path, verbose=False,
                           priority=['pando', 'pando2', 'aws', 'nomads',
-                                    'google', 'azure', 'ecmwf', 'aws-old'],
+                                    'google', 'azure'],  # , 'ecmwf', 'aws-old'],
                           fxx=0, overwrite=False)
         except:
             print("Could not find grib object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
@@ -222,7 +248,7 @@ class PreprocessWRF:
             precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
                                  save_dir=self.write_path, verbose=False,
                                  priority=['pando', 'pando2', 'aws', 'nomads',
-                                           'google', 'azure', 'ecmwf', 'aws-old'],
+                                           'google', 'azure'],  # , 'ecmwf', 'aws-old'],
                                  fxx=1, overwrite=False)
         except:
             print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
@@ -238,8 +264,9 @@ class PreprocessWRF:
             temp_vals = np.zeros((len(grid_names),))
             rh_vals = np.zeros((len(grid_names),))
         try:
-            precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(points=lon_lats,
-                                                                                         names=grid_names)
+            precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(
+                points=lon_lats,
+                names=grid_names)
             precip_vals = precip_herb_obj.tp.values
         except:
             precip_vals = np.zeros((len(grid_names),))
@@ -280,7 +307,6 @@ class PreprocessWRF:
             names.append(grid_county_name)
             lon_lats.append((avg_lon, avg_lat))
 
-
         return names, lon_lats
 
     def write_dict_row(self, row=[], state_abbrev=''):
@@ -301,7 +327,7 @@ class PreprocessWRF:
         output_directory = self.write_path + "daily_data/" + year + '/' + state_abbrev + '/'
         # if it does not already exist, make it
         Path(output_directory).mkdir(parents=True, exist_ok=True)
-        output_file_path = output_directory + "HRRR_" + state_fips + '_' + state_abbrev + '_' + year\
+        output_file_path = output_directory + "HRRR_" + state_fips + '_' + state_abbrev + '_' + year \
                            + '-' + month + '.csv'
         # if the file does not already exist, write the appropriate header out to it
         if not os.path.exists(output_file_path):
@@ -431,9 +457,9 @@ class PreprocessWRF:
                     for col in station_dayDf:
                         if col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind(
                                 'Day') != -1 or col.rfind(
-                                'State') != -1 or col.rfind('County') != -1 or col.rfind(
-                                'Grid Index') != -1 or col.rfind(
-                                'FIPS Code') != -1 or col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1:
+                            'State') != -1 or col.rfind('County') != -1 or col.rfind(
+                            'Grid Index') != -1 or col.rfind(
+                            'FIPS Code') != -1 or col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1:
                             avgedRow.append(station_dayDf[col].iloc[0])
                             # avgedRow.concat()
                             # pd.concat([avgedRow, station_dayDf[col].iloc[0]], ignore_index=True)
@@ -512,22 +538,23 @@ class PreprocessWRF:
 
         return df
 
-    def final_sendoff(self, df=pd.DataFrame(), fullfilepath = ''):
+    def final_sendoff(self, df=pd.DataFrame(), fullfilepath=''):
         fullpathsep = fullfilepath.split('/')
         newfilepath = ''
         state_abbrev = ''
         year = ''
         for i in range(len(fullpathsep)):
             if fullpathsep[i].rfind('daily_data') != -1:
-                state_abbrev = fullpathsep[i+2]
-                year = fullpathsep[i+1]
+                state_abbrev = fullpathsep[i + 2]
+                year = fullpathsep[i + 1]
                 break
             newfilepath += fullpathsep[i] + '/'
         newfilepath += "monthly_data/" + year + '/' + state_abbrev + '/'
         Path(newfilepath).mkdir(parents=True, exist_ok=True)
-        write_path = newfilepath + fullpathsep[len(fullpathsep)-1]
+        write_path = newfilepath + fullpathsep[len(fullpathsep) - 1]
         df.to_csv(write_path, index=False)
         return
+
 
 if __name__ == "__main__":
     p = PreprocessWRF()
