@@ -7,8 +7,10 @@ import sys
 import os
 import geo_grid_recent as gg
 from pathlib import Path
-import threading
+# import threading
 import multiprocessing
+import logging
+import warnings
 
 
 class PreprocessWRF:
@@ -21,9 +23,14 @@ class PreprocessWRF:
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
+        self.lock = multiprocessing.Lock()
 
     def main(self):
         start_time = time.time()
+        # configure logging
+        logfilename = self.write_path + 'full_preproc_' + self.begin_date + '-' + self.end_date
+        logging.basicConfig(filemode='w', filename=logfilename, format='%(levelname)s - %(message)s')
+        #
         self.handle_args()
         every_county_df = pd.read_csv("./WRFoutput/wrfOutput.csv")
         param_dict_arr = self.separate_by_state(df=every_county_df)
@@ -47,6 +54,7 @@ class PreprocessWRF:
         if len(sys.argv) > 1:
             fips_flag = False
             fips_index = 0
+            help_flag = False
 
             for i in range(1, len(sys.argv)):
 
@@ -59,6 +67,20 @@ class PreprocessWRF:
                 elif sys.argv[i] == "--fips":
                     fips_flag = True
                     fips_index = i + 1
+
+                elif sys.argv[i] == '-h' or sys.argv[i] == '--help':
+                    help_flag = True
+                    break
+
+            if help_flag:
+                print("This is a file to extract select paramters for a select date range from counties"
+                      "or states that are passed as arguments. The argument list is as follows:"
+                      "-h --help           Display this screen"
+                      "--fips              pass one to a number of fips codes, separated by spaces"
+                      "--fips state=...    pass state abbreviations, will extract every county in the given"
+                      "                    states. separate states by commas. Only put space b/w states"
+                      "                    if the argument is encapsulated by quotes. "
+                      "                    Ex. --fips \"state=LA, MS, IL\"")
 
             if fips_flag:
                 self.passedFips = []
@@ -92,10 +114,12 @@ class PreprocessWRF:
                         else:
                             print("Error, the incorrect length of fips argument passed, please try again")
                             exit(0)
-            if len(self.passedFips) < 1:
-                print("Must pass fips codes")
-                exit(0)
-            gg.county(fips=self.passedFips)
+                gg.county(fips=self.passedFips)
+            else:
+                # we're either just gonna read the WRFoutput file or read the self.passedFips arg
+                if len(self.passedFips) > 1:
+                    gg.county(fips=self.passedFips)
+
 
     def separate_by_state(self, df=pd.DataFrame()):
         """
@@ -169,26 +193,41 @@ class PreprocessWRF:
         hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60)
         date_range = (end_day_dt - begin_day_dt).days
 
+        # define the max amount of time for a process to run in seconds
+        TIMEOUT = 300
         for i in range(0, date_range):
             threads = []
             print(begin_day_dt + timedelta(days=i))
+            proc_start_time = time.time()
             for j in range(0, hour_range):
+
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
                 dict = st_dict
-                t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-                                                                      state_abbrev_df, df))
+                # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+                #                                                      state_abbrev_df, df))
+                t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+                                                                             state_abbrev_df, df))
                 t.start()
                 threads.append(t)
 
+                while time.time() - proc_start_time <= TIMEOUT:
+                    if not t.is_alive():
+                        break
+                    time.sleep(5)
+                else:
+                    # print("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
+                    logger = logging.getLogger()
+                    logger.warning("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
+                    t.terminate()
+
             for t in threads:
-                t.join()
+                t.join() # if the process takes longer than 240 seconds, the proc is killed
+
+            print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
 
     def threaded_read(self, dtobj: datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
-        # check to see if we're on the last hour or the last day
-
         gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals = self.grab_herbie_arrays(
             dtobj, lon_lats, grid_names)
-
         # match the parameter to the index in the dict, then write out to file
         grid_name_idx = 0
         for stateFips in dict:
@@ -212,9 +251,9 @@ class PreprocessWRF:
                     # U Component of Wind (m s**-1), V Component of Wind (m s**-1), Downward Shortwave
                     # Radiation Flux (W m**-2)
                     state_abbrev = \
-                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == int(stateFips)).dropna().values[0]
+                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == stateFips).dropna().values[0]
                     state_name = \
-                        state_abbrev_df['stname'].where(state_abbrev_df['st'] == int(stateFips)).dropna().values[0]
+                        state_abbrev_df['stname'].where(state_abbrev_df['st'] == stateFips).dropna().values[0]
                     county_name = df['county'].where(df['FIPS'] == int(countyFips)).dropna().values[0]
                     df_idx = df.index[
                         (df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[
@@ -229,13 +268,17 @@ class PreprocessWRF:
                          gust_vals[grid_name_idx], u_wind_vals[grid_name_idx],
                          v_wind_vals[grid_name_idx], dswrf_vals[grid_name_idx]])
                     # append this to the end of the appropriate file
-                    with threading.Lock():
+                    self.lock.acquire()
+                    try:
                         self.write_dict_row(row=dict[stateFips][countyFips][countyIndex][0], state_abbrev=state_abbrev)
+                    finally:
+                        self.lock.release()
                     # clear the array
                     dict[stateFips][countyFips][countyIndex] = []
                     grid_name_idx += 1
 
     def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
+        logger = logging.getLogger()
         try:
             herb = Herbie(dtobj, model='hrrr', product='sfc',
                           save_dir=self.write_path, verbose=False,
@@ -243,7 +286,8 @@ class PreprocessWRF:
                                     'google', 'azure'],  # , 'ecmwf', 'aws-old'],
                           fxx=0, overwrite=False)
         except:
-            print("Could not find grib object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+            # print("Could not find grib object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+            logger.warning("Herb obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
             herb = None
         try:
             precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
@@ -252,7 +296,8 @@ class PreprocessWRF:
                                            'google', 'azure'],  # , 'ecmwf', 'aws-old'],
                                  fxx=1, overwrite=False)
         except:
-            print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+            # print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+            logger.warning("Precipitation obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
             precip_herb = None
 
         # index out each of the necessary points with their search string and place them into arrays to be sorted
@@ -264,6 +309,8 @@ class PreprocessWRF:
         except:
             temp_vals = np.zeros((len(grid_names),))
             rh_vals = np.zeros((len(grid_names),))
+            if herb:
+                logger.warning("Temp / RH not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
         try:
             precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(
                 points=lon_lats,
@@ -271,6 +318,8 @@ class PreprocessWRF:
             precip_vals = precip_herb_obj.tp.values
         except:
             precip_vals = np.zeros((len(grid_names),))
+            if herb:
+                logger.warning("Precip vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
         try:
             u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats,
                                                                                    names=grid_names)
@@ -279,16 +328,22 @@ class PreprocessWRF:
         except:
             u_wind_vals = np.zeros((len(grid_names),))
             v_wind_vals = np.zeros((len(grid_names),))
+            if herb:
+                logger.warning("Wind direction vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
         try:
             dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats, names=grid_names)
             dswrf_vals = dswrf_obj.dswrf.values
         except:
             dswrf_vals = np.zeros((len(grid_names),))
+            if herb:
+                logger.warning("DSWRF vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
         try:
             gust_obj = herb.xarray(":GUST:", remove_grib=True).herbie.nearest_points(points=lon_lats, names=grid_names)
             gust_vals = gust_obj.gust.values
         except:
             gust_vals = np.zeros((len(grid_names),))
+            if herb:
+                logger.warning("Wind Gust vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
 
@@ -374,13 +429,30 @@ class PreprocessWRF:
                ndarrays, then feed into get_vpd function, make a new
                column "Vapor Pressure Deficit (kPa)" and put the return
                value as the values of the column
-               """
-        u_comp_wind = df['U Component of Wind (m s**-1)'].to_numpy().astype(dtype=float)
-        v_comp_wind = df['V Component of Wind (m s**-1)'].to_numpy().astype(dtype=float)
-        # df.drop(columns=['U Component of Wind (m s**-1)', 'V component of wind (m s**-1)'], inplace=True)
+        """
+        u_comp_wind = df['U Component of Wind (m s**-1)']
+        u_comp_wind.replace(0, np.nan, inplace=True)
+        u_comp_wind.ffill(inplace=True)
+        u_comp_wind.bfill(inplace=True)
+        u_comp_wind = u_comp_wind.to_numpy().astype(dtype=float)
 
-        temp = np.asarray(df['Avg Temperature (K)'].values)
-        relh = np.asarray(df['Relative Humidity (%)'].values)
+        v_comp_wind = df['V Component of Wind (m s**-1)']
+        v_comp_wind.replace(0, np.nan, inplace=True)
+        v_comp_wind.ffill(inplace=True)
+        v_comp_wind.bfill(inplace=True)
+        v_comp_wind = v_comp_wind.to_numpy().astype(dtype=float)
+
+        temp = df['Avg Temperature (K)']
+        temp.replace(0, np.nan, inplace=True)
+        temp.ffill(inplace=True)
+        temp.bfill(inplace=True)
+        temp = temp.to_numpy().astype(dtype=float)
+
+        relh = df['Relative Humidity (%)']
+        relh.replace(0, np.nan, inplace=True)
+        relh.ffill(inplace=True)
+        relh.bfill(inplace=True)
+        relh = relh.to_numpy().astype(dtype=float)
 
         wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
         df['Wind Speed (m s**-1)'] = wind_speed
@@ -558,5 +630,6 @@ class PreprocessWRF:
 
 
 if __name__ == "__main__":
+    warnings.filterwarnings("ignore", message=".*More than one time coordinate present.*")
     p = PreprocessWRF()
     p.main()
