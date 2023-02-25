@@ -7,7 +7,7 @@ import sys
 import os
 import geo_grid_recent as gg
 from pathlib import Path
-# import threading
+import threading
 import multiprocessing
 import logging
 import warnings
@@ -15,20 +15,21 @@ import warnings
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/full_preprocessing_output/"
+        self.write_path = "/home/kaleb/Desktop/full_preprocessing_output_2-24_new/"
 
-        self.begin_date = "20180701"  # format as "yyyymmdd"
-        self.end_date = "20180801"
+        self.begin_date = "20210101"  # format as "yyyymmdd"
+        self.end_date = "20210103"
         self.begin_hour = "00:00"
-        self.end_hour = "23:00"
+        self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
-        self.lock = multiprocessing.Lock()
+        self.lock = threading.Lock()
 
     def main(self):
         start_time = time.time()
         # configure logging
-        logfilename = self.write_path + 'full_preproc_' + self.begin_date + '-' + self.end_date
+        Path(self.write_path).mkdir(parents=True, exist_ok=True)
+        logfilename = self.write_path + 'full_preproc_' + self.begin_date + '-' + self.end_date + '.log'
         logging.basicConfig(filemode='w', filename=logfilename, format='%(levelname)s - %(message)s')
         #
         self.handle_args()
@@ -205,20 +206,23 @@ class PreprocessWRF:
                 dict = st_dict
                 # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
                 #                                                      state_abbrev_df, df))
-                t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-                                                                             state_abbrev_df, df))
+                # t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+                #                                                             state_abbrev_df, df))
+                t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+                                                                      state_abbrev_df, df))
                 t.start()
                 threads.append(t)
 
-                while time.time() - proc_start_time <= TIMEOUT:
-                    if not t.is_alive():
-                        break
-                    time.sleep(5)
-                else:
-                    # print("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
-                    logger = logging.getLogger()
-                    logger.warning("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
-                    t.terminate()
+            # while time.time() - proc_start_time <= TIMEOUT:
+            #     for t in threads:
+            #         if not t.is_alive():
+            #             break
+            #         else:
+            #             # print("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
+            #             logger = logging.getLogger()
+            #             logger.warning("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
+            #             t.terminate()
+            #         time.sleep(1)
 
             for t in threads:
                 t.join() # if the process takes longer than 240 seconds, the proc is killed
@@ -229,6 +233,7 @@ class PreprocessWRF:
         gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals = self.grab_herbie_arrays(
             dtobj, lon_lats, grid_names)
         # match the parameter to the index in the dict, then write out to file
+        print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M"))
         grid_name_idx = 0
         for stateFips in dict:
             for countyFips in dict[stateFips]:
@@ -307,8 +312,8 @@ class PreprocessWRF:
             temp_vals = temp_rh_obj.t2m.values
             rh_vals = temp_rh_obj.r2.values
         except:
-            temp_vals = np.zeros((len(grid_names),))
-            rh_vals = np.zeros((len(grid_names),))
+            temp_vals = np.full((len(grid_names),), -12345.678) ####### dummy value to be replaced l8r
+            rh_vals = np.full((len(grid_names),), -12345.678)
             if herb:
                 logger.warning("Temp / RH not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
         try:
@@ -326,8 +331,8 @@ class PreprocessWRF:
             u_wind_vals = u_v_wind_obj.u.values
             v_wind_vals = u_v_wind_obj.v.values
         except:
-            u_wind_vals = np.zeros((len(grid_names),))
-            v_wind_vals = np.zeros((len(grid_names),))
+            u_wind_vals = np.full((len(grid_names),), -12345.678)
+            v_wind_vals = np.full((len(grid_names),), -12345.678)
             if herb:
                 logger.warning("Wind direction vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
         try:
@@ -431,28 +436,32 @@ class PreprocessWRF:
                value as the values of the column
         """
         u_comp_wind = df['U Component of Wind (m s**-1)']
-        u_comp_wind.replace(0, np.nan, inplace=True)
+        u_comp_wind.replace(-12345.678, np.nan, inplace=True)
         u_comp_wind.ffill(inplace=True)
         u_comp_wind.bfill(inplace=True)
         u_comp_wind = u_comp_wind.to_numpy().astype(dtype=float)
+        df['U Component of Wind (m s**-1)'] = u_comp_wind
 
         v_comp_wind = df['V Component of Wind (m s**-1)']
-        v_comp_wind.replace(0, np.nan, inplace=True)
+        v_comp_wind.replace(-12345.678, np.nan, inplace=True)
         v_comp_wind.ffill(inplace=True)
         v_comp_wind.bfill(inplace=True)
         v_comp_wind = v_comp_wind.to_numpy().astype(dtype=float)
+        df['V Component of Wind (m s**-1)'] = v_comp_wind
 
         temp = df['Avg Temperature (K)']
-        temp.replace(0, np.nan, inplace=True)
+        temp.replace(-12345.678, np.nan, inplace=True)
         temp.ffill(inplace=True)
         temp.bfill(inplace=True)
         temp = temp.to_numpy().astype(dtype=float)
+        df['Avg Temperature (K)'] = temp
 
         relh = df['Relative Humidity (%)']
-        relh.replace(0, np.nan, inplace=True)
+        relh.replace(-12345.678, np.nan, inplace=True)
         relh.ffill(inplace=True)
         relh.bfill(inplace=True)
         relh = relh.to_numpy().astype(dtype=float)
+        df['Relative Humidity (%)'] = relh
 
         wind_speed = self.get_wind_speed(u_comp_wind, v_comp_wind)
         df['Wind Speed (m s**-1)'] = wind_speed
@@ -631,5 +640,6 @@ class PreprocessWRF:
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", message=".*More than one time coordinate present.*")
+    warnings.filterwarnings("ignore", message=".*This pattern is interpreted as a regular expression,.*")
     p = PreprocessWRF()
     p.main()
