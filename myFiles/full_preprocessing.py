@@ -15,15 +15,15 @@ import warnings
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/full_preprocessing_output_2-24_new/"
+        self.write_path = "/Users/kkjesus/Desktop/full_preprocessing_output_2-24_new/"
 
-        self.begin_date = "20210101"  # format as "yyyymmdd"
-        self.end_date = "20210103"
+        self.begin_date = "20230130"  # format as "yyyymmdd"
+        self.end_date = "20230202"
         self.begin_hour = "00:00"
         self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
-        self.lock = threading.Lock()
+        self.lock = multiprocessing.Lock()
 
     def main(self):
         start_time = time.time()
@@ -206,26 +206,28 @@ class PreprocessWRF:
                 dict = st_dict
                 # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
                 #                                                      state_abbrev_df, df))
-                # t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-                #                                                             state_abbrev_df, df))
-                t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-                                                                      state_abbrev_df, df))
+                t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+                                                                             state_abbrev_df, df))
                 t.start()
                 threads.append(t)
 
-            # while time.time() - proc_start_time <= TIMEOUT:
-            #     for t in threads:
-            #         if not t.is_alive():
-            #             break
-            #         else:
-            #             # print("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
-            #             logger = logging.getLogger()
-            #             logger.warning("TIMEOUT: killing process for date %s" % dtobj.strftime("%Y%m%d %H:%M"))
-            #             t.terminate()
-            #         time.sleep(1)
+            completed_threads = []
+            while time.time() - proc_start_time <= TIMEOUT:
+                for t in threads:
+                    if not t.is_alive():
+                        threads.remove(t)
+                        completed_threads.append(t)
+                        break
+                    time.sleep(3)
 
             for t in threads:
-                t.join() # if the process takes longer than 240 seconds, the proc is killed
+                completed_threads.append(t)
+                logger = logging.getLogger()
+                logger.warning("TIMEOUT: killing process %s for date %s" % (t.name, dtobj.strftime("%Y%m%d")))
+                t.terminate()
+
+            for t in completed_threads:
+                t.join()
 
             print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
 
@@ -639,7 +641,7 @@ class PreprocessWRF:
 
 
 if __name__ == "__main__":
-    warnings.filterwarnings("ignore", message=".*More than one time coordinate present.*")
+    warnings.filterwarnings("ignore", message=".*More than one.*")
     warnings.filterwarnings("ignore", message=".*This pattern is interpreted as a regular expression,.*")
     p = PreprocessWRF()
     p.main()
