@@ -23,7 +23,7 @@ class HerbDownload():
                 herb = Herbie(dtobj, model='hrrr',
                               product='sfc', save_dir=self.data_path, verbose=True,
                               priority=['pando', 'pando2', 'aws', 'nomads',
-                                        'google', 'azure', 'ecmwf', 'aws-old'],
+                                        'google', 'azure'], # , 'ecmwf', 'aws-old'],
                               fxx=0,
                               overwrite=False)
             except:
