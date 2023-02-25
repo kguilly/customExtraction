@@ -20,7 +20,7 @@ class PreprocessWRF:
         self.begin_date = "20230130"  # format as "yyyymmdd"
         self.end_date = "20230202"
         self.begin_hour = "00:00"
-        self.end_hour = "2:00"
+        self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.lock = multiprocessing.Lock()
@@ -219,6 +219,8 @@ class PreprocessWRF:
                         completed_threads.append(t)
                         break
                     time.sleep(3)
+                if len(threads) < 1:
+                    break
 
             for t in threads:
                 completed_threads.append(t)
