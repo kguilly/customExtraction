@@ -15,10 +15,10 @@ import warnings
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/Users/kkjesus/Desktop/full_preprocessing_output_2-24_new/"
+        self.write_path = "/home/kaleb/Desktop/2-25_EXTRACT_2-26/"
 
-        self.begin_date = "20230130"  # format as "yyyymmdd"
-        self.end_date = "20230202"
+        self.begin_date = "20180401"  # format as "yyyymmdd"
+        self.end_date = "20180403"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
@@ -195,7 +195,7 @@ class PreprocessWRF:
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds
-        TIMEOUT = 300
+        TIMEOUT = 240
         for i in range(0, date_range):
             threads = []
             print(begin_day_dt + timedelta(days=i))
@@ -233,7 +233,7 @@ class PreprocessWRF:
 
             print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
 
-    def threaded_read(self, dtobj: datetime, dict={}, lon_lats=[], grid_names=[], state_abbrev_df=[], df=[]):
+    def threaded_read(self, dtobj: datetime, dict={}, lon_lats={}, grid_names={}, state_abbrev_df=[], df=[]):
         gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals = self.grab_herbie_arrays(
             dtobj, lon_lats, grid_names)
         # match the parameter to the index in the dict, then write out to file
@@ -312,45 +312,88 @@ class PreprocessWRF:
         # index out each of the necessary points with their search string and place them into arrays to be sorted
         # some may fail so they have been put into try catch blocks
         try:
-            temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m").herbie.nearest_points(points=lon_lats, names=grid_names)
-            temp_vals = temp_rh_obj.t2m.values
-            rh_vals = temp_rh_obj.r2.values
+            temp_vals = np.empty((1,))
+            rh_vals = np.empty((1,))
+            temp_vals = np.delete(temp_vals, 0)
+            rh_vals = np.delete(rh_vals, 0)
+            for state in lon_lats:
+                temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m").herbie.nearest_points(points=lon_lats[state],
+                                                                                   names=grid_names[state])
+                temp_vals = np.concatenate((temp_vals, temp_rh_obj.t2m.values))
+                rh_vals = np.concatenate((rh_vals, temp_rh_obj.r2.values))
         except:
-            temp_vals = np.full((len(grid_names),), -12345.678) ####### dummy value to be replaced l8r
-            rh_vals = np.full((len(grid_names),), -12345.678)
+            temp_vals = np.empty((1,))
+            rh_vals = np.empty((1,))
+            temp_vals = np.delete(temp_vals, 0)
+            rh_vals = np.delete(rh_vals, 0)
+            for state in lon_lats:
+                temp_vals = np.concatenate((temp_vals, np.full((len(grid_names[state]),), -12345.678)))
+                rh_vals = np.concatenate((rh_vals, np.full((len(grid_names[state]),), -12345.678)))
             if herb:
                 logger.warning("Temp / RH not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
+
         try:
-            precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(
-                points=lon_lats,
-                names=grid_names)
-            precip_vals = precip_herb_obj.tp.values
+            precip_vals = np.empty((1,))
+            precip_vals = np.delete(precip_vals, 0)
+            for state in lon_lats:
+                precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(
+                    points=lon_lats[state],
+                    names=grid_names[state])
+                precip_vals = np.concatenate((precip_vals, precip_herb_obj.tp.values))
         except:
-            precip_vals = np.zeros((len(grid_names),))
+            precip_vals = np.empty((1,))
+            precip_vals = np.delete(precip_vals, 0)
+            for state in lon_lats:
+                precip_vals = np.concatenate((precip_vals, np.zeros((len(grid_names[state]),))))
             if herb:
                 logger.warning("Precip vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
+
         try:
-            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats,
-                                                                                   names=grid_names)
-            u_wind_vals = u_v_wind_obj.u.values
-            v_wind_vals = u_v_wind_obj.v.values
+            u_wind_vals = np.empty((1,))
+            v_wind_vals = np.empty((1,))
+            u_wind_vals = np.delete(u_wind_vals, 0)
+            v_wind_vals = np.delete(v_wind_vals, 0)
+            for state in lon_lats:
+                u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats[state],
+                                                                                       names=grid_names[state])
+                u_wind_vals = np.concatenate((u_wind_vals, u_v_wind_obj.u.values))
+                v_wind_vals = np.concatenate((v_wind_vals, u_v_wind_obj.v.values))
         except:
-            u_wind_vals = np.full((len(grid_names),), -12345.678)
-            v_wind_vals = np.full((len(grid_names),), -12345.678)
+            u_wind_vals = np.empty((1,))
+            v_wind_vals = np.empty((1,))
+            for state in lon_lats:
+                u_wind_vals = np.concatenate((u_wind_vals, np.full((len(grid_names[state]),), -12345.678)))
+                v_wind_vals = np.concatenate((v_wind_vals, np.full((len(grid_names[state]),), -12345.678)))
             if herb:
                 logger.warning("Wind direction vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
+
         try:
-            dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats, names=grid_names)
-            dswrf_vals = dswrf_obj.dswrf.values
+            dswrf_vals = np.empty((1,))
+            dswrf_vals = np.delete(dswrf_vals, 0)
+            for state in lon_lats:
+                dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats[state],
+                                                                                    names=grid_names[state])
+                dswrf_vals = np.concatenate((dswrf_vals, dswrf_obj.dswrf.values))
         except:
-            dswrf_vals = np.zeros((len(grid_names),))
+            dswrf_vals = np.empty((1,))
+            dswrf_vals = np.delete(dswrf_vals, 0)
+            for state in lon_lats:
+                dswrf_vals = np.concatenate((dswrf_vals, np.zeros((len(grid_names[state]),))))
             if herb:
                 logger.warning("DSWRF vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
+
         try:
-            gust_obj = herb.xarray(":GUST:", remove_grib=True).herbie.nearest_points(points=lon_lats, names=grid_names)
-            gust_vals = gust_obj.gust.values
+            gust_vals = np.empty((1,))
+            gust_vals = np.delete(gust_vals, 0)
+            for state in lon_lats:
+                gust_obj = herb.xarray(":GUST:", remove_grib=True).herbie.nearest_points(points=lon_lats[state],
+                                                                                         names=grid_names[state])
+                gust_vals = np.concatenate((gust_vals, gust_obj.gust.values))
         except:
-            gust_vals = np.zeros((len(grid_names),))
+            gust_vals = np.empty((1,))
+            gust_vals = np.delete(gust_vals, 0)
+            for state in lon_lats:
+                gust_vals = np.concatenate((gust_vals, np.zeros((len(grid_names[state]),))))
             if herb:
                 logger.warning("Wind Gust vals not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
 
@@ -362,15 +405,19 @@ class PreprocessWRF:
         :param df: the dataframe of the station data
         :return: a dictionary, key=grid_county_name , val = tuple of avglon, avglat
         """
-        names = []
-        lon_lats = []
+        names = {}
+        lon_lats = {}
         for i in range(len(df)):
+            state_fips = str(df['stateFips'][i])
             grid_county_name = str(df['FIPS'][i]) + '_' + str(df['countyGridIndex'][i])
             avg_lon = (float(df['lon (urcrnr)'][i]) + float(df['lon (llcrnr)'][i])) / 2
             avg_lat = (float(df['lat (urcrnr)'][i]) + float(df['lat (llcrnr)'][i])) / 2
 
-            names.append(grid_county_name)
-            lon_lats.append((avg_lon, avg_lat))
+            if state_fips not in names:
+                names[state_fips] = []
+                lon_lats[state_fips] = []
+            names[state_fips].append(grid_county_name)
+            lon_lats[state_fips].append((avg_lon, avg_lat))
 
         return names, lon_lats
 
