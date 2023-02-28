@@ -238,20 +238,19 @@ class PreprocessWRF:
             dtobj, lon_lats, grid_names)
         # match the parameter to the index in the dict, then write out to file
         print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M"))
-        grid_name_idx = 0
         for stateFips in dict:
             for countyFips in dict[stateFips]:
                 for countyIndex in dict[stateFips][countyFips]:
-                    if not grid_names[grid_name_idx] == countyFips + "_" + str(countyIndex):
-                        # find the correct grid_name_idx
-                        grid_name_idx = -1
-                        for i in range(len(grid_names)):
-                            if grid_names[i] == countyFips + "_" + str(countyIndex):
+                    grid_name_idx = -1
+                    for state in grid_names:
+                        for i in range(len(grid_names[state])):
+                            if grid_names[state][i] == countyFips + '_' + str(countyIndex):
                                 grid_name_idx = i
                                 break
-                        if grid_name_idx == -1:
-                            print("Error when finding the matching county in grid_names.")
-                            exit()
+                    
+                    if grid_name_idx == -1:
+                        print("Error when finding the matching county in grid_names.")
+                        exit()
 
                     # append the values to the index of the dictionary
                     #  Year, Month, Day, Daily/Monthly, State, County, FIPS Code, Grid Index,
@@ -284,7 +283,6 @@ class PreprocessWRF:
                         self.lock.release()
                     # clear the array
                     dict[stateFips][countyFips][countyIndex] = []
-                    grid_name_idx += 1
 
     def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
         logger = logging.getLogger()
