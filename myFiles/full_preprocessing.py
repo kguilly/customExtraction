@@ -12,6 +12,15 @@ import multiprocessing
 import logging
 import warnings
 
+'''
+ADD self.max_threads that will explicitly state the maximum amount of threads
+that are allowed for a given machine - too many procs running on a slower machine 
+will break it
+
+Thread the monthly extraction - do this with threading instead of multiprocessing
+follow self.max_threads
+'''
+
 
 class PreprocessWRF:
     def __init__(self):
