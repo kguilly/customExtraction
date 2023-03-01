@@ -12,20 +12,13 @@ import multiprocessing
 import logging
 import warnings
 import queue
-
-'''
-ADD self.max_threads that will explicitly state the maximum amount of threads
-that are allowed for a given machine - too many procs running on a slower machine 
-will break it
-
-Thread the monthly extraction - do this with threading instead of multiprocessing
-follow self.max_threads
-'''
+import pygrib
 
 
 class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/2-28_testing/"
+        self.grib_path = "/home/kaleb/Desktop/Grib2files/"
 
         self.begin_date = "20170101"  # format as "yyyymmdd"
         self.end_date = "20170103"
@@ -45,11 +38,15 @@ class PreprocessWRF:
         self.dswrf_lock = threading.Lock()
         self.gust_lock = threading.Lock()
 
+        self.extract_flag = 1
+        self.lat_dict = {}
+        self.lon_dict = {}
+
     def main(self):
         start_time = time.time()
         # configure logging
         Path(self.write_path).mkdir(parents=True, exist_ok=True)
-        logfilename = self.write_path + 'full_preproc_' + self.begin_date + '-' + self.end_date + '.log'
+        logfilename = self.write_path + 'pygrib_preproc_' + self.begin_date + '-' + self.end_date + '.log'
         logging.basicConfig(filemode='w', filename=logfilename, format='%(levelname)s - %(message)s')
         #
         self.handle_args()
@@ -215,12 +212,15 @@ class PreprocessWRF:
 
         # define the max amount of time for a process to run in seconds
         TIMEOUT = self.timeout_time
+        prev_month = ''
         for i in range(0, date_range):
             threads = []
             print(begin_day_dt + timedelta(days=i))
             proc_start_time = time.time()
             for j in range(0, hour_range):
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
+                if dtobj.strftime('%m') != prev_month:
+                    self.extract_flag = 1
                 dict = st_dict
                 # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
                 #                                                      state_abbrev_df, df))
@@ -311,18 +311,14 @@ class PreprocessWRF:
 
     def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
         logger = logging.getLogger()
-        self.herb_lock.acquire()
-        try:
-            herb = Herbie(dtobj, model='hrrr', product='sfc',
-                          save_dir=self.write_path, verbose=False,
-                          priority=['pando', 'pando2', 'aws', 'nomads',
-                                    'google', 'azure'],  # , 'ecmwf', 'aws-old'],
-                          fxx=0, overwrite=False)
-        except:
-            # print("Could not find grib object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
-            logger.warning("Herb obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
-            herb = None
-        self.herb_lock.release()
+
+        with self.herb_lock:
+            try:
+                filename = self.grib_path + dtobj.strftime("%Y") + '/' + dtobj.strftime("%Y%m%d") + 'hrrr.' +\
+                           dtobj.strftime("%Y%m%d") + '.00.' + dtobj.strftime("%H") + '.grib2'
+                grb = pygrib.open(filename)
+            except:
+                grb = None
 
         self.precip_lock.acquire()
         try:
@@ -336,8 +332,41 @@ class PreprocessWRF:
             logger.warning("Precipitation obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
             precip_herb = None
         self.precip_lock.release()
-        # index out each of the necessary points with their search string and place them into arrays to be sorted
-        # some may fail so they have been put into try catch blocks
+
+        try:
+            precip_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True)
+        except:
+            precip_obj = None
+            if precip_herb:
+                logger.warning("Precip vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+
+        try:
+            temp = grb.select(name='2 metre temperature')[0]
+            logger.warning("Temp vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+        except:
+            temp = None
+        try:
+            rh = grb.select(name='2 metre relative humidity')[0]
+        except:
+            rh = None
+            logger.warning("RH vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            dswrf = grb.select(name='Downward short-wave radiation flux')[0]
+        except:
+            dswrf = None
+            logger.warning("DSWRF vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            u_wind = grb.select(name='U component of wind', level=1000)[0]
+            v_wind = grb.select(name='V component of wind', level=1000)[0]
+        except:
+            u_wind = None
+            v_wind = None
+            logger.warning("Wind dir vals not found for date %s " % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            gust = grb.select(name='Wind speed (gust)')[0]
+        except:
+            gust = None
+            logger.warning("Wind Gust vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
 
         temp_vals = np.empty((1,))
         rh_vals = np.empty((1,))
@@ -355,53 +384,22 @@ class PreprocessWRF:
         dswrf_vals = np.delete(dswrf_vals, 0)
         gust_vals = np.delete(gust_vals, 0)
 
-        try:
-            temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m")
-        except:
-            temp_rh_obj = None
-            if herb:
-                logger.warning("Temp / RH vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
-        try:
-            precip_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True)
-        except:
-            precip_obj = None
-            if precip_herb:
-                logger.warning("Precip vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
-        try:
-            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:")
-        except:
-            u_v_wind_obj = None
-            if herb:
-                logger.warning("Wind dir vals not found for date %s " % (dtobj.strftime("%Y%m%d %H:%M")))
-        try:
-            dswrf_obj = herb.xarray(":DSWRF:surface:anl")
-        except:
-            dswrf_obj = None
-            if herb:
-                logger.warning("DSWRF vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
-        try:
-            gust_obj = herb.xarray(":GUST:", remove_grib=True)
-        except:
-            gust_obj = None
-            if herb:
-                logger.warning("Wind Gust vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
-
-        state_threads = []
-        temp_q = queue.Queue()
-        rh_q = queue.Queue()
-        precip_q = queue.Queue()
-        u_q = queue.Queue()
-        v_q = queue.Queue()
-        dswrf_q = queue.Queue()
-        gust_q = queue.Queue()
         for state in lon_lats:
-            t = threading.Thread(target=self.find_val_arrays, args=(lon_lats, grid_names, state, temp_rh_obj,
-                                                                    precip_obj, u_v_wind_obj, dswrf_obj, gust_obj,
-                                                                    temp_q, rh_q, precip_q, u_q, v_q, dswrf_q, gust_q))
-            t.start()
-            state_threads.append(t)
-        for t in state_threads:
-            t.join()
+            for county in lon_lats[state]:
+                for idx in lon_lats[state][county]:
+                    if self.extract_flag == 1:
+                        self.extract_flag = 0
+                        st_lat = idx[0]
+                        st_lon = idx[1]
+                        lats, lons = temp.latlons()
+                        lat_m = np.full_like(lats, st_lat)
+                        lon_m = np.full_like(lons, st_lon)
+                        dis_m = (lats - lat_m)**2 + (lons - lon_m)**2
+                        p_lat, p_lon = np.unravel_index(dis_m.argmin(), dis_m.shape)
+                        self.lat_dict[state][county][idx] = p_lat
+                        self.lon_dict[state][county][idx] = p_lon
+                    value = data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+
 
         while not temp_q.empty():
             temp_vals = np.concatenate((temp_vals, temp_q.get()))
@@ -485,12 +483,19 @@ class PreprocessWRF:
             if state_fips not in names:
                 names[state_fips] = {}
                 lon_lats[state_fips] = {}
+                self.lat_dict[state_fips] = {}
+                self.lon_dict[state_fips] = {}
+
             if county_fips not in names[state_fips]:
                 names[state_fips][county_fips] = []
                 lon_lats[state_fips][county_fips] = []
+                self.lat_dict[state_fips][county_fips] = []
+                self.lon_dict[state_fips][county_fips] = []
 
             names[state_fips][county_fips].append(grid_county_name)
             lon_lats[state_fips][county_fips].append((avg_lon, avg_lat))
+            self.lat_dict[state_fips][county_fips][grid_county_name] = []
+            self.lon_dict[state_fips][county_fips][grid_county_name] = []
 
         return names, lon_lats
 
