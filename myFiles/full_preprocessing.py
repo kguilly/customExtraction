@@ -24,6 +24,8 @@ class PreprocessWRF:
         self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
+        self.timeout_time = 300
+
         self.lock = multiprocessing.Lock()
         self.herb_lock = multiprocessing.Lock()
         self.precip_lock = multiprocessing.Lock()
@@ -203,7 +205,7 @@ class PreprocessWRF:
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds
-        TIMEOUT = 420
+        TIMEOUT = self.timeout_time
         for i in range(0, date_range):
             threads = []
             print(begin_day_dt + timedelta(days=i))
@@ -423,7 +425,7 @@ class PreprocessWRF:
                                                                    names=grid_names[state][county])
                 precip_q.put(precip_herb_obj.tp.values)
             except:
-                precip_q.put(precip_herb_obj.tp.values)
+                precip_q.put(np.zeros((len(grid_names[state][county]),)))
             self.precip_arr_lock.release()
 
             self.wind_dir_lock.acquire()
