@@ -11,7 +11,6 @@ import threading
 import multiprocessing
 import logging
 import warnings
-import queue
 import pygrib
 
 
