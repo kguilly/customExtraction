@@ -17,11 +17,11 @@ import pygrib
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/2-28_testing/"
-        self.grib_path = "/home/kaleb/Desktop/Grib2files/"
+        self.write_path = "/Users/kkjesus/Desktop/3-1_testing/"
+        self.grib_path = "/Users/kkjesus/Desktop/Grib2files"
 
-        self.begin_date = "20170101"  # format as "yyyymmdd"
-        self.end_date = "20170103"
+        self.begin_date = "20210101"  # format as "yyyymmdd"
+        self.end_date = "20210102"
         self.begin_hour = "00:00"
         self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
@@ -320,18 +320,17 @@ class PreprocessWRF:
             except:
                 grb = None
 
-        self.precip_lock.acquire()
-        try:
-            precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
-                                 save_dir=self.write_path, verbose=False,
-                                 priority=['pando', 'pando2', 'aws', 'nomads',
-                                           'google', 'azure'],  # , 'ecmwf', 'aws-old'],
-                                 fxx=1, overwrite=False)
-        except:
-            # print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
-            logger.warning("Precipitation obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
-            precip_herb = None
-        self.precip_lock.release()
+        with self.precip_lock:
+            try:
+                precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
+                                     save_dir=self.write_path, verbose=False,
+                                     priority=['pando', 'pando2', 'aws', 'nomads',
+                                               'google', 'azure'],  # , 'ecmwf', 'aws-old'],
+                                     fxx=1, overwrite=False)
+            except:
+                # print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
+                logger.warning("Precipitation obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
+                precip_herb = None
 
         try:
             precip_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True)
@@ -339,33 +338,39 @@ class PreprocessWRF:
             precip_obj = None
             if precip_herb:
                 logger.warning("Precip vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
-
         try:
             temp = grb.select(name='2 metre temperature')[0]
-            logger.warning("Temp vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+            temp_data = temp.values
         except:
+            temp_data = None
             temp = None
+            logger.warning("Temp vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
         try:
             rh = grb.select(name='2 metre relative humidity')[0]
+            rh_data = rh.values
         except:
-            rh = None
+            rh_data = None
             logger.warning("RH vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
         try:
             dswrf = grb.select(name='Downward short-wave radiation flux')[0]
+            dswrf_data = dswrf.values
         except:
-            dswrf = None
+            dswrf_data = None
             logger.warning("DSWRF vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
         try:
             u_wind = grb.select(name='U component of wind', level=1000)[0]
             v_wind = grb.select(name='V component of wind', level=1000)[0]
+            u_data = u_wind.values
+            v_data = v_wind.values
         except:
-            u_wind = None
-            v_wind = None
+            u_data = None
+            v_data = None
             logger.warning("Wind dir vals not found for date %s " % (dtobj.strftime("%Y%m%d %H:%M")))
         try:
             gust = grb.select(name='Wind speed (gust)')[0]
+            gust_data = gust.values
         except:
-            gust = None
+            gust_data = None
             logger.warning("Wind Gust vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
 
         temp_vals = np.empty((1,))
@@ -398,71 +403,48 @@ class PreprocessWRF:
                         p_lat, p_lon = np.unravel_index(dis_m.argmin(), dis_m.shape)
                         self.lat_dict[state][county][idx] = p_lat
                         self.lon_dict[state][county][idx] = p_lon
-                    value = data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    try:
+                        temp_value = temp_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    except:
+                        temp_value = -12345.678
+                    try:
+                        rh_value = rh_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    except:
+                        rh_value = -12345.678
+                    try:
+                        dswrf_value = dswrf_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    except:
+                        dswrf_value = 0
+                    try:
+                        u_value = u_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                        v_value = v_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    except:
+                        u_value = -12345.678
+                        v_value = -12345.678
+                    try:
+                        gust_value = gust_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    except:
+                        gust_value = 0
+                    try:
+                        precip_nearest_points = precip_obj.herbie.nearest_points(points=[(st_lon,st_lat)], names='nun')
+                        precip_value = precip_nearest_points.tp.values[0]
+                    except:
+                        precip_value = 0
 
+                    temp_vals = np.concatenate((temp_vals, temp_value))
+                    rh_vals = np.concatenate((rh_vals, rh_value))
+                    precip_vals = np.concatenate((precip_vals, precip_value))
+                    u_wind_vals = np.concatenate((u_wind_vals, u_value))
+                    v_wind_vals = np.concatenate((v_wind_vals, v_value))
+                    dswrf_vals = np.concatenate((dswrf_vals, dswrf_value))
+                    gust_vals = np.concatenate((gust_vals, gust_value))
 
-        while not temp_q.empty():
-            temp_vals = np.concatenate((temp_vals, temp_q.get()))
-            rh_vals = np.concatenate((rh_vals, rh_q.get()))
-            precip_vals = np.concatenate((precip_vals, precip_q.get()))
-            u_wind_vals = np.concatenate((u_wind_vals, u_q.get()))
-            v_wind_vals = np.concatenate((v_wind_vals, v_q.get()))
-            dswrf_vals = np.concatenate((dswrf_vals, dswrf_q.get()))
-            gust_vals = np.concatenate((gust_vals, gust_q.get()))
+        try:
+            grb.close()
+        except:
+            print('')
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
-
-    def find_val_arrays(self, lon_lats, grid_names, state, temp_rh_obj, precip_obj, u_v_wind_obj, dswrf_obj, gust_obj,
-                        temp_q, rh_q, precip_q, u_q, v_q, dswrf_q, gust_q):
-        for county in lon_lats[state]:
-            self.temp_arr_lock.acquire()
-            try:
-                t2m_rh_herb = temp_rh_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                names=grid_names[state][county])
-                temp_q.put(t2m_rh_herb.t2m.values)
-                rh_q.put(t2m_rh_herb.r2.values)
-            except:
-                temp_q.put(np.full((len(grid_names[state][county]),), -12345.678))
-                rh_q.put(np.full((len(grid_names[state][county]),), -12345.678))
-            self.temp_arr_lock.release()
-
-            self.precip_arr_lock.acquire()
-            try:
-                precip_herb_obj = precip_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                   names=grid_names[state][county])
-                precip_q.put(precip_herb_obj.tp.values)
-            except:
-                precip_q.put(np.zeros((len(grid_names[state][county]),)))
-            self.precip_arr_lock.release()
-
-            self.wind_dir_lock.acquire()
-            try:
-                u_v_wind_herb_obj = u_v_wind_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                       names=grid_names[state][county])
-                u_q.put(u_v_wind_herb_obj.u.values)
-                v_q.put(u_v_wind_herb_obj.v.values)
-            except:
-                u_q.put(np.full((len(grid_names[state][county]),), -12345.678))
-                v_q.put(np.full((len(grid_names[state][county]),), -12345.678))
-            self.wind_dir_lock.release()
-
-            self.dswrf_lock.acquire()
-            try:
-                dswrf_herb = dswrf_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                             names=grid_names[state][county])
-                dswrf_q.put(dswrf_herb.dswrf.values)
-            except:
-                dswrf_q.put(np.zeros((len(grid_names[state][county]),)))
-            self.dswrf_lock.release()
-
-            self.gust_lock.acquire()
-            try:
-                gust_herb = gust_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                           names=grid_names[state][county])
-                gust_q.put(gust_herb.gust.values)
-            except:
-                gust_q.put(np.zeros((len(grid_names[state][county]),)))
-            self.gust_lock.release()
 
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
