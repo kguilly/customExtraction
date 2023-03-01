@@ -45,7 +45,6 @@ class PreprocessWRF:
         #
         self.handle_args()
         every_county_df = pd.read_csv("./WRFoutput/wrfOutput.csv")
-        exit()
         param_dict_arr = self.separate_by_state(df=every_county_df)
         state_abbrev_df = self.get_state_abbrevs(df=every_county_df)
         every_county_df['county'] = every_county_df['county'].apply(self.fix_county_names)
