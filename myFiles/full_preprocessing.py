@@ -197,7 +197,7 @@ class PreprocessWRF:
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds
-        TIMEOUT = 350
+        TIMEOUT = 420
         for i in range(0, date_range):
             threads = []
             print(begin_day_dt + timedelta(days=i))
