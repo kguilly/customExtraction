@@ -24,7 +24,7 @@ class PreprocessWRF:
         self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
-        self.timeout_time = 300
+        self.timeout_time = 480
 
         self.lock = multiprocessing.Lock()
         self.herb_lock = multiprocessing.Lock()
@@ -45,6 +45,7 @@ class PreprocessWRF:
         #
         self.handle_args()
         every_county_df = pd.read_csv("./WRFoutput/wrfOutput.csv")
+        exit()
         param_dict_arr = self.separate_by_state(df=every_county_df)
         state_abbrev_df = self.get_state_abbrevs(df=every_county_df)
         every_county_df['county'] = every_county_df['county'].apply(self.fix_county_names)
