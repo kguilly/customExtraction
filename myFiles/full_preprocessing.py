@@ -11,6 +11,7 @@ import threading
 import multiprocessing
 import logging
 import warnings
+import queue
 
 
 class PreprocessWRF:
@@ -20,13 +21,18 @@ class PreprocessWRF:
         self.begin_date = "20170301"  # format as "yyyymmdd"
         self.end_date = "20170303"
         self.begin_hour = "00:00"
-        self.end_hour = "5:00"
+        self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.lock = multiprocessing.Lock()
         self.herb_lock = multiprocessing.Lock()
         self.precip_lock = multiprocessing.Lock()
-        self.search_strings = ['']
+
+        self.temp_arr_lock = threading.Lock()
+        self.precip_arr_lock = threading.Lock()
+        self.wind_dir_lock = threading.Lock()
+        self.dswrf_lock = threading.Lock()
+        self.gust_lock = threading.Lock()
 
     def main(self):
         start_time = time.time()
@@ -369,48 +375,86 @@ class PreprocessWRF:
             if herb:
                 logger.warning("Wind Gust vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
 
+        state_threads = []
+        temp_q = queue.Queue()
+        rh_q = queue.Queue()
+        precip_q = queue.Queue()
+        u_q = queue.Queue()
+        v_q = queue.Queue()
+        dswrf_q = queue.Queue()
+        gust_q = queue.Queue()
         for state in lon_lats:
-            for county in lon_lats[state]:
-                try:
-                    t2m_rh_herb = temp_rh_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                    names=grid_names[state][county])
-                    temp_vals = np.concatenate((temp_vals, t2m_rh_herb.t2m.values))
-                    rh_vals = np.concatenate((rh_vals, t2m_rh_herb.r2.values))
-                except:
-                    temp_vals = np.concatenate((temp_vals, np.full((len(grid_names[state][county]),), -12345.678)))
-                    rh_vals = np.concatenate((rh_vals, np.full((len(grid_names[state][county]),), -12345.678)))
+            t = threading.Thread(target=self.find_val_arrays, args=(lon_lats, grid_names, state, temp_rh_obj,
+                                                                    precip_obj, u_v_wind_obj, dswrf_obj, gust_obj,
+                                                                    temp_q, rh_q, precip_q, u_q, v_q, dswrf_q, gust_q))
+            t.start()
+            state_threads.append(t)
+        for t in state_threads:
+            t.join()
 
-                try:
-                    precip_herb_obj= precip_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                      names=grid_names[state][county])
-                    precip_vals = np.concatenate((precip_vals, precip_herb_obj.tp.values))
-                except:
-                    precip_vals = np.concatenate((precip_vals, np.zeros((len(grid_names[state][county]),))))
-
-                try:
-                    u_v_wind_herb_obj = u_v_wind_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                           names=grid_names[state][county])
-                    u_wind_vals = np.concatenate((u_wind_vals, u_v_wind_herb_obj.u.values))
-                    v_wind_vals = np.concatenate((v_wind_vals, u_v_wind_herb_obj.v.values))
-                except:
-                    u_wind_vals = np.concatenate((u_wind_vals, np.full((len(grid_names[state][county]),), -12345.678)))
-                    v_wind_vals = np.concatenate((v_wind_vals, np.full((len(grid_names[state][county]),), -12345.678)))
-
-                try:
-                    dswrf_herb = dswrf_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                                 names=grid_names[state][county])
-                    dswrf_vals = np.concatenate((dswrf_vals, dswrf_herb.dswrf.values))
-                except:
-                    dswrf_vals = np.concatenate((dswrf_vals, np.zeros((len(grid_names[state][county]),))))
-
-                try:
-                    gust_herb = gust_obj.herbie.nearest_points(points=lon_lats[state][county],
-                                                               names=grid_names[state][county])
-                    gust_vals = np.concatenate((gust_vals, gust_herb.gust.values))
-                except:
-                    gust_vals = np.concatenate((gust_vals, np.zeros((len(grid_names[state][county]),))))
+        while not temp_q.empty():
+            temp_vals = np.concatenate((temp_vals, temp_q.get()))
+            rh_vals = np.concatenate((rh_vals, rh_q.get()))
+            precip_vals = np.concatenate((precip_vals, precip_q.get()))
+            u_wind_vals = np.concatenate((u_wind_vals, u_q.get()))
+            v_wind_vals = np.concatenate((v_wind_vals, v_q.get()))
+            dswrf_vals = np.concatenate((dswrf_vals, dswrf_q.get()))
+            gust_vals = np.concatenate((gust_vals, gust_q.get()))
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
+
+    def find_val_arrays(self, lon_lats, grid_names, state, temp_rh_obj, precip_obj, u_v_wind_obj, dswrf_obj, gust_obj,
+                        temp_q, rh_q, precip_q, u_q, v_q, dswrf_q, gust_q):
+        for county in lon_lats[state]:
+            self.temp_arr_lock.acquire()
+            try:
+                t2m_rh_herb = temp_rh_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                names=grid_names[state][county])
+                temp_q.put(t2m_rh_herb.t2m.values)
+                rh_q.put(t2m_rh_herb.r2.values)
+            except:
+                temp_q.put(np.full((len(grid_names[state][county]),), -12345.678))
+                rh_q.put(np.full((len(grid_names[state][county]),), -12345.678))
+            self.temp_arr_lock.release()
+
+            self.precip_arr_lock.acquire()
+            try:
+                precip_herb_obj = precip_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                   names=grid_names[state][county])
+                precip_q.put(precip_herb_obj.tp.values)
+            except:
+                precip_q.put(precip_herb_obj.tp.values)
+            self.precip_arr_lock.release()
+
+            self.wind_dir_lock.acquire()
+            try:
+                u_v_wind_herb_obj = u_v_wind_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                       names=grid_names[state][county])
+                u_q.put(u_v_wind_herb_obj.u.values)
+                v_q.put(u_v_wind_herb_obj.v.values)
+            except:
+                u_q.put(np.full((len(grid_names[state][county]),), -12345.678))
+                v_q.put(np.full((len(grid_names[state][county]),), -12345.678))
+            self.wind_dir_lock.release()
+
+            self.dswrf_lock.acquire()
+            try:
+                dswrf_herb = dswrf_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                             names=grid_names[state][county])
+                dswrf_q.put(dswrf_herb.dswrf.values)
+            except:
+                dswrf_q.put(np.zeros((len(grid_names[state][county]),)))
+            self.dswrf_lock.release()
+
+            self.gust_lock.acquire()
+            try:
+                gust_herb = gust_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                           names=grid_names[state][county])
+                gust_q.put(gust_herb.gust.values)
+            except:
+                gust_q.put(np.zeros((len(grid_names[state][county]),)))
+            self.gust_lock.release()
+
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
         """
@@ -426,8 +470,6 @@ class PreprocessWRF:
             grid_county_name = str(df['FIPS'][i]) + '_' + str(df['countyGridIndex'][i])
             avg_lon = (float(df['lon (urcrnr)'][i]) + float(df['lon (llcrnr)'][i])) / 2
             avg_lat = (float(df['lat (urcrnr)'][i]) + float(df['lat (llcrnr)'][i])) / 2
-
-
 
             if state_fips not in names:
                 names[state_fips] = {}
