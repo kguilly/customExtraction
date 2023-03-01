@@ -13,8 +13,6 @@ import logging
 import warnings
 import pygrib
 
-
-
 class PreprocessWRF:
     def __init__(self):
         self.write_path = "/Users/kkjesus/Desktop/3-1_testing/"
