@@ -20,10 +20,13 @@ class PreprocessWRF:
         self.begin_date = "20170301"  # format as "yyyymmdd"
         self.end_date = "20170303"
         self.begin_hour = "00:00"
-        self.end_hour = "1:00"
+        self.end_hour = "5:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.lock = multiprocessing.Lock()
+        self.herb_lock = multiprocessing.Lock()
+        self.precip_lock = multiprocessing.Lock()
+        self.search_strings = ['']
 
     def main(self):
         start_time = time.time()
@@ -194,7 +197,7 @@ class PreprocessWRF:
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds
-        TIMEOUT = 240
+        TIMEOUT = 350
         for i in range(0, date_range):
             threads = []
             print(begin_day_dt + timedelta(days=i))
@@ -291,6 +294,7 @@ class PreprocessWRF:
 
     def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
         logger = logging.getLogger()
+        self.herb_lock.acquire()
         try:
             herb = Herbie(dtobj, model='hrrr', product='sfc',
                           save_dir=self.write_path, verbose=False,
@@ -301,6 +305,9 @@ class PreprocessWRF:
             # print("Could not find grib object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
             logger.warning("Herb obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
             herb = None
+
+        self.herb_lock.release()
+        self.precip_lock.acquire()
         try:
             precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
                                  save_dir=self.write_path, verbose=False,
@@ -311,7 +318,7 @@ class PreprocessWRF:
             # print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
             logger.warning("Precipitation obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
             precip_herb = None
-
+        self.precip_lock.release()
         # index out each of the necessary points with their search string and place them into arrays to be sorted
         # some may fail so they have been put into try catch blocks
 
@@ -331,66 +338,77 @@ class PreprocessWRF:
         dswrf_vals = np.delete(dswrf_vals, 0)
         gust_vals = np.delete(gust_vals, 0)
 
+        try:
+            temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m")
+        except:
+            temp_rh_obj = None
+            if herb:
+                logger.warning("Temp / RH vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            precip_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True)
+        except:
+            precip_obj = None
+            if precip_herb:
+                logger.warning("Precip vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:")
+        except:
+            u_v_wind_obj = None
+            if herb:
+                logger.warning("Wind dir vals not found for date %s " % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            dswrf_obj = herb.xarray(":DSWRF:surface:anl")
+        except:
+            dswrf_obj = None
+            if herb:
+                logger.warning("DSWRF vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+        try:
+            gust_obj = herb.xarray(":GUST:", remove_grib=True)
+        except:
+            gust_obj = None
+            if herb:
+                logger.warning("Wind Gust vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+
         for state in lon_lats:
             for county in lon_lats[state]:
                 try:
-                    temp_rh_obj = herb.xarray(":(?:TMP|RH):2 m").herbie.nearest_points(points=lon_lats[state][county],
-                                                                                       names=grid_names[state][county])
-                    temp_vals = np.concatenate((temp_vals, temp_rh_obj.t2m.values))
-                    rh_vals = np.concatenate((rh_vals, temp_rh_obj.r2.values))
+                    t2m_rh_herb = temp_rh_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                    names=grid_names[state][county])
+                    temp_vals = np.concatenate((temp_vals, t2m_rh_herb.t2m.values))
+                    rh_vals = np.concatenate((rh_vals, t2m_rh_herb.r2.values))
                 except:
                     temp_vals = np.concatenate((temp_vals, np.full((len(grid_names[state][county]),), -12345.678)))
                     rh_vals = np.concatenate((rh_vals, np.full((len(grid_names[state][county]),), -12345.678)))
-                    if herb:
-                        logger.warning("Temp / RH vals not found for state %s for date %s" % (state,
-                                                                                              dtobj.strftime(
-                                                                                                  "%Y%m%d %H:%M")))
 
                 try:
-                    precip_herb_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True).herbie.nearest_points(
-                        points=lon_lats[state][county],
-                        names=grid_names[state][county])
+                    precip_herb_obj= precip_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                      names=grid_names[state][county])
                     precip_vals = np.concatenate((precip_vals, precip_herb_obj.tp.values))
                 except:
                     precip_vals = np.concatenate((precip_vals, np.zeros((len(grid_names[state][county]),))))
-                    if herb:
-                        logger.warning("Precip vals not found for state %s for date %s" % (state,
-                                                                                           dtobj.strftime("%Y%m%d %H:%M")))
 
                 try:
-                    u_v_wind_obj = herb.xarray(":(U|V)GRD:1000 mb:").herbie.nearest_points(points=lon_lats[state][county],
-                                                                                           names=grid_names[state][county])
-                    u_wind_vals = np.concatenate((u_wind_vals, u_v_wind_obj.u.values))
-                    v_wind_vals = np.concatenate((v_wind_vals, u_v_wind_obj.v.values))
+                    u_v_wind_herb_obj = u_v_wind_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                           names=grid_names[state][county])
+                    u_wind_vals = np.concatenate((u_wind_vals, u_v_wind_herb_obj.u.values))
+                    v_wind_vals = np.concatenate((v_wind_vals, u_v_wind_herb_obj.v.values))
                 except:
                     u_wind_vals = np.concatenate((u_wind_vals, np.full((len(grid_names[state][county]),), -12345.678)))
                     v_wind_vals = np.concatenate((v_wind_vals, np.full((len(grid_names[state][county]),), -12345.678)))
-                    if herb:
-                        logger.warning("Wind dir vals not found for state %s for date %s " % (state,
-                                                                                              dtobj.strftime(
-                                                                                                  "%Y%m%d %H:%M")))
 
                 try:
-                    dswrf_obj = herb.xarray(":DSWRF:surface:anl").herbie.nearest_points(points=lon_lats[state][county],
-                                                                                        names=grid_names[state][county])
-                    dswrf_vals = np.concatenate((dswrf_vals, dswrf_obj.dswrf.values))
+                    dswrf_herb = dswrf_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                                 names=grid_names[state][county])
+                    dswrf_vals = np.concatenate((dswrf_vals, dswrf_herb.dswrf.values))
                 except:
                     dswrf_vals = np.concatenate((dswrf_vals, np.zeros((len(grid_names[state][county]),))))
-                    if herb:
-                        logger.warning("DSWRF vals not found for state %s for date %s" % (state,
-                                                                                          dtobj.strftime("%Y%m%d %H:%M")))
-
 
                 try:
-                    gust_obj = herb.xarray(":GUST:", remove_grib=True).herbie.nearest_points(points=lon_lats[state][county],
-                                                                                             names=grid_names[state][county])
-                    gust_vals = np.concatenate((gust_vals, gust_obj.gust.values))
+                    gust_herb = gust_obj.herbie.nearest_points(points=lon_lats[state][county],
+                                                               names=grid_names[state][county])
+                    gust_vals = np.concatenate((gust_vals, gust_herb.gust.values))
                 except:
                     gust_vals = np.concatenate((gust_vals, np.zeros((len(grid_names[state][county]),))))
-                    if herb:
-                        logger.warning("Wind Gust vals not found for state %s for date %s" % (state,
-                                                                                              dtobj.strftime(
-                                                                                                  "%Y%m%d %H:%M")))
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
 
