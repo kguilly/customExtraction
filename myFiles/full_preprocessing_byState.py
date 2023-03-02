@@ -30,7 +30,7 @@ class PreprocessWRF:
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "24:00"
+        self.end_hour = "0:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 801
@@ -205,7 +205,7 @@ class PreprocessWRF:
         begin_hour_dt = datetime.strptime(self.begin_hour, "%H:%M")
         end_hour_dt = datetime.strptime(self.end_hour, "%H:%M")
 
-        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60)
+        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60) + 1
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds
