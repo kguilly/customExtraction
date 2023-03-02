@@ -33,7 +33,7 @@ class PreprocessWRF:
         self.end_hour = "24:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
-        self.timeout_time = 800
+        self.timeout_time = 801
 
         self.lock = multiprocessing.Lock()
         self.herb_lock = multiprocessing.Lock()
