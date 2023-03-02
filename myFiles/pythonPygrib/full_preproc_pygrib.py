@@ -15,13 +15,13 @@ import pygrib
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/Users/kkjesus/Desktop/3-1_testing/"
-        self.grib_path = "/Users/kkjesus/Desktop/Grib2files"
+        self.write_path = "/home/kaleb/Desktop/3-1_testing/"
+        self.grib_path = "/home/kaleb/Desktop/Grib2files/"
 
-        self.begin_date = "20210101"  # format as "yyyymmdd"
-        self.end_date = "20210102"
+        self.begin_date = "20200101"  # format as "yyyymmdd"
+        self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "2:00"
+        self.end_hour = "1:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 700
@@ -39,6 +39,7 @@ class PreprocessWRF:
         self.extract_flag = 1
         self.lat_dict = {}
         self.lon_dict = {}
+        self.state_lon_lats = {}
 
     def main(self):
         start_time = time.time()
@@ -109,8 +110,8 @@ class PreprocessWRF:
                             states[j] = states[j].strip()
                             states[j] = states[j].upper()
                             # print(states[j])
-                        all_county_df = pd.read_csv("./countyInfo/countyFipsandCoordinates.csv", dtype=str)
-                        state_abbrev_df = pd.read_csv("./countyInfo/us-state-ansi-fips2.csv", dtype=str)
+                        all_county_df = pd.read_csv("../countyInfo/countyFipsandCoordinates.csv", dtype=str)
+                        state_abbrev_df = pd.read_csv("../countyInfo/us-state-ansi-fips2.csv", dtype=str)
                         county_fips = []
                         for state in states:
                             this_state_fips = \
@@ -162,7 +163,7 @@ class PreprocessWRF:
         :return: df:: cols = ['stname', 'st', 'stusps'] where stname = full state name,
                      st = state fips and stusps = state abbreviation
         """
-        state_file_path = "./countyInfo/us-state-ansi-fips2.csv"
+        state_file_path = "../countyInfo/us-state-ansi-fips2.csv"
         state_abbrev_df = pd.read_csv(state_file_path, dtype=str)
         return state_abbrev_df
 
@@ -312,8 +313,8 @@ class PreprocessWRF:
 
         with self.herb_lock:
             try:
-                filename = self.grib_path + dtobj.strftime("%Y") + '/' + dtobj.strftime("%Y%m%d") + 'hrrr.' +\
-                           dtobj.strftime("%Y%m%d") + '.00.' + dtobj.strftime("%H") + '.grib2'
+                filename = self.grib_path + dtobj.strftime("%Y") + '/' + dtobj.strftime("%Y%m%d") + '/' + 'hrrr.' +\
+                           dtobj.strftime("%Y%m%d") + '.' + dtobj.strftime("%H") + '.00.grib2'
                 grb = pygrib.open(filename)
             except:
                 grb = None
@@ -371,6 +372,11 @@ class PreprocessWRF:
             gust_data = None
             logger.warning("Wind Gust vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
 
+        try:
+            grb.close()
+        except:
+            logger.warning("Grib obj not closed for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
+
         temp_vals = np.empty((1,))
         rh_vals = np.empty((1,))
         precip_vals = np.empty((1,))
@@ -388,12 +394,21 @@ class PreprocessWRF:
         gust_vals = np.delete(gust_vals, 0)
 
         for state in lon_lats:
+            # for each state, find the precipitation value (to save time)
+            try:
+                precip_nearest_points = precip_obj.herbie.nearest_points(points=self.state_lon_lats[state])
+                precip_value = precip_nearest_points.tp.values
+            except:
+                precip_value = np.zeros((len(self.state_lon_lats[state]),))
+                logger.warning("Precip vals could not be found for state %s for date %s" % (state,
+                                                                                            dtobj.strftime("%Y%m%d %H:%M")))
+            precip_vals = np.concatenate((precip_vals, precip_value))
+
             for county in lon_lats[state]:
                 for idx in lon_lats[state][county]:
+                    st_lon = idx[0]
+                    st_lat = idx[1]
                     if self.extract_flag == 1:
-                        self.extract_flag = 0
-                        st_lat = idx[0]
-                        st_lon = idx[1]
                         lats, lons = temp.latlons()
                         lat_m = np.full_like(lats, st_lat)
                         lon_m = np.full_like(lons, st_lon)
@@ -424,23 +439,20 @@ class PreprocessWRF:
                     except:
                         gust_value = 0
                     try:
-                        precip_nearest_points = precip_obj.herbie.nearest_points(points=[(st_lon,st_lat)], names='nun')
+                        precip_nearest_points = precip_obj.herbie.nearest_points(points=[(st_lon, st_lat)])
                         precip_value = precip_nearest_points.tp.values[0]
                     except:
                         precip_value = 0
 
-                    temp_vals = np.concatenate((temp_vals, temp_value))
-                    rh_vals = np.concatenate((rh_vals, rh_value))
-                    precip_vals = np.concatenate((precip_vals, precip_value))
-                    u_wind_vals = np.concatenate((u_wind_vals, u_value))
-                    v_wind_vals = np.concatenate((v_wind_vals, v_value))
-                    dswrf_vals = np.concatenate((dswrf_vals, dswrf_value))
-                    gust_vals = np.concatenate((gust_vals, gust_value))
+                    temp_vals = np.concatenate((temp_vals, np.asarray((temp_value,))))
+                    rh_vals = np.concatenate((rh_vals, np.asarray((rh_value,))))
+                    u_wind_vals = np.concatenate((u_wind_vals, np.asarray((u_value,))))
+                    v_wind_vals = np.concatenate((v_wind_vals, np.asarray((v_value,))))
+                    dswrf_vals = np.concatenate((dswrf_vals, np.asarray((dswrf_value,))))
+                    gust_vals = np.concatenate((gust_vals, np.asarray((gust_value,))))
 
-        try:
-            grb.close()
-        except:
-            print('')
+        if self.extract_flag:
+            self.extract_flag == False
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
 
@@ -465,17 +477,19 @@ class PreprocessWRF:
                 lon_lats[state_fips] = {}
                 self.lat_dict[state_fips] = {}
                 self.lon_dict[state_fips] = {}
+                self.state_lon_lats[state_fips] = []
 
             if county_fips not in names[state_fips]:
                 names[state_fips][county_fips] = []
                 lon_lats[state_fips][county_fips] = []
-                self.lat_dict[state_fips][county_fips] = []
-                self.lon_dict[state_fips][county_fips] = []
+                self.lat_dict[state_fips][county_fips] = {}
+                self.lon_dict[state_fips][county_fips] = {}
 
             names[state_fips][county_fips].append(grid_county_name)
             lon_lats[state_fips][county_fips].append((avg_lon, avg_lat))
             self.lat_dict[state_fips][county_fips][grid_county_name] = []
             self.lon_dict[state_fips][county_fips][grid_county_name] = []
+            self.state_lon_lats[state_fips].append((avg_lon, avg_lat))
 
         return names, lon_lats
 

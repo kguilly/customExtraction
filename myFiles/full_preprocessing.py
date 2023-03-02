@@ -27,8 +27,8 @@ class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/2-28_testing/"
 
-        self.begin_date = "20170101"  # format as "yyyymmdd"
-        self.end_date = "20170103"
+        self.begin_date = "20200101"  # format as "yyyymmdd"
+        self.end_date = "20200102"
         self.begin_hour = "00:00"
         self.end_hour = "2:00"
         self.county_df = pd.DataFrame()
