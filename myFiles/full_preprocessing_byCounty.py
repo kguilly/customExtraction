@@ -39,11 +39,6 @@ class PreprocessWRF:
         self.herb_lock = multiprocessing.Lock()
         self.precip_lock = multiprocessing.Lock()
 
-        self.temp_arr_lock = threading.Lock()
-        self.precip_arr_lock = threading.Lock()
-        self.wind_dir_lock = threading.Lock()
-        self.dswrf_lock = threading.Lock()
-        self.gust_lock = threading.Lock()
 
     def main(self):
         start_time = time.time()
@@ -417,7 +412,6 @@ class PreprocessWRF:
     def find_val_arrays(self, lon_lats, grid_names, state, temp_rh_obj, precip_obj, u_v_wind_obj, dswrf_obj, gust_obj,
                         temp_q, rh_q, precip_q, u_q, v_q, dswrf_q, gust_q):
         for county in lon_lats[state]:
-            self.temp_arr_lock.acquire()
             try:
                 t2m_rh_herb = temp_rh_obj.herbie.nearest_points(points=lon_lats[state][county],
                                                                 names=grid_names[state][county])
@@ -426,18 +420,14 @@ class PreprocessWRF:
             except:
                 temp_q.put(np.full((len(grid_names[state][county]),), -12345.678))
                 rh_q.put(np.full((len(grid_names[state][county]),), -12345.678))
-            self.temp_arr_lock.release()
 
-            self.precip_arr_lock.acquire()
             try:
                 precip_herb_obj = precip_obj.herbie.nearest_points(points=lon_lats[state][county],
                                                                    names=grid_names[state][county])
                 precip_q.put(precip_herb_obj.tp.values)
             except:
                 precip_q.put(np.zeros((len(grid_names[state][county]),)))
-            self.precip_arr_lock.release()
 
-            self.wind_dir_lock.acquire()
             try:
                 u_v_wind_herb_obj = u_v_wind_obj.herbie.nearest_points(points=lon_lats[state][county],
                                                                        names=grid_names[state][county])
@@ -446,25 +436,20 @@ class PreprocessWRF:
             except:
                 u_q.put(np.full((len(grid_names[state][county]),), -12345.678))
                 v_q.put(np.full((len(grid_names[state][county]),), -12345.678))
-            self.wind_dir_lock.release()
 
-            self.dswrf_lock.acquire()
             try:
                 dswrf_herb = dswrf_obj.herbie.nearest_points(points=lon_lats[state][county],
                                                              names=grid_names[state][county])
                 dswrf_q.put(dswrf_herb.dswrf.values)
             except:
                 dswrf_q.put(np.zeros((len(grid_names[state][county]),)))
-            self.dswrf_lock.release()
 
-            self.gust_lock.acquire()
             try:
                 gust_herb = gust_obj.herbie.nearest_points(points=lon_lats[state][county],
                                                            names=grid_names[state][county])
                 gust_q.put(gust_herb.gust.values)
             except:
                 gust_q.put(np.zeros((len(grid_names[state][county]),)))
-            self.gust_lock.release()
 
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
