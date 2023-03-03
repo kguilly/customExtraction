@@ -15,8 +15,8 @@ import pygrib
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/3-1_testing/"
-        self.grib_path = "/home/kaleb/Desktop/Grib2files/"
+        self.write_path = "/Users/kkjesus/Desktop/3-3_pygrib/"
+        self.grib_path = "/Users/kkjesus/Desktop/Grib2files/"
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
@@ -24,17 +24,12 @@ class PreprocessWRF:
         self.end_hour = "1:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
-        self.timeout_time = 700
+        self.timeout_time = 800
 
         self.lock = multiprocessing.Lock()
         self.herb_lock = multiprocessing.Lock()
         self.precip_lock = multiprocessing.Lock()
 
-        self.temp_arr_lock = threading.Lock()
-        self.precip_arr_lock = threading.Lock()
-        self.wind_dir_lock = threading.Lock()
-        self.dswrf_lock = threading.Lock()
-        self.gust_lock = threading.Lock()
 
         self.extract_flag = 1
         self.lat_dict = {}
@@ -206,7 +201,7 @@ class PreprocessWRF:
         begin_hour_dt = datetime.strptime(self.begin_hour, "%H:%M")
         end_hour_dt = datetime.strptime(self.end_hour, "%H:%M")
 
-        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60)
+        hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60) + 1
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds

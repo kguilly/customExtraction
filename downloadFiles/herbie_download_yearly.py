@@ -7,8 +7,8 @@ import os
 import pathlib
 year = "2021"
 herb_dir = "/home/kaleb/Desktop/herbie_data_" + year + '/'
-start_day = "1203"
-start_time = "01:00"
+start_day = "0101"
+start_time = "00:00"
 dt = year + start_day + ' ' + start_time
 
 dtobj = datetime.strptime(dt, "%Y%m%d %H:%M")
