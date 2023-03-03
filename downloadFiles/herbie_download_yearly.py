@@ -17,7 +17,7 @@ while 1:
         herb = Herbie(dtobj, model='hrrr',
                       product='nat', save_dir=herb_dir,
                       fxx=1, verbose=True,
-                      overwrite=False).download(":APCP:surface:")
+                      overwrite=False).download(":APCP:surface:").download()
     except ValueError:
         print("no herb obj for " + str(dtobj))
     except urllib.error.URLError:
