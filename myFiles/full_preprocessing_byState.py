@@ -28,9 +28,9 @@ class PreprocessWRF:
         self.write_path = "/home/kaleb/Desktop/3-1_testing_0/"
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
-        self.end_date = "20200105"
+        self.end_date = "20200220"
         self.begin_hour = "00:00"
-        self.end_hour = "23:00"
+        self.end_hour = "0:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -284,7 +284,7 @@ class PreprocessWRF:
                     df_idx = df.index[
                         (df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[
                         0]
-                    dict[stateFips][countyFips][countyIndex] = (
+                    row = (
                         [str(dtobj.strftime("%Y")), str(dtobj.strftime("%m")),
                          str(dtobj.strftime("%d")), str(dtobj.strftime("%H")), 'Daily', state_name.upper(), county_name,
                          str(countyFips), str(countyIndex), df['lat (llcrnr)'][df_idx],
@@ -295,9 +295,7 @@ class PreprocessWRF:
                          v_wind_vals[grid_name_idx], dswrf_vals[grid_name_idx]])
                     # append this to the end of the appropriate file
                     with self.lock:
-                        self.write_dict_row(row=dict[stateFips][countyFips][countyIndex], state_abbrev=state_abbrev)
-                    # clear the array
-                    dict[stateFips][countyFips][countyIndex] = []
+                        self.write_dict_row(row=row, state_abbrev=state_abbrev)
 
     def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
         logger = logging.getLogger()
