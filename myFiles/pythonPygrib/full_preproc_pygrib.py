@@ -17,6 +17,7 @@ class PreprocessWRF:
     def __init__(self):
         self.write_path = "/Users/kkjesus/Desktop/3-3_pygrib/"
         self.grib_path = "/Users/kkjesus/Desktop/Grib2files/"
+        self.herbie_path = "/Users/kkjesus/Desktop/herbie_data/"
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
@@ -285,7 +286,7 @@ class PreprocessWRF:
                     df_idx = df.index[
                         (df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[
                         0]
-                    dict[stateFips][countyFips][countyIndex].append(
+                    row = (
                         [str(dtobj.strftime("%Y")), str(dtobj.strftime("%m")),
                          str(dtobj.strftime("%d")), str(dtobj.strftime("%H")), 'Daily', state_name.upper(), county_name,
                          str(countyFips), str(countyIndex), df['lat (llcrnr)'][df_idx],
@@ -297,7 +298,7 @@ class PreprocessWRF:
                     # append this to the end of the appropriate file
                     self.lock.acquire()
                     try:
-                        self.write_dict_row(row=dict[stateFips][countyFips][countyIndex][0], state_abbrev=state_abbrev)
+                        self.write_dict_row(row=row, state_abbrev=state_abbrev)
                     finally:
                         self.lock.release()
                     # clear the array
@@ -313,25 +314,6 @@ class PreprocessWRF:
                 grb = pygrib.open(filename)
             except:
                 grb = None
-
-        with self.precip_lock:
-            try:
-                precip_herb = Herbie(dtobj, model='hrrr', product='sfc',
-                                     save_dir=self.write_path, verbose=False,
-                                     priority=['pando', 'pando2', 'aws', 'nomads',
-                                               'google', 'azure'],  # , 'ecmwf', 'aws-old'],
-                                     fxx=1, overwrite=False)
-            except:
-                # print("Could not find precipitation object for date: %s" % dtobj.strftime("%Y-%m-%d %H:%M"))
-                logger.warning("Precipitation obj not found for date " + dtobj.strftime("%Y%m%d %H:%M"))
-                precip_herb = None
-
-        try:
-            precip_obj = precip_herb.xarray(":APCP:surface:", remove_grib=True)
-        except:
-            precip_obj = None
-            if precip_herb:
-                logger.warning("Precip vals not found for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
         try:
             temp = grb.select(name='2 metre temperature')[0]
             temp_data = temp.values
@@ -372,6 +354,24 @@ class PreprocessWRF:
         except:
             logger.warning("Grib obj not closed for date %s" % (dtobj.strftime("%Y%m%d %H:%M")))
 
+        #################
+         # grab the precip
+        ###################
+        with self.precip_lock:
+            try:
+                precip_herb_path = self.herbie_path + "hrrr/" + dtobj.strftime("%Y%m%d") + '/'
+                precip_herb = None
+                for file in sorted(os.listdir(precip_herb_path)):
+                    if file.rfind("hrrr.t" + dtobj.strftime("%H")) != -1:
+                        precip_herb = file
+                        break
+                precip_grb = pygrib.open(precip_herb)
+                precip_data = precip_grb.select(name="Total Precipitation")[0]
+                precip_data = precip_data.values
+                precip_grb.close()
+            except:
+                logger.warning("Precip values not found for %s" % dtobj.strftime("%Y%m%d %H%M"))
+
         temp_vals = np.empty((1,))
         rh_vals = np.empty((1,))
         precip_vals = np.empty((1,))
@@ -390,15 +390,6 @@ class PreprocessWRF:
 
         for state in lon_lats:
             # for each state, find the precipitation value (to save time)
-            try:
-                precip_nearest_points = precip_obj.herbie.nearest_points(points=self.state_lon_lats[state])
-                precip_value = precip_nearest_points.tp.values
-            except:
-                precip_value = np.zeros((len(self.state_lon_lats[state]),))
-                logger.warning("Precip vals could not be found for state %s for date %s" % (state,
-                                                                                            dtobj.strftime("%Y%m%d %H:%M")))
-            precip_vals = np.concatenate((precip_vals, precip_value))
-
             for county in lon_lats[state]:
                 for idx in lon_lats[state][county]:
                     st_lon = idx[0]
@@ -434,8 +425,7 @@ class PreprocessWRF:
                     except:
                         gust_value = 0
                     try:
-                        precip_nearest_points = precip_obj.herbie.nearest_points(points=[(st_lon, st_lat)])
-                        precip_value = precip_nearest_points.tp.values[0]
+                        precip_value = precip_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
                     except:
                         precip_value = 0
 
@@ -445,6 +435,7 @@ class PreprocessWRF:
                     v_wind_vals = np.concatenate((v_wind_vals, np.asarray((v_value,))))
                     dswrf_vals = np.concatenate((dswrf_vals, np.asarray((dswrf_value,))))
                     gust_vals = np.concatenate((gust_vals, np.asarray((gust_value,))))
+                    precip_vals = np.concatenate((precip_vals, np.asarray((precip_value,))))
 
         if self.extract_flag:
             self.extract_flag == False

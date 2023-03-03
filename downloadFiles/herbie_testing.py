@@ -5,29 +5,11 @@ import pygrib
 import numpy as np
 import pandas as pd
 
-parameters = np.linspace(1, 150, num=150, dtype=int)
-date = "20230201"
-dt = date + " 10:00"
-save_dir = '/home/kaleb/data/'
-dtobj = datetime.strptime(dt, "%Y%m%d %H:%M")
-pred_hours = 5
-
-dt2 = date + " 00:00"
-H2 = Herbie(
-    dt,
-    model="hrrr",
-    product="nat",
-    save_dir=save_dir,
-    fxx=pred_hours,
-    verbose=True,
-    overwrite=False
-)
-
-H2.download(":APCP:")
-
-grib_path = '/home/kaleb/data/hrrr/20230201/subset_d7b5ef06__hrrr.t00z.wrfnatf23.grib2'
+grib_path = '/Users/kkjesus/data/hrrr/20230201/subset_85e4fa12__hrrr.t10z.wrfnatf01.grib2'
 grib = pygrib.open(grib_path)
-
+for g in grib:
+    print(g)
+exit()
 for p in parameters:
     try:
         grib_msgs = grib[int(p)]
