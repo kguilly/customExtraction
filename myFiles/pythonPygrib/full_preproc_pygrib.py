@@ -206,26 +206,37 @@ class PreprocessWRF:
         date_range = (end_day_dt - begin_day_dt).days
 
         # define the max amount of time for a process to run in seconds
-        TIMEOUT = self.timeout_time
+        # TIMEOUT = self.timeout_time
+        # prev_month = ''
+        # for i in range(0, date_range):
+        #     threads = []
+        #     print(begin_day_dt + timedelta(days=i))
+        #     proc_start_time = time.time()
+        #     for j in range(0, hour_range):
+        #         dtobj = begin_day_dt + timedelta(days=i, hours=j)
+        #         if dtobj.strftime('%m') != prev_month:
+        #             self.extract_flag = 1
+        #         dict = st_dict
+        #         # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+        #         #                                                      state_abbrev_df, df))
+        #         t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
+        #                                                                      state_abbrev_df, df))
+        #         t.start()
+        #         threads.append(t)
+        #
+        #     for t in threads:
+        #         t.join()
         prev_month = ''
         for i in range(0, date_range):
-            threads = []
-            print(begin_day_dt + timedelta(days=i))
             proc_start_time = time.time()
             for j in range(0, hour_range):
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
                 if dtobj.strftime('%m') != prev_month:
                     self.extract_flag = 1
+                    prev_month = dtobj.strftime("%m")
                 dict = st_dict
-                # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-                #                                                      state_abbrev_df, df))
-                t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-                                                                             state_abbrev_df, df))
-                t.start()
-                threads.append(t)
+                self.threaded_read(dtobj, dict, lon_lats, grid_names, state_abbrev_df, df)
 
-            for t in threads:
-                t.join()
 
             print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
 
