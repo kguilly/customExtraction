@@ -224,24 +224,7 @@ class PreprocessWRF:
                 t.start()
                 threads.append(t)
 
-            completed_threads = []
-            while time.time() - proc_start_time <= TIMEOUT:
-                for t in threads:
-                    if not t.is_alive():
-                        threads.remove(t)
-                        completed_threads.append(t)
-                        break
-                    time.sleep(3)
-                if len(threads) < 1:
-                    break
-
             for t in threads:
-                completed_threads.append(t)
-                logger = logging.getLogger()
-                logger.warning("TIMEOUT: killing process %s for date %s" % (t.name, dtobj.strftime("%Y%m%d")))
-                t.terminate()
-
-            for t in completed_threads:
                 t.join()
 
             print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
@@ -395,7 +378,8 @@ class PreprocessWRF:
                     st_lon = idx[0]
                     st_lat = idx[1]
                     if self.extract_flag == 1:
-                        lats, lons = temp.latlons()
+                        with self.herb_lock:
+                            lats, lons = temp.latlons()
                         lat_m = np.full_like(lats, st_lat)
                         lon_m = np.full_like(lons, st_lon)
                         dis_m = (lats - lat_m)**2 + (lons - lon_m)**2
