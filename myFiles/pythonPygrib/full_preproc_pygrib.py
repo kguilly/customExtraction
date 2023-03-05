@@ -230,6 +230,7 @@ class PreprocessWRF:
             proc_start_time = time.time()
             for j in range(0, hour_range):
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
+                print(dtobj.strftime("%Y%m%d %H:%M"))
                 if dtobj.strftime('%m') != prev_month:
                     self.extract_flag = True
                     prev_month = dtobj.strftime("%m")
