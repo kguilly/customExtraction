@@ -15,14 +15,14 @@ import pygrib
 
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/Users/kkjesus/Desktop/3-3_pygrib/"
+        self.write_path = "/Users/kkjesus/Desktop/TESTTTTTTTTT/"
         self.grib_path = "/Users/kkjesus/Desktop/Grib2files/"
         self.herbie_path = "/Users/kkjesus/Desktop/herbie_data/"
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
-        self.end_date = "20200104"
+        self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "1:00"
+        self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -359,7 +359,8 @@ class PreprocessWRF:
                     if file.rfind("hrrr.t" + dtobj.strftime("%H")) != -1:
                         precip_herb = file
                         break
-                precip_grb = pygrib.open(precip_herb)
+                precip_herb_path += precip_herb
+                precip_grb = pygrib.open(precip_herb_path)
                 precip_data = precip_grb.select(name="Total Precipitation")[0]
                 precip_data = precip_data.values
                 precip_grb.close()

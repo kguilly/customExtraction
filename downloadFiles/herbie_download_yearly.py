@@ -5,8 +5,8 @@ from herbie import Herbie
 from datetime import datetime, timedelta
 import os
 import pathlib
-year = "2021"
-herb_dir = "/home/kaleb/Desktop/herbie_data_" + year + '/'
+year = "2020"
+herb_dir = "/Users/kkjesus/Desktop/herbie_data/"
 start_day = "0101"
 start_time = "00:00"
 dt = year + start_day + ' ' + start_time
