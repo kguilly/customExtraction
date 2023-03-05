@@ -31,7 +31,7 @@ class PreprocessWRF:
         self.herb_lock = multiprocessing.Lock()
         self.precip_lock = multiprocessing.Lock()
 
-        self.extract_flag = 1
+        self.extract_flag = True
         self.lat_dict = {}
         self.lon_dict = {}
         self.state_lon_lats = {}
@@ -231,7 +231,7 @@ class PreprocessWRF:
             for j in range(0, hour_range):
                 dtobj = begin_day_dt + timedelta(days=i, hours=j)
                 if dtobj.strftime('%m') != prev_month:
-                    self.extract_flag = 1
+                    self.extract_flag = True
                     prev_month = dtobj.strftime("%m")
                 dict = st_dict
                 self.threaded_read(dtobj, dict, lon_lats, grid_names, state_abbrev_df, df)
@@ -387,7 +387,7 @@ class PreprocessWRF:
                 for idx in lon_lats[state][county]:
                     st_lon = idx[0]
                     st_lat = idx[1]
-                    if self.extract_flag == 1:
+                    if self.extract_flag == True:
                         with self.herb_lock:
                             lats, lons = temp.latlons()
                         lat_m = np.full_like(lats, st_lat)
@@ -455,8 +455,8 @@ class PreprocessWRF:
             if state_fips not in names:
                 names[state_fips] = {}
                 lon_lats[state_fips] = {}
-                self.lat_dict[state_fips] = {}
                 self.lon_dict[state_fips] = {}
+                self.lat_dict[state_fips] = {}
                 self.state_lon_lats[state_fips] = []
 
             if county_fips not in names[state_fips]:
