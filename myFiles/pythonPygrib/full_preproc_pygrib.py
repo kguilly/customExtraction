@@ -1,5 +1,5 @@
 import pandas as pd
-from herbie import Herbie
+# from herbie import Herbie
 import numpy as np
 from datetime import date, timedelta, datetime
 import time
@@ -20,7 +20,7 @@ class PreprocessWRF:
         self.herbie_path = "/Users/kkjesus/Desktop/herbie_data/"
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
-        self.end_date = "20200102"
+        self.end_date = "20200104"
         self.begin_hour = "00:00"
         self.end_hour = "1:00"
         self.county_df = pd.DataFrame()
@@ -30,7 +30,6 @@ class PreprocessWRF:
         self.lock = multiprocessing.Lock()
         self.herb_lock = multiprocessing.Lock()
         self.precip_lock = multiprocessing.Lock()
-
 
         self.extract_flag = 1
         self.lat_dict = {}
@@ -433,7 +432,7 @@ class PreprocessWRF:
                     precip_vals = np.concatenate((precip_vals, np.asarray((precip_value,))))
 
         if self.extract_flag:
-            self.extract_flag == False
+            self.extract_flag = False
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
 
