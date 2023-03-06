@@ -383,6 +383,7 @@ class PreprocessWRF:
         dswrf_vals = np.delete(dswrf_vals, 0)
         gust_vals = np.delete(gust_vals, 0)
 
+        not_extracted_flag = False
         for state in lon_lats:
             # for each state, find the precipitation value (to save time)
             for county in lon_lats[state]:
@@ -390,14 +391,19 @@ class PreprocessWRF:
                     st_lon = idx[0]
                     st_lat = idx[1]
                     if self.extract_flag == True:
-                        with self.herb_lock:
+                        try:
                             lats, lons = temp.latlons()
-                        lat_m = np.full_like(lats, st_lat)
-                        lon_m = np.full_like(lons, st_lon)
-                        dis_m = (lats - lat_m)**2 + (lons - lon_m)**2
-                        p_lat, p_lon = np.unravel_index(dis_m.argmin(), dis_m.shape)
+                            lat_m = np.full_like(lats, st_lat)
+                            lon_m = np.full_like(lons, st_lon)
+                            dis_m = (lats - lat_m)**2 + (lons - lon_m)**2
+                            p_lat, p_lon = np.unravel_index(dis_m.argmin(), dis_m.shape)
+                        except:
+                            not_extracted_flag = True
+                            p_lat = -1
+                            p_lon = -1
                         self.lat_dict[state][county][idx] = p_lat
                         self.lon_dict[state][county][idx] = p_lon
+
                     try:
                         temp_value = temp_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
                     except:
@@ -433,7 +439,7 @@ class PreprocessWRF:
                     gust_vals = np.concatenate((gust_vals, np.asarray((gust_value,))))
                     precip_vals = np.concatenate((precip_vals, np.asarray((precip_value,))))
 
-        if self.extract_flag:
+        if self.extract_flag and not not_extracted_flag:
             self.extract_flag = False
 
         return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
