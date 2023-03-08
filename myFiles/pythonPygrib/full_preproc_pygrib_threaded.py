@@ -12,7 +12,7 @@ import multiprocessing
 import logging
 import warnings
 import pygrib
-from queue import Queue
+# from queue import Queue
 class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/Testing_thread_0/"
@@ -57,28 +57,22 @@ class PreprocessWRF:
 
         # the data is read into hourly, stately files, now read them into daily / monthly files
         csvFiles = self.reopen_files()
-        tasks = []
-        task_creation_sem = threading.Semaphore(self.max_workers)
-        for file in csvFiles:
-            task_creation_sem.acquire()
-            # queue.put(item, block=True, timeout=someNum)
-            t = threading.Thread(target=self.monthly_file_threading, args=(file,))
-            tasks.append(t)
-            t.start()
-        completed_tasks = []
-        while 1:
-            if len(tasks) < 1:
-                break
-            for t in tasks:
-                if not t.is_alive():
-                    task_creation_sem.release()
-                    completed_tasks.append(t)
-                    tasks.remove(t)
-                else:
-                    time.sleep(.1)
+        break_flag = False
+        csvFile_idx = -1
+        while not break_flag:
+            tasks = []
+            for i in range(0, self.max_workers):
+                csvFile_idx += 1
+                if csvFile_idx > len(csvFiles):
+                    break_flag = True
+                    break
+                file = csvFiles[csvFile_idx]
+                t = threading.Thread(target=self.monthly_file_threading, args=(file,))
+                tasks.append(t)
+                t.start()
 
-        for t in completed_tasks:
-            t.join()
+            for t in tasks:
+                t.join()
 
         finish = time.time()
         print("\n\n------------- %s seconds ---------------" % (finish - start_time))
@@ -235,7 +229,7 @@ class PreprocessWRF:
                 tasks = []
                 for j in range(0, self.max_workers):
                     hour_idx += 1
-                    if hour_idx > hour_range:
+                    if hour_idx >= hour_range:
                         break_flag = True
                         break
 
