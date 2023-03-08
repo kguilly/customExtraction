@@ -231,9 +231,9 @@ class PreprocessWRF:
         for i in range(0, date_range):
             proc_start_time = time.time()
             break_flag = False
-            tasks = []
             hour_idx = -1
             while not break_flag:
+                tasks = []
                 for j in range(0, self.max_workers):
                     hour_idx += 1
                     if hour_idx > hour_range:
