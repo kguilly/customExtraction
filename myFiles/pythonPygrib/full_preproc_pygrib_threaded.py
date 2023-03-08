@@ -432,7 +432,7 @@ class PreprocessWRF:
                     with self.lock:
                         self.write_dict_row(row=row, state_abbrev=state_abbrev)
 
-        print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M"))
+        print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M")) #
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
         """
