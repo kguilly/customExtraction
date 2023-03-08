@@ -230,36 +230,37 @@ class PreprocessWRF:
 
         for i in range(0, date_range):
             proc_start_time = time.time()
+            break_flag = False
             tasks = []
+            hour_idx = -1
+            while not break_flag:
+                for j in range(0, self.max_workers):
+                    hour_idx += 1
+                    if hour_idx > hour_range:
+                        break_flag = True
+                        break
+
+                    dtobj = begin_day_dt + timedelta(days=i, hours=j)
+                    # if a new month is hit, we need to find the indexes of the closest points and
+                    # store them in self.lat_dict and self.lon_dict
+                    if dtobj.month != prev_month:
+                        prev_month = dtobj.month
+                        print("Getting Indexes for date %s" % dtobj.date())
+                        self.get_nearest_indexes(dtobj, lon_lats)
+
+                    max_tasks_sem.acquire()
+                    t = multiprocessing.Process(target=self.r_w_weather_values, args=(dtobj, lon_lats, grid_names,
+                                                                                      state_abbrev_df, df))
+                    tasks.append(t)
+                    t.start()
+
+                for t in tasks:
+                    t.join()
+
+
             for j in range(0, hour_range):
 
-                dtobj = begin_day_dt + timedelta(days=i, hours=j)
-                # if a new month is hit, we need to find the indexes of the closest points and
-                # store them in self.lat_dict and self.lon_dict
-                if dtobj.month != prev_month:
-                    prev_month = dtobj.month
-                    self.get_nearest_indexes(dtobj, lon_lats)
 
-                max_tasks_sem.acquire()
-                t = multiprocessing.Process(target=self.r_w_weather_values, args=(dtobj, lon_lats, grid_names,
-                                                                             state_abbrev_df, df))
-                tasks.append(t)
-                t.start()
-
-            completed_tasks = []
-            while 1:
-                if len(tasks) < 1:
-                    break
-                for t in tasks:
-                    if not t.is_alive():
-                        max_tasks_sem.release()
-                        completed_tasks.append(t)
-                        tasks.remove(t)
-                    else:
-                        time.sleep(0.5)
-
-            for t in completed_tasks:
-                t.join()
 
             print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
 
