@@ -257,12 +257,7 @@ class PreprocessWRF:
                 for t in tasks:
                     t.join()
 
-
-            for j in range(0, hour_range):
-
-
-
-            print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
+            print("------------------ Day's time = %s --------------" % (time.time() - proc_start_time))
 
     def get_nearest_indexes(self, dtobj, lon_lats):
         # make ten tries, if no worky, exit
