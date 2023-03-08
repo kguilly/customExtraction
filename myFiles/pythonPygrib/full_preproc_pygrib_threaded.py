@@ -12,17 +12,20 @@ import multiprocessing
 import logging
 import warnings
 import pygrib
-
+from queue import Queue
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/Users/kkjesus/Desktop/TESTTTTTTTTT/"
-        self.grib_path = "/Users/kkjesus/Desktop/Grib2files/"
-        self.herbie_path = "/Users/kkjesus/Desktop/herbie_data/"
+        self.write_path = "/home/kaleb/Desktop/Testing_thread_0/"
+        self.grib_path = "/home/kaleb/Desktop/Grib2files/"
+        self.herbie_path = "/home/kaleb/Desktop/herbie_data/"
+
+        self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
+        self.wrfOutput_path = self.repository_path + "myFiles/pythonPygrib/WRFoutput/wrfOutput.csv"
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "23:00"
+        self.end_hour = "00:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -36,6 +39,8 @@ class PreprocessWRF:
         self.lon_dict = {}
         self.state_lon_lats = {}
 
+        self.max_workers = 10
+
     def main(self):
         start_time = time.time()
         # configure logging
@@ -44,7 +49,7 @@ class PreprocessWRF:
         logging.basicConfig(filemode='w', filename=logfilename, format='%(levelname)s - %(message)s')
         #
         self.handle_args()
-        every_county_df = pd.read_csv("./WRFoutput/wrfOutput.csv")
+        every_county_df = pd.read_csv(self.wrfOutput_path)
         param_dict_arr = self.separate_by_state(df=every_county_df)
         state_abbrev_df = self.get_state_abbrevs(df=every_county_df)
         every_county_df['county'] = every_county_df['county'].apply(self.fix_county_names)
@@ -52,13 +57,29 @@ class PreprocessWRF:
 
         # the data is read into hourly, stately files, now read them into daily / monthly files
         csvFiles = self.reopen_files()
+        tasks = []
+        task_creation_sem = threading.Semaphore(self.max_workers)
         for file in csvFiles:
-            print("Get Monthly Avg for %s" % file)
-            df = pd.read_csv(file, index_col=False, na_filter=False, na_values='N/A')
-            df = self.wind_speed_vpd(df=df)
-            df = self.dailyAvgMinMax(df=df)
-            df = self.monthlyAvgs(df=df)
-            self.final_sendoff(df=df, fullfilepath=file)
+            task_creation_sem.acquire()
+            # queue.put(item, block=True, timeout=someNum)
+            t = threading.Thread(target=self.monthly_file_threading, args=(file,))
+            tasks.append(t)
+            t.start()
+        completed_tasks = []
+        while 1:
+            if len(tasks) < 1:
+                break
+            for t in tasks:
+                if not t.is_alive():
+                    task_creation_sem.release()
+                    completed_tasks.append(t)
+                    tasks.remove(t)
+                else:
+                    time.sleep(.1)
+
+        for t in completed_tasks:
+            t.join()
+
         finish = time.time()
         print("\n\n------------- %s seconds ---------------" % (finish - start_time))
 
@@ -204,101 +225,89 @@ class PreprocessWRF:
         hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60) + 1
         date_range = (end_day_dt - begin_day_dt).days
 
-        # define the max amount of time for a process to run in seconds
-        # TIMEOUT = self.timeout_time
-        # prev_month = ''
-        # for i in range(0, date_range):
-        #     threads = []
-        #     print(begin_day_dt + timedelta(days=i))
-        #     proc_start_time = time.time()
-        #     for j in range(0, hour_range):
-        #         dtobj = begin_day_dt + timedelta(days=i, hours=j)
-        #         if dtobj.strftime('%m') != prev_month:
-        #             self.extract_flag = 1
-        #         dict = st_dict
-        #         # t = threading.Thread(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-        #         #                                                      state_abbrev_df, df))
-        #         t = multiprocessing.Process(target=self.threaded_read, args=(dtobj, dict, lon_lats, grid_names,
-        #                                                                      state_abbrev_df, df))
-        #         t.start()
-        #         threads.append(t)
-        #
-        #     for t in threads:
-        #         t.join()
+        max_tasks_sem = threading.Semaphore(self.max_workers)
         prev_month = ''
+
         for i in range(0, date_range):
             proc_start_time = time.time()
+            tasks = []
             for j in range(0, hour_range):
-                dtobj = begin_day_dt + timedelta(days=i, hours=j)
-                print(dtobj.strftime("%Y%m%d %H:%M"))
-                if dtobj.strftime('%m') != prev_month:
-                    self.extract_flag = True
-                    prev_month = dtobj.strftime("%m")
-                dict = st_dict
-                self.threaded_read(dtobj, dict, lon_lats, grid_names, state_abbrev_df, df)
 
+                dtobj = begin_day_dt + timedelta(days=i, hours=j)
+                # if a new month is hit, we need to find the indexes of the closest points and
+                # store them in self.lat_dict and self.lon_dict
+                if dtobj.month != prev_month:
+                    prev_month = dtobj.month
+                    self.get_nearest_indexes(dtobj, lon_lats)
+
+                max_tasks_sem.acquire()
+                t = multiprocessing.Process(target=self.r_w_weather_values, args=(dtobj, lon_lats, grid_names,
+                                                                             state_abbrev_df, df))
+                tasks.append(t)
+                t.start()
+
+            completed_tasks = []
+            while 1:
+                if len(tasks) < 1:
+                    break
+                for t in tasks:
+                    if not t.is_alive():
+                        max_tasks_sem.release()
+                        completed_tasks.append(t)
+                        tasks.remove(t)
+                    else:
+                        time.sleep(0.5)
+
+            for t in completed_tasks:
+                t.join()
 
             print("------------------ %s seconds --------------" % (time.time() - proc_start_time))
 
-    def threaded_read(self, dtobj: datetime, dict={}, lon_lats={}, grid_names={}, state_abbrev_df=[], df=[]):
-        gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals = self.grab_herbie_arrays(
-            dtobj, lon_lats, grid_names)
-        # match the parameter to the index in the dict, then write out to file
-        print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M"))
-        for stateFips in dict:
-            for countyFips in dict[stateFips]:
-                for countyIndex in dict[stateFips][countyFips]:
-                    grid_name_idx = -1
-                    break_flag = False
-                    for state in grid_names:
-                        if break_flag:
-                            break
-                        for county in grid_names[state]:
-                            if break_flag:
-                                break
-                            for i in range(len(grid_names[state][county])):
-                                if grid_names[state][county][i] == countyFips + '_' + str(countyIndex):
-                                    grid_name_idx = i
-                                    break_flag = True
-                                    break
+    def get_nearest_indexes(self, dtobj, lon_lats):
+        # make ten tries, if no worky, exit
+        grb = None
+        for i in range(0, 10):
+            dtobj = dtobj + timedelta(hours=i)
+            filename = self.grib_path + dtobj.strftime("%Y") + '/' + dtobj.strftime("%Y%m%d") + '/' + 'hrrr.' + \
+                       dtobj.strftime("%Y%m%d") + '.' + dtobj.strftime("%H") + '.00.grib2'
+            try:
+                grb = pygrib.open(filename)
+                break
+            except:
+                grb = None
 
-                    if grid_name_idx == -1:
-                        print("Error when finding the matching county in grid_names.")
-                        exit()
+        if grb is None:
+            print("ERROR: Could not find a suitable grib file to index the nearest points for date %s" % dtobj.date())
+            exit()
 
-                    # append the values to the index of the dictionary
-                    #  Year, Month, Day, Daily/Monthly, State, County, FIPS Code, Grid Index,
-                    # Lat (llcrnr), Lon (llcrnr), Lat (urcrnr), Lon (urcrnr), Avg Temperature (K),
-                    # Precipitation (kg m**-2), Relative Humidity (%), Wind Gust (m s**-1),
-                    # U Component of Wind (m s**-1), V Component of Wind (m s**-1), Downward Shortwave
-                    # Radiation Flux (W m**-2)
-                    state_abbrev = \
-                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == stateFips).dropna().values[0]
-                    state_name = \
-                        state_abbrev_df['stname'].where(state_abbrev_df['st'] == stateFips).dropna().values[0]
-                    county_name = df['county'].where(df['FIPS'] == int(countyFips)).dropna().values[0]
-                    df_idx = df.index[
-                        (df['FIPS'] == int(countyFips)) & (df['countyGridIndex'] == int(countyIndex))].tolist()[
-                        0]
-                    row = (
-                        [str(dtobj.strftime("%Y")), str(dtobj.strftime("%m")),
-                         str(dtobj.strftime("%d")), str(dtobj.strftime("%H")), 'Daily', state_name.upper(), county_name,
-                         str(countyFips), str(countyIndex), df['lat (llcrnr)'][df_idx],
-                         df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx],
-                         df['lon (urcrnr)'][df_idx], temp_vals[grid_name_idx],
-                         precip_vals[grid_name_idx], rh_vals[grid_name_idx],
-                         gust_vals[grid_name_idx], u_wind_vals[grid_name_idx],
-                         v_wind_vals[grid_name_idx], dswrf_vals[grid_name_idx]])
-                    # append this to the end of the appropriate file
-                    self.lock.acquire()
-                    try:
-                        self.write_dict_row(row=row, state_abbrev=state_abbrev)
-                    finally:
-                        self.lock.release()
-                    # clear the array
-                    dict[stateFips][countyFips][countyIndex] = []
+        # now open it up, find the lat lons of the first layer, and try to find the nearest points
+        lats = None
+        lons = None
+        for g in grb:
+            try:
+                lats, lons = g.latlons()
+                break
+            except:
+                continue
+        if len(lats) < 1 or len(lons) < 1:
+            print("ERROR: when grabbing the latlons to do indexing for date %s" % dtobj.date())
+            exit()
+        grb.close()
 
-    def grab_herbie_arrays(self, dtobj, lon_lats=[], grid_names=[]):
+        # now for each element in the latlons dicts, find the closest points
+        for state in lon_lats:
+            for county in lon_lats[state]:
+                for idx in lon_lats[state][county]:
+                    st_lon = idx[0]
+                    st_lat = idx[1]
+                    lat_m = np.full_like(lats, st_lat)
+                    lon_m = np.full_like(lons, st_lon)
+                    dis_m = (lats - lat_m) ** 2 + (lons - lon_m) ** 2
+                    p_lat, p_lon = np.unravel_index(dis_m.argmin(), dis_m.shape)
+                    self.lat_dict[state][county][idx] = p_lat
+                    self.lon_dict[state][county][idx] = p_lon
+
+    def r_w_weather_values(self, dtobj, lon_lats=[], grid_names=[], state_abbrev_df=pd.DataFrame(), df=pd.DataFrame()):
         logger = logging.getLogger()
 
         with self.herb_lock:
@@ -367,43 +376,12 @@ class PreprocessWRF:
             except:
                 logger.warning("Precip values not found for %s" % dtobj.strftime("%Y%m%d %H%M"))
 
-        temp_vals = np.empty((1,))
-        rh_vals = np.empty((1,))
-        precip_vals = np.empty((1,))
-        u_wind_vals = np.empty((1,))
-        v_wind_vals = np.empty((1,))
-        dswrf_vals = np.empty((1,))
-        gust_vals = np.empty((1,))
-
-        temp_vals = np.delete(temp_vals, 0)
-        rh_vals = np.delete(rh_vals, 0)
-        precip_vals = np.delete(precip_vals, 0)
-        u_wind_vals = np.delete(u_wind_vals, 0)
-        v_wind_vals = np.delete(v_wind_vals, 0)
-        dswrf_vals = np.delete(dswrf_vals, 0)
-        gust_vals = np.delete(gust_vals, 0)
-
-        not_extracted_flag = False
         for state in lon_lats:
             # for each state, find the precipitation value (to save time)
             for county in lon_lats[state]:
+                count = -1
                 for idx in lon_lats[state][county]:
-                    st_lon = idx[0]
-                    st_lat = idx[1]
-                    if self.extract_flag == True:
-                        try:
-                            lats, lons = temp.latlons()
-                            lat_m = np.full_like(lats, st_lat)
-                            lon_m = np.full_like(lons, st_lon)
-                            dis_m = (lats - lat_m)**2 + (lons - lon_m)**2
-                            p_lat, p_lon = np.unravel_index(dis_m.argmin(), dis_m.shape)
-                        except:
-                            not_extracted_flag = True
-                            p_lat = -1
-                            p_lon = -1
-                        self.lat_dict[state][county][idx] = p_lat
-                        self.lon_dict[state][county][idx] = p_lon
-
+                    count += 1
                     try:
                         temp_value = temp_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
                     except:
@@ -431,19 +409,30 @@ class PreprocessWRF:
                     except:
                         precip_value = 0
 
-                    temp_vals = np.concatenate((temp_vals, np.asarray((temp_value,))))
-                    rh_vals = np.concatenate((rh_vals, np.asarray((rh_value,))))
-                    u_wind_vals = np.concatenate((u_wind_vals, np.asarray((u_value,))))
-                    v_wind_vals = np.concatenate((v_wind_vals, np.asarray((v_value,))))
-                    dswrf_vals = np.concatenate((dswrf_vals, np.asarray((dswrf_value,))))
-                    gust_vals = np.concatenate((gust_vals, np.asarray((gust_value,))))
-                    precip_vals = np.concatenate((precip_vals, np.asarray((precip_value,))))
+                    # state = state fips code , county = county fips code, idx = lon, lat
+                    # if we can also loop through the grid_names, we may be able to get the GridIdx
+                    # grid_names[state][county][count] = countyFips_GridIdx
+                    countyFips_GridIdx = grid_names[state][county][count].split('_')
+                    county_fips = str(countyFips_GridIdx[0])
+                    grid_Idx = countyFips_GridIdx[1]
+                    state_fips = str(county_fips[0:2])
+                    state_abbrev = \
+                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
+                    state_name = \
+                        state_abbrev_df['stname'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
+                    county_name = df['county'].where(df['FIPS'] == int(county_fips)).dropna().values[0]
+                    df_idx = df.index[
+                        (df['FIPS'] == int(county_fips)) & (df['countyGridIndex'] == int(grid_Idx))].tolist()[
+                        0]
+                    row = [dtobj.strftime("%Y"), dtobj.strftime("%m"), dtobj.strftime("%d"), dtobj.strftime("%H"),
+                           'Daily', state_name.upper(), county_name, county_fips, df['lat (llcrnr)'][df_idx],
+                           df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx], df['lon (urcrnr)'][df_idx],
+                           temp_value, precip_value, rh_value, gust_value, u_value, v_value, dswrf_value]
 
-        if self.extract_flag and not not_extracted_flag:
-            self.extract_flag = False
+                    with self.lock:
+                        self.write_dict_row(row=row, state_abbrev=state_abbrev)
 
-        return gust_vals, dswrf_vals, v_wind_vals, u_wind_vals, precip_vals, rh_vals, temp_vals
-
+        print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M"))
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
         """
@@ -532,6 +521,14 @@ class PreprocessWRF:
                     csvFiles.append(full_path)
 
         return csvFiles
+
+    def monthly_file_threading(self, file):
+        print("Get Monthly Avg for %s" % file)
+        df = pd.read_csv(file, index_col=False, na_filter=False, na_values='N/A')
+        df = self.wind_speed_vpd(df=df)
+        df = self.dailyAvgMinMax(df=df)
+        df = self.monthlyAvgs(df=df)
+        self.final_sendoff(df=df, fullfilepath=file)
 
     def wind_speed_vpd(self, df=pd.DataFrame()):
         """
