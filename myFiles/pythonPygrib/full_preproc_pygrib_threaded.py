@@ -225,7 +225,6 @@ class PreprocessWRF:
         hour_range = (end_hour_dt - begin_hour_dt).seconds // (60 * 60) + 1
         date_range = (end_day_dt - begin_day_dt).days
 
-        max_tasks_sem = threading.Semaphore(self.max_workers)
         prev_month = ''
 
         for i in range(0, date_range):
@@ -240,7 +239,7 @@ class PreprocessWRF:
                         break_flag = True
                         break
 
-                    dtobj = begin_day_dt + timedelta(days=i, hours=j)
+                    dtobj = begin_day_dt + timedelta(days=i, hours=hour_idx)
                     # if a new month is hit, we need to find the indexes of the closest points and
                     # store them in self.lat_dict and self.lon_dict
                     if dtobj.month != prev_month:
@@ -248,7 +247,6 @@ class PreprocessWRF:
                         print("Getting Indexes for date %s" % dtobj.date())
                         self.get_nearest_indexes(dtobj, lon_lats)
 
-                    max_tasks_sem.acquire()
                     t = multiprocessing.Process(target=self.r_w_weather_values, args=(dtobj, lon_lats, grid_names,
                                                                                       state_abbrev_df, df))
                     tasks.append(t)
