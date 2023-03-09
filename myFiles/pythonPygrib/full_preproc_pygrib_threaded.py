@@ -15,7 +15,7 @@ import pygrib
 # from queue import Queue
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/Testing_thread_0/"
+        self.write_path = "/home/kaleb/Desktop/Testing_thread_2/"
         self.grib_path = "/home/kaleb/Desktop/Grib2files/"
         self.herbie_path = "/home/kaleb/Desktop/herbie_data/"
 
@@ -25,7 +25,7 @@ class PreprocessWRF:
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "00:00"
+        self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -39,7 +39,7 @@ class PreprocessWRF:
         self.lon_dict = {}
         self.state_lon_lats = {}
 
-        self.max_workers = 10
+        self.max_workers = 5
 
     def main(self):
         start_time = time.time()
@@ -63,7 +63,7 @@ class PreprocessWRF:
             tasks = []
             for i in range(0, self.max_workers):
                 csvFile_idx += 1
-                if csvFile_idx > len(csvFiles):
+                if csvFile_idx >= len(csvFiles):
                     break_flag = True
                     break
                 file = csvFiles[csvFile_idx]
@@ -413,7 +413,7 @@ class PreprocessWRF:
                         (df['FIPS'] == int(county_fips)) & (df['countyGridIndex'] == int(grid_Idx))].tolist()[
                         0]
                     row = [dtobj.strftime("%Y"), dtobj.strftime("%m"), dtobj.strftime("%d"), dtobj.strftime("%H"),
-                           'Daily', state_name.upper(), county_name, county_fips, df['lat (llcrnr)'][df_idx],
+                           'Daily', state_name.upper(), county_name, county_fips, grid_Idx, df['lat (llcrnr)'][df_idx],
                            df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx], df['lon (urcrnr)'][df_idx],
                            temp_value, precip_value, rh_value, gust_value, u_value, v_value, dswrf_value]
 
@@ -679,7 +679,7 @@ class PreprocessWRF:
             elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1 or col.rfind('County') != -1 or \
                     col.rfind('FIPS') != -1:
                 monthlyavgs.append('N/A')
-            elif col.rfind('recipitation') != -1 or col.rfind('radiation') != -1:
+            elif col.rfind('recipitation') != -1 or col.rfind('adiation') != -1:
                 df_new = df.sort_values(by=['Day', 'Grid Index'])
                 last_day = df_new['Day'][len(df_new) - 1]
                 first_day = df_new['Day'][0]
