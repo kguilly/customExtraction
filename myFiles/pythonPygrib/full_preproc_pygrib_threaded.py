@@ -67,7 +67,8 @@ class PreprocessWRF:
                     break_flag = True
                     break
                 file = csvFiles[csvFile_idx]
-                t = threading.Thread(target=self.monthly_file_threading, args=(file,))
+                # t = threading.Thread(target=self.monthly_file_threading, args=(file,))
+                t = multiprocessing.Process(target=self.monthly_file_threading, args=(file,))
                 tasks.append(t)
                 t.start()
 
