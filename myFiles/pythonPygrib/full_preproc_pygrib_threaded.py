@@ -410,7 +410,7 @@ class PreprocessWRF:
                         state_abbrev_df['stusps'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
                     except:
                         print(county_fips, grid_Idx)
-                        print(state_abbrev, state_fips)
+                        print(state_fips)
                     state_name = \
                         state_abbrev_df['stname'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
                     county_name = df['county'].where(df['FIPS'] == int(county_fips)).dropna().values[0]
