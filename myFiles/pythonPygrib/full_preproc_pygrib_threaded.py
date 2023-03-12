@@ -407,6 +407,7 @@ class PreprocessWRF:
                     state_fips = str(county_fips[0:2])
                     state_abbrev = \
                         state_abbrev_df['stusps'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
+                    print(state_abbrev, state_fips)
                     state_name = \
                         state_abbrev_df['stname'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
                     county_name = df['county'].where(df['FIPS'] == int(county_fips)).dropna().values[0]
