@@ -1,4 +1,5 @@
 // this test will add the elements of two arrays with a million elemetns each
+// I also want to test how to get information about the GPU
 #include <iostream>
 #include <math.h>
 // Kernel function to add the elements of two arrays
@@ -11,9 +12,26 @@ void add(int n, float *x, float *y)
 
 int main(void)
 {
+
   int N = 1<<20;
   float *x, *y;
 
+  /////////////////////////////////////////////////////////////////////
+  // Get device properties
+
+  int num_devices;
+  cudaGetDeviceCount(&num_devices);
+  for(int i=0; i < num_devices; i++){
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties_v2(&prop, i);
+    std::cout << "\nDevice " << i << ": " << prop.name << std::endl;
+    
+    size_t free_mem, total_mem;
+    cudaSetDevice(i);
+    cudaMemGetInfo(&free_mem, &total_mem);
+    std::cout << "Total Memory: " << total_mem << "\t Free Memory: " << free_mem << std::endl;
+
+  }
   // Allocate Unified Memory – accessible from CPU or GPU
   cudaMallocManaged(&x, N*sizeof(float));
   cudaMallocManaged(&y, N*sizeof(float));

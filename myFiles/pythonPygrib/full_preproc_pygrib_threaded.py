@@ -16,16 +16,18 @@ import pygrib
 class PreprocessWRF:
     def __init__(self):
         self.write_path = "/home/kaleb/Desktop/Testing_thread_2/"
-        self.grib_path = "/home/kaleb/Desktop/Grib2files/"
+        self.grib_path = "/media/kaleb/extraSpace/wrf/"
         self.herbie_path = "/home/kaleb/Desktop/herbie_data/"
 
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
         self.wrfOutput_path = self.repository_path + "myFiles/pythonPygrib/WRFoutput/wrfOutput.csv"
 
+        self.max_workers = 5
+
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "23:00"
+        self.end_hour = "1:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -39,7 +41,6 @@ class PreprocessWRF:
         self.lon_dict = {}
         self.state_lon_lats = {}
 
-        self.max_workers = 5
 
     def main(self):
         start_time = time.time()
@@ -53,6 +54,8 @@ class PreprocessWRF:
         param_dict_arr = self.separate_by_state(df=every_county_df)
         state_abbrev_df = self.get_state_abbrevs(df=every_county_df)
         every_county_df['county'] = every_county_df['county'].apply(self.fix_county_names)
+        every_county_df['FIPS'] = every_county_df['FIPS'].apply(self.fix_county_fips)
+        every_county_df['stateFips'] = every_county_df['stateFips'].apply(self.fix_state_fips)
         self.read_data(df=every_county_df, st_dict=param_dict_arr, state_abbrev_df=state_abbrev_df)
 
         # the data is read into hourly, stately files, now read them into daily / monthly files
@@ -195,6 +198,24 @@ class PreprocessWRF:
                 val += elem
         val.strip()
         return val
+
+    def fix_fips_codes(self, val):
+        """
+
+        :param val: the county fips codes, need to be converted from str to int
+        :return: a column of the dataframe
+        """
+        val = str(val)
+        if len(val) < 5 and len(val) > 3:
+            # the val only has a length of 4, there's either an error, or there's
+            # supposed to be a leading 0
+            val = '0' + val
+        if len(val) != 5:
+            # something's wrong, exit
+            print("Something went wrong while fixing the FIPS codes to include a leading 0")
+            exit()
+        return val
+
 
     def read_data(self, df=pd.DataFrame(), st_dict={}, state_abbrev_df=pd.DataFrame()):
         """
