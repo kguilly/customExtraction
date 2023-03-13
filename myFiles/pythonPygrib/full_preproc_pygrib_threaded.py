@@ -199,20 +199,29 @@ class PreprocessWRF:
         val.strip()
         return val
 
-    def fix_fips_codes(self, val):
+    def fix_county_fips(self, val):
         """
 
         :param val: the county fips codes, need to be converted from str to int
         :return: a column of the dataframe
         """
         val = str(val)
-        if len(val) < 5 and len(val) > 3:
+        if 5 > len(val) > 3:
             # the val only has a length of 4, there's either an error, or there's
             # supposed to be a leading 0
             val = '0' + val
         if len(val) != 5:
             # something's wrong, exit
-            print("Something went wrong while fixing the FIPS codes to include a leading 0")
+            print("Something went wrong while fixing the county FIPS codes to include a leading 0")
+            exit()
+        return val
+
+    def fix_state_fips(self, val):
+        val = str(val)
+        if 2 > len(val) > 0:
+            val = '0' + val
+        if len(val) != 2:
+            print("Something went wrong while fixing the state FIPS")
             exit()
         return val
 
