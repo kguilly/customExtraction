@@ -444,9 +444,9 @@ class PreprocessWRF:
                         continue
                     state_name = \
                         state_abbrev_df['stname'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
-                    county_name = df['county'].where(df['FIPS'] == int(county_fips)).dropna().values[0]
+                    county_name = df['county'].where(df['FIPS'] == str(county_fips)).dropna().values[0]
                     df_idx = df.index[
-                        (df['FIPS'] == int(county_fips)) & (df['countyGridIndex'] == int(grid_Idx))].tolist()[
+                        (df['FIPS'] == str(county_fips)) & (df['countyGridIndex'] == int(grid_Idx))].tolist()[
                         0]
                     row = [dtobj.strftime("%Y"), dtobj.strftime("%m"), dtobj.strftime("%d"), dtobj.strftime("%H"),
                            'Daily', state_name.upper(), county_name, county_fips, grid_Idx, df['lat (llcrnr)'][df_idx],
