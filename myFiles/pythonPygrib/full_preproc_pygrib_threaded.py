@@ -15,7 +15,7 @@ import pygrib
 # from queue import Queue
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/Testing_thread_2/"
+        self.write_path = "/home/kaleb/Desktop/Testing_thread_thread/"
         self.grib_path = "/media/kaleb/extraSpace/wrf/"
         self.herbie_path = "/home/kaleb/Desktop/herbie_data/"
 
@@ -27,7 +27,7 @@ class PreprocessWRF:
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "1:00"
+        self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -393,70 +393,89 @@ class PreprocessWRF:
                 precip_data = precip_data.values
                 precip_grb.close()
             except:
+                precip_data = np.full_like(temp_data, 0)
                 logger.warning("Precip values not found for %s" % dtobj.strftime("%Y%m%d %H%M"))
 
+        threads = []
         for state in lon_lats:
             # for each state, find the precipitation value (to save time)
-            for county in lon_lats[state]:
-                count = -1
-                for idx in lon_lats[state][county]:
-                    count += 1
-                    try:
-                        temp_value = temp_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                    except:
-                        temp_value = -12345.678
-                    try:
-                        rh_value = rh_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                    except:
-                        rh_value = -12345.678
-                    try:
-                        dswrf_value = dswrf_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                    except:
-                        dswrf_value = 0
-                    try:
-                        u_value = u_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                        v_value = v_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                    except:
-                        u_value = -12345.678
-                        v_value = -12345.678
-                    try:
-                        gust_value = gust_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                    except:
-                        gust_value = 0
-                    try:
-                        precip_value = precip_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
-                    except:
-                        precip_value = 0
+            t = threading.Thread(target=self.index_and_write, args=(state, temp_data, rh_data, dswrf_data, u_data,
+                                                                    v_data, gust_data, precip_data, dtobj, lon_lats,
+                                                                    grid_names, state_abbrev_df, df,))
+            threads.append(t)
+            t.start()
 
-                    # state = state fips code , county = county fips code, idx = lon, lat
-                    # if we can also loop through the grid_names, we may be able to get the GridIdx
-                    # grid_names[state][county][count] = countyFips_GridIdx
-                    countyFips_GridIdx = grid_names[state][county][count].split('_')
-                    county_fips = str(countyFips_GridIdx[0])
-                    grid_Idx = countyFips_GridIdx[1]
-                    state_fips = str(county_fips[0:2])
-                    try:
-                        state_abbrev = \
-                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
-                    except:
-                        print("State abbrev for fips %s Grid Idx %s could not be found, skipping." % (county_fips,
-                                                                                                      grid_Idx))
-                        continue
-                    state_name = \
-                        state_abbrev_df['stname'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
-                    county_name = df['county'].where(df['FIPS'] == str(county_fips)).dropna().values[0]
-                    df_idx = df.index[
-                        (df['FIPS'] == str(county_fips)) & (df['countyGridIndex'] == int(grid_Idx))].tolist()[
-                        0]
-                    row = [dtobj.strftime("%Y"), dtobj.strftime("%m"), dtobj.strftime("%d"), dtobj.strftime("%H"),
-                           'Daily', state_name.upper(), county_name, county_fips, grid_Idx, df['lat (llcrnr)'][df_idx],
-                           df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx], df['lon (urcrnr)'][df_idx],
-                           temp_value, precip_value, rh_value, gust_value, u_value, v_value, dswrf_value]
-
-                    with self.lock:
-                        self.write_dict_row(row=row, state_abbrev=state_abbrev)
+        for t in threads:
+            t.join()
 
         print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M")) #
+
+    def index_and_write(self, state, temp_data, rh_data, dswrf_data, u_data, v_data, gust_data, precip_data,
+                        dtobj, lon_lats=[], grid_names=[], state_abbrev_df=pd.DataFrame(), df=pd.DataFrame()):
+        """
+        This function will be the threaded implementation of indexing the proper points from the grib
+        files, finding the proper value, and then writing that value out
+        :return:
+        """
+        for county in lon_lats[state]:
+            count = -1
+            for idx in lon_lats[state][county]:
+                count += 1
+                try:
+                    temp_value = temp_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                except:
+                    temp_value = -12345.678
+                try:
+                    rh_value = rh_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                except:
+                    rh_value = -12345.678
+                try:
+                    dswrf_value = dswrf_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                except:
+                    dswrf_value = 0
+                try:
+                    u_value = u_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                    v_value = v_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                except:
+                    u_value = -12345.678
+                    v_value = -12345.678
+                try:
+                    gust_value = gust_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                except:
+                    gust_value = 0
+                try:
+                    precip_value = precip_data[self.lat_dict[state][county][idx], self.lon_dict[state][county][idx]]
+                except:
+                    precip_value = 0
+
+                # state = state fips code , county = county fips code, idx = lon, lat
+                # if we can also loop through the grid_names, we may be able to get the GridIdx
+                # grid_names[state][county][count] = countyFips_GridIdx
+                countyFips_GridIdx = grid_names[state][county][count].split('_')
+                county_fips = str(countyFips_GridIdx[0])
+                grid_Idx = countyFips_GridIdx[1]
+                state_fips = str(county_fips[0:2])
+                try:
+                    state_abbrev = \
+                        state_abbrev_df['stusps'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
+                except:
+                    print("State abbrev for fips %s Grid Idx %s could not be found, skipping." % (county_fips,
+                                                                                                  grid_Idx))
+                    continue
+                state_name = \
+                    state_abbrev_df['stname'].where(state_abbrev_df['st'] == state_fips).dropna().values[0]
+                county_name = df['county'].where(df['FIPS'] == str(county_fips)).dropna().values[0]
+                df_idx = df.index[
+                    (df['FIPS'] == str(county_fips)) & (df['countyGridIndex'] == int(grid_Idx))].tolist()[
+                    0]
+                row = [dtobj.strftime("%Y"), dtobj.strftime("%m"), dtobj.strftime("%d"), dtobj.strftime("%H"),
+                       'Daily', state_name.upper(), county_name, county_fips, grid_Idx, df['lat (llcrnr)'][df_idx],
+                       df['lon (llcrnr)'][df_idx], df['lat (urcrnr)'][df_idx], df['lon (urcrnr)'][df_idx],
+                       temp_value, precip_value, rh_value, gust_value, u_value, v_value, dswrf_value]
+
+                with self.lock:
+                    self.write_dict_row(row=row, state_abbrev=state_abbrev)
+
 
     def make_lat_lon_name_arr(self, df=pd.DataFrame()):
         """
