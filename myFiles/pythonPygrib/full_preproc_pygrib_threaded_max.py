@@ -27,7 +27,7 @@ class PreprocessWRF:
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
         self.begin_hour = "00:00"
-        self.end_hour = "23:00"
+        self.end_hour = "1:00"
         self.county_df = pd.DataFrame()
         self.passedFips = []
         self.timeout_time = 800
@@ -405,7 +405,7 @@ class PreprocessWRF:
                 if state_idx >= len(lon_lats):
                     break_flag = True
                     break
-                state = lon_lats[state_idx]
+                state = next(iter(lon_lats))
 
                 t = threading.Thread(target=self.index_and_write, args=(state, temp_data, rh_data, dswrf_data, u_data,
                                                                         v_data, gust_data, precip_data, dtobj, lon_lats,
