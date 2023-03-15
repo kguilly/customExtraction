@@ -3,17 +3,14 @@
 #include <iostream>
 #include <math.h>
 // Kernel function to add the elements of two arrays
+
 __global__
-void add(int n, float *x, float *y)
-{
-  for (int i = 0; i < n; i++)
-    y[i] = x[i] + y[i];
-}
+void add(int, float*, float*);
 
 int main(void)
 {
 
-  int N = 1<<20;
+  int N = 1<<20; // I think thats a binary 1 shifted left 20 times
   float *x, *y;
 
   /////////////////////////////////////////////////////////////////////
@@ -24,7 +21,12 @@ int main(void)
   for(int i=0; i < num_devices; i++){
     cudaDeviceProp prop;
     cudaGetDeviceProperties_v2(&prop, i);
-    std::cout << "\nDevice " << i << ": " << prop.name << std::endl;
+    std::cout << "\nDevice " << i << ": " << prop.name << "\n - Clock Rate: ";
+    std::cout << prop.clockRate << "\n - Compute Mode: " << prop.computeMode;
+    std::cout << "\n - MaxGridSize: " << prop.maxGridSize << "\n - Max Threads Per Block: ";
+    std::cout << prop.maxThreadsPerBlock << "\n - Max Threads Dim: " << prop.maxThreadsDim << std::endl;
+    std::cout << " - UUID: " << /*prop.uuid*/ "\n - Warp Size: " << prop.warpSize << std::endl;
+    std::cout << " - Max Blocks per multiprocessor: " << prop.maxBlocksPerMultiProcessor << std::endl;
     
     size_t free_mem, total_mem;
     cudaSetDevice(i);
@@ -42,8 +44,12 @@ int main(void)
     y[i] = 2.0f;
   }
 
+  // make a nice block size
+  int blockSize = 256;
+  int numBlocks = (N + blockSize - 1) / blockSize;
+
   // Run kernel on 1M elements on the GPU
-  add<<<1, 1>>>(N, x, y);
+  add<<<numBlocks, blockSize>>>(N, x, y);
 
   // Wait for GPU to finish before accessing on host
   cudaDeviceSynchronize();
@@ -59,4 +65,14 @@ int main(void)
   cudaFree(y);
   
   return 0;
+}
+
+__global__
+void add(int n, float *x, float *y){
+  
+  int index = blockIdx.x * blockDim.x + threadIdx.x;
+  int stride = blockDim.x * gridDim.x;
+  for (int i = index; i < n; i += stride)
+    y[i] = x[i] + y[i];
+  
 }

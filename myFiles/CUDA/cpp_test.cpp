@@ -1,15 +1,7 @@
 /*
-TODO:
-- Implement bare bones CUDA
-    - Take GPU statistics and choose which GPU to run on based on stats like available mem and usage
-- Take the indexing and writing logic of pygrib threaded implementation
-    - Look for / think of a more efficient indexing algorithm
-- --fips arguments should also state the state arguments
-- change param argument to take the short names and level
-    - maybe implement a regex string search
-    - need to look deeper into ECCODES functions to see how pygrib does it
-
 NOTE:
+
+
 Before running, please configure beginday, endday, arrhourrange, filePath, writepath, 
 repositoryPath
 
@@ -20,8 +12,6 @@ Compile:
 nvcc cuda_extraction1.cu -g -leccodes -rdc=true -lcudadevrt
 
 */
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "eccodes.h"
@@ -46,10 +36,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2020, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
+vector<int> beginDay = {2023, 1, 31}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2020, 1, 2};   // NOT INCLUSIVEe
+vector<int> endDay = {2023, 2, 3};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -68,7 +58,6 @@ string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH 
 
 // Structure for holding the selected station data. Default will be the 5 included in the acadmeic
 // paper: "Regional Weather Forecasting via Neural Networks with Near-Surface Observational and Atmospheric Numerical Data."
-__device__
 struct Station{
     string name = "00";
     string state;
@@ -88,21 +77,18 @@ struct Station{
 
 // Struct for passing one to many arguments into individual threading functions
 // Currently not in use, only need a single argument for the moment
-__device__
 struct threadArgs{
     FILE*f;
-    const char* charfileName; // string fileName;
-    const char* charpathName; // string pathName;
+    string fileName;
+    string pathName;
     int threadIndex;
-    const char* charhour; // string hour;
-    const char** charCurrentDay; // vector<string> strCurrentDay;
+    string hour;
+    vector<string> strCurrentDay;
     bool *header_flag; // decides whether the header need to be written
     bool thread_header_flag; // decides whether this particular thread will make the header
 };
 
 Station *stationArr;
-
-__device__
 bool *blnParamArr;
                         // this will be used to quickly index whether a parameter needs to be
                         // extracted or not. Putting 149 spaces for 148 parameters because the
@@ -158,12 +144,10 @@ bool dirExists(string filePath);
 void paramInfotoCsv(vector<string>);
 
 /* function to read the data from a passed grib file */
-__global__
 void *readData(void*);
 
 /*Function to find the standard deviation of the values for each week,
 takes an array of the values for the week and their average, outputs a stdDev*/
-__global__
 static double standardDev(vector<double>, double&);
 
 /*Function to create the paths and files for the maps to be written to*/
@@ -263,6 +247,18 @@ int main(int argc, char*argv[]){
         delete [] arrThreadArgs;
     }
     delete [] blnParamArr;
+
+//    string strcmd; int status;
+//    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
+//    strcmd += repositoryPath+" --wrf_path " + writePath;
+//    // status = system(strcmd.c_str());
+//    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
+//
+//    strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
+//    strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
+//    // status = system(strcmd.c_str());
+//    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
+
 
     garbageCollection();
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
@@ -843,7 +839,6 @@ bool dirExists(string filePath){
 	else return false;
 }
 
-__global__
 void *readData(void *args){
     // struct threadArgs threadArg = *(struct threadArgs*)args;
     struct threadArgs *threadArg = (struct threadArgs*)args;
@@ -1005,6 +1000,7 @@ void *readData(void *args){
     }
     sem_post(&hProtection);
     fclose(f);
+    // call the mapData function to map the hour's parameter's to each station's map
     pthread_exit(0);
 
 }
