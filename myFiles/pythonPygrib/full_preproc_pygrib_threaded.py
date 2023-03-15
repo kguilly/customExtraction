@@ -396,17 +396,35 @@ class PreprocessWRF:
                 precip_data = np.full_like(temp_data, 0)
                 logger.warning("Precip values not found for %s" % dtobj.strftime("%Y%m%d %H%M"))
 
-        threads = []
-        for state in lon_lats:
-            # for each state, find the precipitation value (to save time)
-            t = threading.Thread(target=self.index_and_write, args=(state, temp_data, rh_data, dswrf_data, u_data,
-                                                                    v_data, gust_data, precip_data, dtobj, lon_lats,
-                                                                    grid_names, state_abbrev_df, df,))
-            threads.append(t)
-            t.start()
+        break_flag = False
+        state_idx = -1
+        while not break_flag:
+            threads = []
+            for i in range(0, self.max_workers):
+                state_idx += 1
+                if state_idx >= len(lon_lats):
+                    break_flag = True
+                    break
+                state = lon_lats[state_idx]
 
-        for t in threads:
-            t.join()
+                t = threading.Thread(target=self.index_and_write, args=(state, temp_data, rh_data, dswrf_data, u_data,
+                                                                        v_data, gust_data, precip_data, dtobj, lon_lats,
+                                                                        grid_names, state_abbrev_df, df,))
+                threads.append(t)
+                t.start()
+            for t in threads:
+                t.join()
+
+        # for state in lon_lats:
+        #     # for each state, find the precipitation value (to save time)
+        #     t = threading.Thread(target=self.index_and_write, args=(state, temp_data, rh_data, dswrf_data, u_data,
+        #                                                             v_data, gust_data, precip_data, dtobj, lon_lats,
+        #                                                             grid_names, state_abbrev_df, df,))
+        #     threads.append(t)
+        #     t.start()
+        #
+        # for t in threads:
+        #     t.join()
 
         print("Grabbed Herb Arrs for " + dtobj.strftime("%Y%m%d %H:%M")) #
 
