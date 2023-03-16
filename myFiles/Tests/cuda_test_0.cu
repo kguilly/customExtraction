@@ -30,9 +30,10 @@ int main(void)
     size_t free_mem, total_mem;
     cudaSetDevice(i);
     cudaMemGetInfo(&free_mem, &total_mem);
-    std::cout << "Total Memory: " << total_mem << "\t Free Memory: " << free_mem << std::endl;
+    std::cout << "\nTotal Memory: " << total_mem << "\t Free Memory: " << free_mem << std::endl;
 
   }
+  std::cout << " " << std::endl;
 
   int N = 1<<20; // I think thats a binary 1 shifted left 20 times
   int* h_x = new int[N];
