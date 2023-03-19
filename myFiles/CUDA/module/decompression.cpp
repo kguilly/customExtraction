@@ -14,6 +14,9 @@
 #include <cassert>
 #include <cmath>
 #include "semaphore.h"
+
+// Personal Headers
+#include "shared_objs.h"
 #define MAX_VAL_LEN 1024
 
 using namespace std;
@@ -41,36 +44,6 @@ string writePath = "/home/kaleb/Desktop/WRFextract_2-3/"; // path to write the e
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
-
-// Structure for holding the selected station data. Default will be the 5 included in the acadmeic
-// paper: "Regional Weather Forecasting via Neural Networks with Near-Surface Observational and Atmospheric Numerical Data."
-struct Station{
-    string name = "00";
-    string state;
-    string stateAbbrev;
-    string county;
-    string fipsCode;
-    float latll; // each grid index will include the lat and lons of 
-    float lonll; // the lower left and upper right corners
-    float latur;
-    float lonur;
-    double **values; // holds the values of the parameters. Index of this array will 
-                    // correspond to index if the Parameter array. This will be a single hour's data
-    int* closestPoint;
-
-};
-
-
-// Struct for passing one to many arguments into individual threading functions 
-// Currently not in use, only need a single argument for the moment
-struct threadArgs{
-    FILE*f;
-    string fileName;
-    string pathName;
-    int threadIndex;
-    string hour;
-    vector<string> strCurrentDay;
-};
 
 Station *stationArr; 
                         // this will be used to quickly index whether a parameter needs to be 
