@@ -1,22 +1,14 @@
 /*
 NOTE:
-
 TODO: for every call to a file, make sure there is either an absolute path or the path
 is configured by the passed "repository path"
-
 Before running, please configure beginday, endday, arrhourrange, filePath, writepath, 
 repositoryPath
-
 If g++ version is outdated compile with flag -std=c++17
-
-
 This implementation is based on the first iteration of manyCountyInfo, except I will call
 to python to analyze the data rather than doing it in C
-
-
 Compile:
 g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
-
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,6 +87,7 @@ struct threadArgs{
 };
 
 Station *stationArr; 
+bool *blnParamArr; 
                         // this will be used to quickly index whether a parameter needs to be 
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
@@ -251,6 +244,7 @@ int main(int argc, char*argv[]){
 
         delete [] arrThreadArgs;
     }
+    delete [] blnParamArr;
 
 //    string strcmd; int status;
 //    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
@@ -311,9 +305,8 @@ void handleInput(int argc, char* argv[]){
             cout<<"--begin_hour.........First hour's worth of WRF data to\n";
             cout<<"                     read from for each day passed.\n";
             cout<<"--end_hour...........Last hour to read from\n";
-            cout<<"--param..............pass a string of the file path that\n";
-            cout<<"                     contains the short names of the Grib file"
-            cout<<                     "layers to read from. DONOT put spaces\n\n";
+            cout<<"--param..............Integer number of the layer(s) of \n";
+            cout<<"                     Grib files to read from\n\n";
             cout<<"NOTE: arg which can have multiple inputs (fips, param)\n";
             cout<<"are read from either until the end of the arg list or until\n";
             cout<<"the next arg is reached. Flags cannot be stacked, e.g. only\n";
@@ -341,9 +334,8 @@ void handleInput(int argc, char* argv[]){
         }
     }
     if(param_flag){
-        int curr_arg_idx = param_index + 1;
-
-        for(int i=curr_arg;i<argc;i++){
+        blnParamArr = new bool[200]; 
+        for(int i=param_index+1;i<argc;i++){
             string arg = argv[i];
             if(arg.substr(0,1)=="-"){
                 break;
@@ -717,7 +709,6 @@ void semaphoreInit(){
         perror("sem_init");
         exit(EXIT_FAILURE);
     }
-
 }
 
 void convertLatLons(){
