@@ -1,6 +1,7 @@
 #include "decompress_cuda.h"
 #include "iostream"
 #include <stdlib.h>
+#include "semaphore.h"
 
 /*
 Funtion that gets device information:
@@ -118,6 +119,7 @@ void index_extraction (station_t * stationArr, double* lats, double* lons, int n
 
     // copy the elements from the GPU back over to the host
     if (cudaMemcpy(stationArr, d_stationArr, sizeof(station_t) * numStations, cudaMemcpyDeviceToHost) != cudaSuccess) {
+        std::cout << "cuda FAILED" << std::endl;
         cudaFree(d_stationArr);
         cudaFree(d_lats);
         cudaFree(d_lons);
@@ -129,4 +131,64 @@ void index_extraction (station_t * stationArr, double* lats, double* lons, int n
     cudaFree(d_lats);
     cudaFree(d_lons);
 
+}
+
+
+/*
+CUDA kernel that indexes the appropriate values to each station
+*/
+__global__ void get_station_values(){
+    // need to do something
+}
+
+/*
+CPU threading function 
+*/
+void * read_grib_data(void *arg) {
+    // Grab the data from the thread arg
+    threadArgs_t * this_arg = (threadArgs_t*)arg;
+    FILE * f = (*this_arg).f;
+    const char * full_path = (*this_arg).pathName;
+    int threadIndex = (*this_arg).threadIndex;
+    const char * hour = (*this_arg).hour;
+    const char * strCurrentDay = (*this_arg).strCurrentDay;
+    bool first_hour_flag = (*this_arg).first_hour_flag;
+    bool last_hour_flag = (*this_arg).last_hour_flag;
+
+    sem_t *barrier = this_arg->barrier;
+    sem_t *values_protection = this_arg->values_protection;
+
+    station_t * d_stationArr;
+    double * grib_values;
+
+    // if first hour
+        // make sure that the lat and lons of the stations are empty (or just write over them)
+        // copy over new station array
+
+    // if last hour
+        // copy station array from device back to host....
+        // or just copy the values array over either way
+
+    // put a sem right here so they can do their business before getting started
+    if (threadIndex != 0) {
+        sem_wait(barrier);
+        sem_post(barrier);
+    }
+    if (first_hour_flag) {
+
+    }
+
+    // once the first hour has done its dirty work, let the rest of them go
+    if (threadIndex == 0) sem_post(barrier);
+
+
+
+
+
+
+
+
+    if (last_hour_flag) {
+
+    }    
 }

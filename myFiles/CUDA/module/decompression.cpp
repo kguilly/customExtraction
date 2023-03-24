@@ -64,13 +64,8 @@ bool* blnParamArr;
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 std::string *hours;
 
-/*Initialization of semaphores to be used for protection*/
-sem_t hProtection; // protect when creating the handle object for each layer
-sem_t *mapProtection; // protect when writing to the maps
-sem_t pathCreationSem; // protect when writeData makes new file paths
 sem_t *valuesProtection; // protect when writing values to the values array
-sem_t writeProtection; // only one thread should be able to write to a file at a time
-sem_t headerProtection; // only one thread can read the header flag at a time
+sem_t *barrier; // protect when passing shared values to and from the GPU
 
 /*functions to help create paths by finding length of std::string and splitting strnig on delimeter*/
 int len(std::string); std::vector<std::string> splitonDelim(std::string, char);
@@ -98,30 +93,87 @@ int main(int argc, char*argv[]){
     // print out data from each of the stations:
     for (int i=0; i<numStations; i++){
         station_t station = stationArr[i];
-        std::cout << station.county << ", " << station.stateAbbrev << ", IDX: " << station.grid_idx << std::endl;
+        std::cout << station.stateAbbrev << ", IDX: " << station.grid_idx << std::endl;
         std::cout << station.latll << "," << station.lonll << ", closest pt = " << station.closestPoint << std::endl;
         std::cout << std::endl;
 
     }
     
+    double* grib_lats = (double*)malloc(sizeof(double));
+    double* grib_lons = (double*)malloc(sizeof(double));
+    long numberOfPoints;
+    bool first_hour_flag, last_hour_flag, new_month_flag;
+
     while(checkDateRange(intCurrentDay, endDay)){
         
         std::vector<std::string> strCurrentDay = formatDay(intCurrentDay);
         std::string currMonth = strCurrentDay.at(1);
         if (currMonth != prevMonth) {
             prevMonth = currMonth;
+            std::free(grib_lats);
+            std::free(grib_lons);
+            new_month_flag = true;
             std::cout << "Getting Station Indexes for Date " << strCurrentDay.at(3) << std::endl;
-            get_nearest_indexes(strCurrentDay);
+            get_nearest_indexes(strCurrentDay, grib_lats, grib_lons, numberOfPoints);
         }
+
+        pthread_t *threads = (pthread_t*)malloc(intHourRange * sizeof(pthread_t)); // will be freed at the end of this iteration
+        if(!threads){
+            fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(intHourRange*sizeof(pthread_t)));
+            exit(0);
+        }
+
+        FILE* f[intHourRange]; // use to open the file for each hour
+        threadArgs_t *arrThreadArgs = new threadArgs[intHourRange];
+
+        for (int i=0; i<intHourRange; i++){
+            if (i==0) first_hour_flag = true;
+            else first_hour_flag = false;
+            if (i==intHourRange-1) last_hour_flag = true;
+            else last_hour_flag = false;
+
+            // place args into the 
+            f[i] = NULL;
+            string hour = hours[i];
+            string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
+            string filePath2 = filePath1 + fileName;
+            arrThreadArgs[i].f = f[i];
+            arrThreadArgs[i].pathName = filePath2;
+            arrThreadArgs[i].threadIndex = i;
+            arrThreadArgs[i].hour = hour;
+            arrThreadArgs[i].strCurrentDay = strCurrentDay; 
+            arrThreadArgs[i].first_hour_flag = first_hour_flag;
+            arrThreadArgs[i].last_hour_flag = last_hour_flag;
+            arrThreadArgs[i].strCurrentDay = strCurrentDay.at(3);
+            arrThreadArgs[i].values_protection = valuesProtection;
+            arrThreadArgs[i].barrier = &barrier;
+
+            threaderr = pthread_create(&threads[i], NULL, &read_grib_data, &arrThreadArgs[i]);
+            if(threaderr){
+                assert(0);
+                return 1;
+            }
+            ////////////////////
+            if (new_month_flag) new_month_flag = false;
+
+        }
+
+        for (int i=0; i<intHourRange; i++) {
+            pthread_join(threads[i], NULL);
+        }
+
+        std::free(threads);
+        delete [] arrThreadArgs;
 
         intCurrentDay = getNextDay(intCurrentDay);
     }
 
     // print out data from each of the stations:
+    std::cout << "\n\nAfter returning from the kernel:\n";
     for (int i=0; i<numStations; i++){
         station_t station = stationArr[i];
 
-        std::cout << station.county << ", " << station.stateAbbrev << ", IDX: " << station.grid_idx << std::endl;
+        std::cout << station.stateAbbrev << ", IDX: " << station.grid_idx << std::endl;
         std::cout << station.latll << "," << station.lonll << ", closest pt = " << station.closestPoint << std::endl;
         std::cout << std::endl;
 
@@ -291,13 +343,6 @@ void handleInput(int argc, char* argv[]){
     buildHours();
     defaultParams(param_flag);
     readCountycsv();
-    // print out data from each of the stations:
-    for (int i=0; i<numStations; i++){
-        station_t *station = &stationArr[i];
-        std::cout << station->county << " IDX: "<< station->grid_idx << " FIPS: " << station->fipsCode << std::endl;
-        std::cout << std::endl;
-
-    }
     matchState();
     getStateAbbreviations();
         
@@ -334,35 +379,7 @@ void buildHours(){
 }
 
 void defaultParams(bool param_flag){
-    std::string paramline;
-    std::ifstream paramFile;
-    std::string paramfiledir = repositoryPath + "myFiles/countyInfo/parameterInfo.csv";
-    paramFile.open(paramfiledir);
-    if(!paramFile){
-        std::cerr << "Error: the PARAMETER file could not be opened.\n";
-        exit(1);
-    }
-    std::vector<std::string> paramRow;
-    bool firstline = true;
-    int countParams = 0;
-    while(getline(paramFile, paramline)){
-        paramRow.clear();
-        if(firstline){ // do not include the header
-            firstline = false;
-            continue;
-        }
-        std::stringstream s(paramline);
-        std::string currLine;
-        while(getline(s, currLine, ',')){
-            paramRow.push_back(currLine);
-        }
-        if(paramRow.size() > 2){
-            countParams++;
-        }
-    }
-    numParams = countParams;
-
-
+    numParams = 200;
     // build the boolean param array
     if(!param_flag){
         blnParamArr = new bool[numParams+1];
@@ -384,6 +401,10 @@ void readCountycsv(){
     bool firstLine = true;
     int arridx = 0;
     while(getline(filewrfdata, strLine)){
+        if(firstLine){
+            firstLine = false;
+            continue;
+        }
         arridx++;
     }
     filewrfdata.close();
@@ -397,6 +418,7 @@ void readCountycsv(){
     }
     int i=0;
     std::vector<std::string> row;
+    firstLine = true;
     while(getline(filewrfdata, strLine)){
         row.clear();
         if(firstLine){
@@ -408,11 +430,11 @@ void readCountycsv(){
         while(getline(s, currLine, ',')){
             row.push_back(currLine);
         }
-        station_t station = new station_t;
+        station_t station;
         station.grid_idx = row.at(0).c_str(); station.fipsCode = row.at(1).c_str();
         station.latur = stof(row.at(4)); station.lonur = stof(row.at(5));
         station.latll = stof(row.at(6)); station.lonll = stof(row.at(7));
-        station.county = row.at(3).c_str();
+        // station.county = row.at(3).c_str();
         station.values = new double*[intHourRange];
         for(int j=0; j<intHourRange; j++){
             station.values[j] = new double[numParams];
@@ -420,16 +442,8 @@ void readCountycsv(){
         stationArr[i] = station;
         i++;
     }
-
-    // print out data from each of the stations:
-    // for (int i=0; i<numStations; i++){
-    //     station_t station = stationArr[i];
-    //     std::cout << station.county << ", IDX: " << station.grid_idx << ", FIPS: " << station.fipsCode << std::endl;
-    //     std::cout << station.latll << "," << station.lonll << ", closest pt = " << station.closestPoint << std::endl;
-    //     std::cout << std::endl;
-
-    // }
 }
+
 void matchState(){
     // all the points will have the same state, so search through the file
     // that has the state fips and put it as the state for each of the 
@@ -537,22 +551,8 @@ void getStateAbbreviations(){
 }
 
 void semaphoreInit(){
-    mapProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
-    for(int i=0; i< numStations; i++){
-        if(sem_init(&mapProtection[i], 0, 1)==-1){
-            perror("sem_init");
-            exit(EXIT_FAILURE);
-        }
-    }
-    if(sem_init(&headerProtection, 0, 1)==-1){
-        perror("sem_init");
-        exit(EXIT_FAILURE);
-    }
-    if(sem_init(&pathCreationSem, 0, 1)==-1){
-        perror("sem_init");
-        exit(EXIT_FAILURE);
-    }
-    if(sem_init(&hProtection, 0, 1) == -1){
+
+    if (sem_init(&barrier, 0, 0) == -1) {
         perror("sem_init");
         exit(EXIT_FAILURE);
     }
@@ -563,10 +563,7 @@ void semaphoreInit(){
             exit(EXIT_FAILURE);
         }
     }
-    if(sem_init(&writeProtection, 0, 1) == -1){
-        perror("sem_init");
-        exit(EXIT_FAILURE);
-    }
+    
 }
 
 void convertLatLons(){
@@ -753,7 +750,7 @@ std::vector<int> getNextDay(std::vector<int> beginDate){
 	return nextDay;
 }
 
-void get_nearest_indexes(std::vector<std::string> strCurrentDay){
+void get_nearest_indexes(std::vector<std::string> strCurrentDay, double* grib_lats, double* grib_lons, long& numberOfPoints){
     /*
     There are several goals of this function
         - Open a grib file from the day passed
@@ -777,7 +774,7 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay){
     FILE* f;
     for (int i=0; i<intHourRange; i++){
         hour = hours[i];
-        grib_file_path = filePath1 + year + "/" + year + month + day + "/hrrr." + year + \
+        grib_file_path = filePath1 + "/hrrr." + year + \
                          month + day + "." + hour + ".00.grib2"; 
 
         // now try to open the file. If it cannot, then go to the next iteration
@@ -787,6 +784,7 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay){
             else break;
         }
         catch (std::string file) {
+            std::cout << "Could not open file " << file << std::endl;
             continue;
         }
     }
@@ -797,7 +795,7 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay){
     // - get the total parameter count ? maybe
     /////////////////
     // init 
-    codes_grib_multi_support_on(NULL);
+    // codes_grib_multi_support_on(NULL);
     codes_handle * h = NULL; // use to unpack each layer of the file
     const double missing = 1.0e36;        // placeholder for when the value cannot be found in the grib file
     int msg_count = 0;  // KEY: will match with the layer of the passed parameters
@@ -805,8 +803,8 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay){
     size_t vlen = MAX_VAL_LEN;
     char value_1[MAX_VAL_LEN];
     bool flag = true; 
-    long numberOfPoints=0;
-    double *grib_lats, *grib_lons, *grib_values;
+    numberOfPoints=0;
+    double *grib_values;
     std::string name_space = "parameter";
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
@@ -818,29 +816,6 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay){
             codes_handle_delete(h);
             continue;
         } 
-
-        CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
-        CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
-        grib_lats = (double*)malloc(numberOfPoints * sizeof(double));
-        if(!grib_lats){
-            fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-            exit(0);
-        }
-        grib_lons = (double*)malloc(numberOfPoints * sizeof(double));
-        if (!grib_lons){
-            fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-            std::free(grib_lats);
-            exit(0);
-        }
-        grib_values = (double*)malloc(numberOfPoints * sizeof(double));
-        if(!grib_values){
-            fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
-            std::free(grib_lats);
-            std::free(grib_lons);
-            exit(0);
-        }
-
-        CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
 
         // add the information to the header
         codes_keys_iterator* kiter = codes_keys_iterator_new(h, key_iterator_filter_flags, name_space.c_str());
@@ -871,7 +846,31 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay){
         // if this flag is set, then grab the nearest indexes
         if (flag) {
             flag = false;
+            CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
+            CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
+            grib_lats = (double*)malloc(numberOfPoints * sizeof(double));
+            if(!grib_lats){
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                exit(0);
+            }
+            grib_lons = (double*)malloc(numberOfPoints * sizeof(double));
+            if (!grib_lons){
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                std::free(grib_lats);
+                exit(0);
+            }
+            grib_values = (double*)malloc(numberOfPoints * sizeof(double));
+            if(!grib_values){
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                std::free(grib_lats);
+                std::free(grib_lons);
+                exit(0);
+            }
+            CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
+
             index_extraction(stationArr, grib_lats, grib_lons, numStations, numberOfPoints);
+            
+            std::free(grib_values);
         }
         codes_handle_delete(h);
     }
@@ -901,32 +900,19 @@ void garbageCollection(){
             delete [] stationArr[i].values[j];
         }
         delete [] stationArr[i].values;
-        delete stationArr[i];
     }
     delete [] stationArr;
     delete [] hours;
-    if(sem_destroy(&hProtection)==-1){
-        perror("sem_destroy");
-        exit(EXIT_FAILURE);
-    }
-    if(sem_destroy(&pathCreationSem)==-1){
-        perror("sem_destroy");
-        exit(EXIT_FAILURE);
-    }
-    if(sem_destroy(&writeProtection)==-1){
-        perror("sem_destroy");
-        exit(EXIT_FAILURE);
-    }
-    if(sem_destroy(&headerProtection)==-1){
-        perror("sem_destroy");
-        exit(EXIT_FAILURE);
-    }
-    free(mapProtection);
-    for (int i =0; i<numStations; i++){
-        sem_destroy(&mapProtection[i]);
-    }
     delete [] blnParamArr;
-
+    
+    for (int i =0; i<numStations; i++){
+        sem_destroy(&valuesProtection[i]);
+    }
+    free(valuesProtection);
+    if (sem_destroy(&barrier) == -1) {
+        perror("sem_destroy");
+        exit(EXIT_FAILURE);
+    }
 }
 
 

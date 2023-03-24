@@ -2,6 +2,7 @@
 #define SHARED_OBJS_H
 
 #include <stdio.h>
+#include <semaphore.h>
 
 typedef struct Station{
     const char* grid_idx;
@@ -20,11 +21,15 @@ typedef struct Station{
 
 typedef struct threadArgs{
     FILE* f;
-    char* fileName;
-    char* pathName;
+    const char* pathName;
     int threadIndex;
-    char* hour;
-    char* strCurrentDay;
+    const char* hour;
+    const char* strCurrentDay;
+    bool first_hour_flag;
+    bool last_hour_flag;
+    sem_t *values_protection;
+    sem_t *barrier;
+
 } threadArgs_t;
 
 typedef struct DeviceInfo {
