@@ -2,6 +2,9 @@
 #include "iostream"
 #include <stdlib.h>
 #include "semaphore.h"
+#include "decompress_funcs.h"
+#include "eccodes.h"
+#define MAX_VAL_LEN 1024
 
 /*
 Funtion that gets device information:
@@ -154,7 +157,7 @@ void * read_grib_data(void *arg) {
     const char * strCurrentDay = (*this_arg).strCurrentDay;
     bool first_hour_flag = (*this_arg).first_hour_flag;
     bool last_hour_flag = (*this_arg).last_hour_flag;
-
+    bool* blnParamArr = (*this_arg).blnParamArr;
     sem_t *barrier = this_arg->barrier;
     sem_t *values_protection = this_arg->values_protection;
 
@@ -162,7 +165,6 @@ void * read_grib_data(void *arg) {
     double * grib_values;
 
     // if first hour
-        // make sure that the lat and lons of the stations are empty (or just write over them)
         // copy over new station array
 
     // if last hour
@@ -181,7 +183,39 @@ void * read_grib_data(void *arg) {
     // once the first hour has done its dirty work, let the rest of them go
     if (threadIndex == 0) sem_post(barrier);
 
+    // Now open the grib file and extract the values array
+    try {
+        f = fopen(full_path, "rb");
+        if (!f) throw(full_path);
+    }
+    catch (std::string file) {
+        std::cout << "Error: when reading GRIB data, could not open file " << file << std::endl;
+        if (last_hour_flag) {
+            // TODO: copy station array from device back to host
+        }
+        return;
+    }
 
+    codes_handle * h = NULL; // use to unpack each layer of the file
+    const double missing = 1.0e36;        // placeholder for when the value cannot be found in the grib file
+    int msg_count = 0;  // KEY: will match with the layer of the passed parameters
+    int err = 0;
+    size_t vlen = MAX_VAL_LEN;
+    char value_1[MAX_VAL_LEN];
+    bool flag = true; 
+    long numberOfPoints=0;
+    double *grib_values;
+    std::string name_space = "parameter";
+
+    while ((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err)) != NULL) {
+        msg_count++;
+
+        if (blnParamArr[msg_count] == false){
+            codes_handle_v 
+        }
+
+
+    }
 
 
 
@@ -189,6 +223,7 @@ void * read_grib_data(void *arg) {
 
 
     if (last_hour_flag) {
+        // copy station array from device back to host
 
     }    
 }

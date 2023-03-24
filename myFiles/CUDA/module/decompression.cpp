@@ -147,6 +147,7 @@ int main(int argc, char*argv[]){
             arrThreadArgs[i].strCurrentDay = strCurrentDay.at(3);
             arrThreadArgs[i].values_protection = valuesProtection;
             arrThreadArgs[i].barrier = &barrier;
+            arrThreadArgs[i].blnParamArr = blnParamArr;
 
             threaderr = pthread_create(&threads[i], NULL, &read_grib_data, &arrThreadArgs[i]);
             if(threaderr){

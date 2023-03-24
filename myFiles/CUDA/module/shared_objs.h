@@ -27,6 +27,7 @@ typedef struct threadArgs{
     const char* strCurrentDay;
     bool first_hour_flag;
     bool last_hour_flag;
+    bool * blnParamArr;
     sem_t *values_protection;
     sem_t *barrier;
 
