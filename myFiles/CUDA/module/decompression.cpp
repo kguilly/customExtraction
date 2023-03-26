@@ -64,7 +64,6 @@ bool* blnParamArr;
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 std::string *hours;
 
-sem_t *valuesProtection; // protect when writing values to the values array
 sem_t *barrier; // protect when passing shared values to and from the GPU
 
 /*functions to help create paths by finding length of std::string and splitting strnig on delimeter*/
@@ -101,8 +100,11 @@ int main(int argc, char*argv[]){
     
     double* grib_lats = (double*)malloc(sizeof(double));
     double* grib_lons = (double*)malloc(sizeof(double));
-    long numberOfPoints;
+    long &numberOfPoints;
     bool first_hour_flag, last_hour_flag, new_month_flag;
+
+    std::cout << "Getting Information about GPU 0" << std::endl;
+    deviceInfo_t gpu0 = device_information(0);
 
     while(checkDateRange(intCurrentDay, endDay)){
         
@@ -145,10 +147,14 @@ int main(int argc, char*argv[]){
             arrThreadArgs[i].first_hour_flag = first_hour_flag;
             arrThreadArgs[i].last_hour_flag = last_hour_flag;
             arrThreadArgs[i].strCurrentDay = strCurrentDay.at(3);
-            arrThreadArgs[i].values_protection = valuesProtection;
             arrThreadArgs[i].barrier = &barrier;
             arrThreadArgs[i].blnParamArr = blnParamArr;
+            arrThreadArgs[i].numStations = numStations;
+            arrThreadArgs[i].gpu = gpu;
 
+            if (first_hour_flag) {
+                arrThreadArgs[i].stationArr = stationArr;
+            }
             threaderr = pthread_create(&threads[i], NULL, &read_grib_data, &arrThreadArgs[i]);
             if(threaderr){
                 assert(0);
@@ -557,14 +563,8 @@ void semaphoreInit(){
         perror("sem_init");
         exit(EXIT_FAILURE);
     }
-    valuesProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
-    for(int i =0;i<numStations;i++){
-        if(sem_init(&valuesProtection[i], 0, 1)==-1){
-            perror("sem_init");
-            exit(EXIT_FAILURE);
-        }
-    }
     
+    // initCudaSem(numStations); // initialized the values_semapohre which is a CUDA sem    
 }
 
 void convertLatLons(){
@@ -906,14 +906,12 @@ void garbageCollection(){
     delete [] hours;
     delete [] blnParamArr;
     
-    for (int i =0; i<numStations; i++){
-        sem_destroy(&valuesProtection[i]);
-    }
-    free(valuesProtection);
     if (sem_destroy(&barrier) == -1) {
         perror("sem_destroy");
         exit(EXIT_FAILURE);
     }
+
+    // destroyCudaSem(numStations);
 }
 
 

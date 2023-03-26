@@ -19,6 +19,15 @@ typedef struct Station{
     int closestPoint;
 } station_t;
 
+typedef struct DeviceInfo {
+    char* name;
+    int clockRate;
+    int maxBlocksperMulti;
+    int maxThreadsperBlock;
+    size_t free_mem;
+    size_t total_mem;
+} deviceInfo_t;
+
 typedef struct threadArgs{
     FILE* f;
     const char* pathName;
@@ -28,18 +37,13 @@ typedef struct threadArgs{
     bool first_hour_flag;
     bool last_hour_flag;
     bool * blnParamArr;
-    sem_t *values_protection;
+    size_t numStations;
     sem_t *barrier;
+    station_t * stationArr;
+    deviceInfo_t gpu;
 
 } threadArgs_t;
 
-typedef struct DeviceInfo {
-    char* name;
-    int clockRate;
-    int maxBlocksperMulti;
-    int maxThreadsperBlock;
-    size_t free_mem;
-    size_t total_mem;
-} deviceInfo_t;
+
 
 #endif
