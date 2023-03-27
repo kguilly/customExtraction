@@ -95,67 +95,67 @@ void index_extraction (station_t * stationArr, double* lats, double* lons, int n
     int num_blocks_to_use = max_blocks / 2;
 
     // make device copies of host params
-    station_t* d_stationArr;
+    station_t* d_stationArr_findNearest;
     double* d_lats;
     double* d_lons;
     
 
     // allocate each of the arguments to the GPU
-    if (cudaMalloc(&d_stationArr, sizeof(station_t) * numStations) != cudaSuccess) {
+    if (cudaMalloc(&d_stationArr_findNearest, sizeof(station_t) * numStations) != cudaSuccess) {
         std::cout << "stationArr could not be allocated to GPU" << std::endl;
         return;
     }
     if (cudaMalloc(&d_lats, sizeof(double) * numberOfPoints) != cudaSuccess) {
         std::cout << "Grib lats could not be allocated to the GPU" << std::endl;
-        cudaFree(d_stationArr);
+        cudaFree(d_stationArr_findNearest);
         return;
     }
     if (cudaMalloc(&d_lons, sizeof(double) * numberOfPoints) != cudaSuccess) {
         std::cout << "Grib lons could not be allocated to the GPU" << std::endl;
-        cudaFree(d_stationArr);
+        cudaFree(d_stationArr_findNearest);
         cudaFree(d_lats);
         return;
     }
 
     // copy each of the arguments over to the gpu
-    if (cudaMemcpy(d_stationArr, stationArr, sizeof(station_t) * numStations, cudaMemcpyHostToDevice) != cudaSuccess) {
+    if (cudaMemcpy(d_stationArr_findNearest, stationArr, sizeof(station_t) * numStations, cudaMemcpyHostToDevice) != cudaSuccess) {
         std::cout << "The stationArr could not be copied to the GPU" << std::endl;
-        cudaFree(d_stationArr);
+        cudaFree(d_stationArr_findNearest);
         cudaFree(d_lats);
         cudaFree(d_lons);
         return;
     }
     if (cudaMemcpy(d_lats, lats, sizeof(double) * numberOfPoints, cudaMemcpyHostToDevice) != cudaSuccess) {
         std::cout << "The grib lats could not be copied to the GPU" << std::endl;
-        cudaFree(d_stationArr);
+        cudaFree(d_stationArr_findNearest);
         cudaFree(d_lats);
         cudaFree(d_lons);
         return;
     }
     if (cudaMemcpy(d_lons, lons, sizeof(double) * numberOfPoints, cudaMemcpyHostToDevice) != cudaSuccess) {
         std::cout << "The grib lons could not be copied to the GPU" << std::endl;
-        cudaFree(d_stationArr);
+        cudaFree(d_stationArr_findNearest);
         cudaFree(d_lats);
         cudaFree(d_lons);
         return;
     }
     
     // call the kernel
-    find_nearest_points <<< num_blocks_to_use, num_threads_to_use >>> (d_stationArr, d_lats, d_lons, numStations, numberOfPoints);
+    find_nearest_points <<< num_blocks_to_use, num_threads_to_use >>> (d_stationArr_findNearest, d_lats, d_lons, numStations, numberOfPoints);
     // wait for em all to finish
     cudaDeviceSynchronize();
 
     // copy the elements from the GPU back over to the host
-    if (cudaMemcpy(stationArr, d_stationArr, sizeof(station_t) * numStations, cudaMemcpyDeviceToHost) != cudaSuccess) {
+    if (cudaMemcpy(stationArr, d_stationArr_findNearest, sizeof(station_t) * numStations, cudaMemcpyDeviceToHost) != cudaSuccess) {
         std::cout << "cuda FAILED" << std::endl;
-        cudaFree(d_stationArr);
+        cudaFree(d_stationArr_findNearest);
         cudaFree(d_lats);
         cudaFree(d_lons);
         return;
     }
     std::cout << "cuda success" << std::endl;
     // release
-    cudaFree(d_stationArr);
+    cudaFree(d_stationArr_findNearest);
     cudaFree(d_lats);
     cudaFree(d_lons);
 
@@ -181,8 +181,8 @@ void * read_grib_data(void *arg) {
     FILE * f = (*this_arg).f;
     const char * full_path = (*this_arg).pathName;
     int threadIndex = (*this_arg).threadIndex;
-    const char * hour = (*this_arg).hour;
-    const char * strCurrentDay = (*this_arg).strCurrentDay;
+    // const char * hour = (*this_arg).hour;
+    // const char * strCurrentDay = (*this_arg).strCurrentDay;
     bool first_hour_flag = (*this_arg).first_hour_flag;
     bool last_hour_flag = (*this_arg).last_hour_flag;
     bool* blnParamArr = (*this_arg).blnParamArr;
@@ -202,7 +202,7 @@ void * read_grib_data(void *arg) {
         // copy station array from device back to host....
         // or just copy the values array over either way
 
-    // put a sem right here so they can do their business before getting started
+    // put a sem right here so they can do their business before getting started 
     if (threadIndex != 0) {
         sem_wait(barrier);
         sem_post(barrier);
@@ -215,7 +215,7 @@ void * read_grib_data(void *arg) {
             std::cout << "Mem forstationArr could not be allocated to GPU" << std::endl;
             exit(1);
         }
-        if (cudaMemcpy(d_stationArr, stationArr,numStations * sizeof(station_t), cudaMemcpyHostToDevice) != cudaSuccess){
+        if (cudaMemcpy(d_stationArr, stationArr, numStations * sizeof(station_t), cudaMemcpyHostToDevice) != cudaSuccess){
             std::cout << "stationArr could not be placed on GPU \n";
             cudaFree(d_stationArr);
             exit(1);
@@ -224,7 +224,7 @@ void * read_grib_data(void *arg) {
 
     // once the first hour has done its dirty work, let the rest of them go
     if (threadIndex == 0) sem_post(barrier);
-
+    std::cout << full_path << std::endl;
     // Now open the grib file and extract the values array
     try {
         f = fopen(full_path, "rb");
