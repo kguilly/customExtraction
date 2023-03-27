@@ -106,7 +106,6 @@ int main(int argc, char*argv[]){
             new_month_flag = true;
             std::cout << "Getting Station Indexes for Date " << strCurrentDay.at(3) << std::endl;
             get_nearest_indexes(strCurrentDay, grib_lats, grib_lons, &numberOfPoints);
-            std::cout << "returned number of points: " << numberOfPoints << std::endl;
         }
 
         pthread_t *threads = (pthread_t*)malloc(intHourRange * sizeof(pthread_t)); // will be freed at the end of this iteration
