@@ -38,7 +38,7 @@ typedef struct threadArgs{
     bool last_hour_flag;
     bool * blnParamArr;
     size_t numStations;
-    sem_t *barrier;
+    sem_t * barrier;
     station_t * stationArr;
     deviceInfo_t gpu;
 

@@ -1,6 +1,7 @@
 /*
 TODO: Optimize filling in each station's data, mirror the way its done in python
-
+TODO: implement max_workers global variable to control the number of threads to read
+      grib data and number of threads to write out to files
 
 
 */
@@ -64,10 +65,7 @@ bool* blnParamArr;
 // 24 hours in a day. Use this to append to the file name and get each hour for each file
 std::string *hours;
 
-sem_t *barrier; // protect when passing shared values to and from the GPU
-
-/*functions to help create paths by finding length of std::string and splitting strnig on delimeter*/
-int len(std::string); std::vector<std::string> splitonDelim(std::string, char);
+sem_t  barrier; // protect when passing shared values to and from the GPU
 
 int main(int argc, char*argv[]){
     clock_gettime(CLOCK_MONOTONIC, &startTotal);
@@ -88,19 +86,10 @@ int main(int argc, char*argv[]){
     createPath();
     std::vector<int> intCurrentDay = beginDay;
     std::string prevMonth = "";
-
-    // print out data from each of the stations:
-    for (int i=0; i<numStations; i++){
-        station_t station = stationArr[i];
-        std::cout << station.stateAbbrev << ", IDX: " << station.grid_idx << std::endl;
-        std::cout << station.latll << "," << station.lonll << ", closest pt = " << station.closestPoint << std::endl;
-        std::cout << std::endl;
-
-    }
     
     double* grib_lats = (double*)malloc(sizeof(double));
     double* grib_lons = (double*)malloc(sizeof(double));
-    long &numberOfPoints;
+    long numberOfPoints;
     bool first_hour_flag, last_hour_flag, new_month_flag;
 
     std::cout << "Getting Information about GPU 0" << std::endl;
@@ -116,7 +105,8 @@ int main(int argc, char*argv[]){
             std::free(grib_lons);
             new_month_flag = true;
             std::cout << "Getting Station Indexes for Date " << strCurrentDay.at(3) << std::endl;
-            get_nearest_indexes(strCurrentDay, grib_lats, grib_lons, numberOfPoints);
+            get_nearest_indexes(strCurrentDay, grib_lats, grib_lons, &numberOfPoints);
+            std::cout << "returned number of points: " << numberOfPoints << std::endl;
         }
 
         pthread_t *threads = (pthread_t*)malloc(intHourRange * sizeof(pthread_t)); // will be freed at the end of this iteration
@@ -136,26 +126,26 @@ int main(int argc, char*argv[]){
 
             // place args into the 
             f[i] = NULL;
-            string hour = hours[i];
-            string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
-            string filePath2 = filePath1 + fileName;
+            std::string hour = hours[i];
+            std::string filePath1 = filePath + strCurrentDay.at(0) + "/" + strCurrentDay.at(3) + "/";
+            std::string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
+            std::string filePath2 = filePath1 + fileName;
             arrThreadArgs[i].f = f[i];
-            arrThreadArgs[i].pathName = filePath2;
+            arrThreadArgs[i].pathName = filePath2.c_str();
             arrThreadArgs[i].threadIndex = i;
-            arrThreadArgs[i].hour = hour;
-            arrThreadArgs[i].strCurrentDay = strCurrentDay; 
+            arrThreadArgs[i].hour = hour.c_str();
             arrThreadArgs[i].first_hour_flag = first_hour_flag;
             arrThreadArgs[i].last_hour_flag = last_hour_flag;
-            arrThreadArgs[i].strCurrentDay = strCurrentDay.at(3);
+            arrThreadArgs[i].strCurrentDay = strCurrentDay.at(3).c_str();
             arrThreadArgs[i].barrier = &barrier;
             arrThreadArgs[i].blnParamArr = blnParamArr;
             arrThreadArgs[i].numStations = numStations;
-            arrThreadArgs[i].gpu = gpu;
+            arrThreadArgs[i].gpu = gpu0;
 
             if (first_hour_flag) {
                 arrThreadArgs[i].stationArr = stationArr;
             }
-            threaderr = pthread_create(&threads[i], NULL, &read_grib_data, &arrThreadArgs[i]);
+            int threaderr = pthread_create(&threads[i], NULL, &read_grib_data, &arrThreadArgs[i]);
             if(threaderr){
                 assert(0);
                 return 1;
@@ -172,19 +162,10 @@ int main(int argc, char*argv[]){
         std::free(threads);
         delete [] arrThreadArgs;
 
+        write_daily_data(strCurrentDay);
         intCurrentDay = getNextDay(intCurrentDay);
     }
 
-    // print out data from each of the stations:
-    std::cout << "\n\nAfter returning from the kernel:\n";
-    for (int i=0; i<numStations; i++){
-        station_t station = stationArr[i];
-
-        std::cout << station.stateAbbrev << ", IDX: " << station.grid_idx << std::endl;
-        std::cout << station.latll << "," << station.lonll << ", closest pt = " << station.closestPoint << std::endl;
-        std::cout << std::endl;
-
-    }
     garbageCollection();
     return 0;
 }
@@ -751,7 +732,7 @@ std::vector<int> getNextDay(std::vector<int> beginDate){
 	return nextDay;
 }
 
-void get_nearest_indexes(std::vector<std::string> strCurrentDay, double* grib_lats, double* grib_lons, long& numberOfPoints){
+void get_nearest_indexes(std::vector<std::string> strCurrentDay, double* grib_lats, double* grib_lons, long* numberOfPoints){
     /*
     There are several goals of this function
         - Open a grib file from the day passed
@@ -804,7 +785,7 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay, double* grib_la
     size_t vlen = MAX_VAL_LEN;
     char value_1[MAX_VAL_LEN];
     bool flag = true; 
-    numberOfPoints=0;
+    // numberOfPoints=0;
     double *grib_values;
     std::string name_space = "parameter";
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
@@ -847,29 +828,32 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay, double* grib_la
         // if this flag is set, then grab the nearest indexes
         if (flag) {
             flag = false;
-            CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
+            long num_points = 0;
+            CODES_CHECK(codes_get_long(h, "numberOfPoints", &num_points), 0);
             CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
-            grib_lats = (double*)malloc(numberOfPoints * sizeof(double));
+            grib_lats = (double*)malloc(num_points * sizeof(double));
             if(!grib_lats){
-                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(num_points * sizeof(double)));
                 exit(0);
             }
-            grib_lons = (double*)malloc(numberOfPoints * sizeof(double));
+            grib_lons = (double*)malloc(num_points * sizeof(double));
             if (!grib_lons){
-                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(num_points * sizeof(double)));
                 std::free(grib_lats);
                 exit(0);
             }
-            grib_values = (double*)malloc(numberOfPoints * sizeof(double));
+            grib_values = (double*)malloc(num_points * sizeof(double));
             if(!grib_values){
-                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(num_points * sizeof(double)));
                 std::free(grib_lats);
                 std::free(grib_lons);
                 exit(0);
             }
             CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
 
-            index_extraction(stationArr, grib_lats, grib_lons, numStations, numberOfPoints);
+            index_extraction(stationArr, grib_lats, grib_lons, numStations, num_points);
+
+            *numberOfPoints = num_points;
             
             std::free(grib_values);
         }
@@ -891,6 +875,84 @@ bool dirExists(std::string filePath){
         return true;
 	}
 	else return false;
+}
+
+void write_daily_data(std::vector<std::string> strCurrentDay) {
+    
+    // OUTPUT PATH STRUCTURE:
+    // write_path/hourly_data/<year>/<state_abbreviation>/HRRR_<state_fips>_<state_abbrev>_<year>-<month>.csv
+
+    std::string year = strCurrentDay.at(0);
+    std::string month = strCurrentDay.at(1);
+    std::string day = strCurrentDay.at(2);
+    std::string ymd = strCurrentDay.at(3);
+
+    std::string write_path_1 = writePath + "hourly_data/" + year + "/";
+    
+    // if the current day is the first day, or the first day of the month, write the header
+    if (ymd == formatDay(beginDay).at(3) || day == "01"){
+        std::string state_fips = ""; 
+        station_t station;
+        std::vector<std::string> state_fips_codes;
+
+        // one file per state
+        for (int i=0; i<numStations; i++){
+            station = stationArr[i];
+            state_fips = station.state_fips;
+            if (find(state_fips_codes.begin(), state_fips_codes.end(), state_fips) == state_fips_codes.end()) {
+                state_fips_codes.push_back(state_fips);
+                std::string write_path_2 = write_path_1 + std::string(station.stateAbbrev) + "/";
+                std::string full_out_path = write_path_2 + "HRRR_" + state_fips + "_" + std::string(station.stateAbbrev) + "_" + \
+                                            year + "-" + month + ".csv";
+                std::ofstream out_file(full_out_path);
+                for (int j=0; j<vctrHeader.size(); j++) {
+                    out_file << vctrHeader.at(j) << ",";
+                }
+                out_file << "\n";
+                out_file.close(); 
+            }           
+        }
+    }
+
+    // write each station's data to its respective file
+    std::string fipsDir;
+    station_t station;
+    for(int i=0;i<numStations;i++){
+        station = stationArr[i];
+        std::string state_fips(station.state_fips);
+        std::string write_path_2 = write_path_1 + std::string(station.stateAbbrev) + "/";
+        std::string full_out_path = write_path_2 + "HRRR_" + state_fips + "_" + std::string(station.stateAbbrev) + "_" + \
+                                    year + "-" + month + ".csv";
+        
+        std::string fips(station.fipsCode);
+        std::string strOutput;
+        // loop through the station's values array
+        int currHour = arrHourRange.at(0);
+        for(int j=0; j<intHourRange; j++){
+            // append the init info to strOutput:
+            // Year, Month, Day, Daily/Monthly, State, County, FIPS code, grid index, lat (llcrnr), lon (llcrnr), lat(urcrnr), lon(urcrnr)
+            strOutput.append(year+","+month+","+day+","+std::to_string(currHour)+", ,"); 
+            strOutput.append(std::string(station.county)+","+std::string(station.fipsCode)+","+std::string(station.grid_idx)+","+std::to_string(station.latll));
+            strOutput.append(","+std::to_string(station.lonll)+","+std::to_string(station.latur)+","+std::to_string(station.lonur)+",");
+            for(int k=0; k< numParams; k++){
+                // write out station.values[j][k]
+                // outputFile << station.values[j][k] << ",";
+                // append the value and the comma to the output string
+                if(k>=vctrHeader.size()-12){
+                    break;
+                }
+                strOutput.append(std::to_string(station.values[j][k])+",");
+            }
+            
+            std::ofstream out_file(full_out_path);
+            out_file << strOutput << "\n";
+            out_file.close();
+            
+            // reset the variables in use
+            strOutput = "";
+            currHour++;
+        }
+    }
 }
 
 void garbageCollection(){

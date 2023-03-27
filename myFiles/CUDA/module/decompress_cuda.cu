@@ -1,9 +1,12 @@
-#include "decompress_cuda.h"
+
 #include "iostream"
 #include <stdlib.h>
-#include "semaphore.h"
-#include "decompress_funcs.h"
 #include "eccodes.h"
+#include <cuda_runtime.h>
+
+#include "decompress_cuda.h"
+#include "decompress_funcs.h"
+#include "shared_objs.h"
 #define MAX_VAL_LEN 1024
 
 // cudaExternalSemaphore_t * values_semaphores; // protects the station array from being written
@@ -78,7 +81,7 @@ __global__ void find_nearest_points (station_t * stationArr, double * lats, doub
 /*
 Function that orchestrates the index extraction
 */
-void index_extraction (station_t * stationArr, double* lats, double* lons, int numStations, int& numberOfPoints) { 
+void index_extraction (station_t * stationArr, double* lats, double* lons, int numStations, int numberOfPoints) { 
     
     // get useful device properties
     int num_devices;
@@ -236,7 +239,7 @@ void * read_grib_data(void *arg) {
                 exit(1);
             }
         }
-        return;
+        return nullptr;
     }
 
     codes_handle * h = NULL; // use to unpack each layer of the file
@@ -283,12 +286,12 @@ void * read_grib_data(void *arg) {
         double * d_grib_values;
         if (cudaMalloc(&d_grib_values, sizeof(double) * numberOfPoints) != cudaSuccess) {
             std::cout << "mem for values could not be allocated for thread " << threadIndex << std::endl;
-            return;
+            return nullptr;
         }
         if (cudaMemcpy(d_grib_values, grib_values, sizeof(double) * numberOfPoints, cudaMemcpyHostToDevice) != cudaSuccess) {
             std::cout << "values could not be put on gpu for thread " << threadIndex << std::endl;
             cudaFree(d_grib_values);
-            return;
+            return nullptr;
         }
         // allocate and copy over the grib_values array
         int hour = threadIndex;
@@ -315,5 +318,6 @@ void * read_grib_data(void *arg) {
             cudaFree(d_stationArr);
             exit(1);
         }
-    }    
+    }
+    return nullptr;    
 }
