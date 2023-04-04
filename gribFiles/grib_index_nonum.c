@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     printf("indexing...\n");
 
     /* create an index given set of keys*/
-    index = codes_index_new(0, "shortName,level,num,step", &ret);
+    index = codes_index_new(0, "shortName,level,step", &ret);
     if (ret) {
         fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
         exit(ret);
@@ -84,21 +84,21 @@ int main(int argc, char* argv[])
     printf("\n");
 
     /*same as for "step"*/
-    std::cout << "This is before getting to number size" << std::endl;
-    CODES_CHECK(codes_index_get_size(index, "number", &numberSize), 0);
-    numbers = (long*)malloc(sizeof(long) * numberSize);
-    if (!numbers) exit(1);
+    // std::cout << "This is before getting to number size" << std::endl;
+    // CODES_CHECK(codes_index_get_size(index, "number", &numberSize), 0);
+    // numbers = (long*)malloc(sizeof(long) * numberSize);
+    // if (!numbers) exit(1);
 
-    std::cout << "The size of the numbers: " << numberSize << std::endl;
-    /*same as for "step"*/
+    // std::cout << "The size of the numbers: " << numberSize << std::endl;
+    // /*same as for "step"*/
 
-    CODES_CHECK(codes_index_get_long(index, "number", numbers, &numberSize), 0);
+    // CODES_CHECK(codes_index_get_long(index, "number", numbers, &numberSize), 0);
 
-    std::cout << "The numbers themselves have been indexed and they are: " << std::endl;
-    printf("numberSize=%ld\n", (long)numberSize);
-    for (i = 0; i < numberSize; i++)
-        printf("%ld ", numbers[i]);
-    printf("\n");
+    // std::cout << "The numbers themselves have been indexed and they are: " << std::endl;
+    // printf("numberSize=%ld\n", (long)numberSize);
+    // for (i = 0; i < numberSize; i++)
+    //     printf("%ld ", numbers[i]);
+    // printf("\n");
 
     /*same as for "step"*/
     CODES_CHECK(codes_index_get_size(index, "shortName", &shortNameSize), 0);
@@ -122,44 +122,50 @@ int main(int argc, char* argv[])
             /* select the GRIB with level=levels[l] */
             codes_index_select_long(index, "level", levels[l]);
 
-            for (j = 0; j < numberSize; j++) {
-                /* select the GRIB with number=numbers[j] */
-                codes_index_select_long(index, "number", numbers[j]);
+            // for (j = 0; j < numberSize; j++) {
+            //     /* select the GRIB with number=numbers[j] */
+            //     codes_index_select_long(index, "number", numbers[j]);
 
-                for (k = 0; k < stepSize; k++) {
-                    /* select the GRIB with step=steps[k] */
-                    codes_index_select_long(index, "step", steps[k]);
+            for (k = 0; k < stepSize; k++) {
+                /* select the GRIB with step=steps[k] */
+                codes_index_select_long(index, "step", steps[k]);
 
-                    /* create a new codes_handle from the index with the constraints
-                       imposed by the select statements. It is a loop because
-                       in the index there could be more than one GRIB with those
-                       constraints */
-                    while ((h = codes_handle_new_from_index(index, &ret)) != NULL) {
-                        count++;
-                        if (ret) {
-                            fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
-                            exit(ret);
-                        }
-                        lenshortName = 200;
-                        codes_get_string(h, "shortName", oshortName, &lenshortName);
-                        codes_get_long(h, "level", &olevel);
-                        codes_get_long(h, "number", &onumber);
-                        codes_get_long(h, "step", &ostep);
-                        printf("shortName=%s ", oshortName);
-                        printf("level=%ld ", olevel);
-                        printf("number=%ld ", onumber);
-                        printf("step=%ld \n", ostep);
-                        codes_handle_delete(h);
-                    }
-                    if (ret && ret != GRIB_END_OF_INDEX) {
+                /* create a new codes_handle from the index with the constraints
+                    imposed by the select statements. It is a loop because
+                    in the index there could be more than one GRIB with those
+                    constraints */
+                while ((h = codes_handle_new_from_index(index, &ret)) != NULL) {
+                    count++;
+                    if (ret) {
                         fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
                         exit(ret);
                     }
+                    lenshortName = 200;
+                    codes_get_string(h, "shortName", oshortName, &lenshortName);
+                    codes_get_long(h, "level", &olevel);
+                    // codes_get_long(h, "number", &onumber);
+                    codes_get_long(h, "step", &ostep);
+                    printf("shortName=%s ", oshortName);
+                    printf("level=%ld ", olevel);
+                    // printf("number=%ld ", onumber);
+                    printf("step=%ld \n", ostep);
+                    codes_handle_delete(h);
+                }
+                if (ret && ret != GRIB_END_OF_INDEX) {
+                    fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
+                    exit(ret);
                 }
             }
+            
         }
     }
     printf("  %d messages selected\n", count);
+
+
+    // now take this index and see if we can print out some select parameters
+    int t2m_shortname_idx = 0;
+    
+    codes_index_select_string()
 
     codes_index_write(index, "out.gribidx");
     codes_index_delete(index);
