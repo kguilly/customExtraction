@@ -163,9 +163,9 @@ int main(int argc, char* argv[])
 
 
     // now take this index and see if we can print out some select parameters
-    int t2m_shortname_idx = 0;
+    // int t2m_shortname_idx = 0;
     
-    codes_index_select_string()
+    // codes_index_select_string()
 
     codes_index_write(index, "out.gribidx");
     codes_index_delete(index);
