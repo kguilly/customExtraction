@@ -24,7 +24,7 @@ int main(int argc, char** argv)
     int err              = 0;
     size_t i             = 0;
     FILE* in             = NULL;
-    const char* filename = "../UtilityTools/extractTools/data/2019/20190101/hrrr.20190101.00.00.grib2";
+    const char* filename = "/media/kaleb/extraSpace/wrf/2020/20200101/hrrr.20200101.00.00.grib2";
     codes_handle* h      = NULL;
     long numberOfPoints  = 0;
     const double missing = 1.0e36;
