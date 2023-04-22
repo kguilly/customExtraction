@@ -193,6 +193,7 @@ void nonThreaded_decompression(station_t* stationArr) {
     CODES_CHECK(codes_index_get_size(gr_idx_obj, "level", &levelSize), 0);
     CODES_CHECK(codes_index_get_size(gr_idx_obj, "level", &levelSize), 0);
 
+    // bool get_size_flag = true;
     
     for (int i=0; i<numParams; i++) {
         codes_index_select_string(gr_idx_obj, "shortName", passed_params[i][0]);
@@ -205,6 +206,11 @@ void nonThreaded_decompression(station_t* stationArr) {
                 fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
                 exit(ret);
             }
+            // if (get_size_flag) {
+            //     // get the size of the index and handle object
+            //     get_size_flag = false;
+            //     CODES_CHECK(codes_get_size())
+            // }
             size_t lenshortName = 200;
             codes_get_string(h, "shortName", oshortName, &lenshortName);
             codes_get_long(h, "level", &olevel);
