@@ -91,6 +91,7 @@ station_t* extract_indexes(station_t * local_st_arr, double* lats, double* lons,
     return local_st_arr;
 }
 
+
 __global__ void cuda_find_nearest(station_t * d_stationArr, double * d_lats, double * d_lons, int numStations, int num_points) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -203,6 +204,7 @@ station_t* cuda_orchestrate_decompress_grib(station_t* loc_st_arr, char* full_pa
 
 }
 
+
 __global__ void cuda_decompress_grib(station_t* st_arr, const char* full_path, const char *** passed_params, int numStations,  int hour_idx, int numParams) {
     // this function will thread the decompression on each of the passed params
     int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -288,6 +290,7 @@ __global__ void cuda_decompress_grib(station_t* st_arr, const char* full_path, c
         }
     }
 }
+
 
 __device__ void cuda_match_station_to_vals(station_t* st_arr, double* grib_values, int hour_idx, int paramNum, int numStations) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;

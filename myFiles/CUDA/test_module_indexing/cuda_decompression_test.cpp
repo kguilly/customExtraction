@@ -94,6 +94,27 @@ int main() {
     
     nonThreaded_decompression(stationArr);
 
+    int hour_idx = 0;
+    std::string full_path = grib_file_path + vctrDate.at(0) + "/" + vctrDate.at(0) + \
+                            vctrDate.at(1) + vctrDate.at(2) + "/" + "hrrr."  + vctrDate.at(0) + \
+                            vctrDate.at(1) + vctrDate.at(2) + ".00.00.grib2";
+    std::cout << "Sending to CUDA..." << std::endl;
+    stationArr = cuda_decompress_grib(stationArr, full_path.c_str(), passed_params, numParams, numStations);
+    std::cout << "Returning from CUDA" << std::endl;
+
+    std::cout << "\nThe values for the stations after returning from CUDA:" << std::endl;
+    for (int i=0; i<numStations; i++) {
+        station_t curr_st = stationArr[i];
+        
+        for (int j=0; j<numParams; j++) {
+            double cur_val = curr_st.values[0][j];
+            std::string curr_param = passed_params[j][0];
+            printf("- Station %d's %s value: %0.3f\n", i, curr_param, cur_val);
+        }
+
+        
+    }
+
     codes_index_delete(gr_idx_obj);
     delete [] stationArr;
 
