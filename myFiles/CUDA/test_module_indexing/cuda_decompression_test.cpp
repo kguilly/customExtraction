@@ -33,6 +33,13 @@ int main() {
 }
 */
 
+/*
+IMPORTANT!!!!
+for dynamic parallelism, compile with the -rdc=true flag. Ex:
+nvcc -rdc=true -g <files_to_compile> -leccodes
+
+*/
+
 
 
 #include <iostream>
@@ -57,9 +64,9 @@ std::vector<std::string> vctrDate = {"2020", "01", "01"};
 codes_index* gr_idx_obj;
 int numStations;
 
-const char* passed_params[numParams][2] = {{"2t", "2"},
-                                     {"u", "1000"},
-                                     {"v", "1000"}};
+const char* passed_params[numParams][3] = {{"2t", "2", "0"},
+                                     {"u", "1000", "1"},
+                                     {"v", "1000", "2"}};
 
 void st_closest_pts(station_t*);
 void nonThreaded_decompression(station_t*);

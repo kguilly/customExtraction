@@ -102,6 +102,7 @@ __global__ void cuda_find_nearest(station_t * d_stationArr, double * d_lats, dou
         double st_lat = curr_station->lat;
         double st_lon = curr_station->lon;
 
+        // TODO: change this to a child kernel
         for (int i=0; i<num_points; i++) {
             double lat = d_lats[i];
             double lon = d_lons[i]; 
@@ -202,16 +203,103 @@ station_t* cuda_orchestrate_decompress_grib(station_t* loc_st_arr, char* full_pa
 
 }
 
-__global__ void cuda_decompress_grib(station_t* st_arr, const char* full_path, const char *** passed_params, int numStations, int numParams) {
+__global__ void cuda_decompress_grib(station_t* st_arr, const char* full_path, const char *** passed_params, int numStations,  int hour_idx, int numParams) {
     // this function will thread the decompression on each of the passed params
     int id = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (id < numParams) {
         const char * curr_param_name = passed_params[id][0];
         long curr_level = std::stol(passed_params[id][1]);
+        int paramNum = std::stoi(passed_params[id][2]);
+
+        // create the grib_index obj
+        int ret = 0;
+        codes_index* gr_idx_obj = codes_index_new(0, "shortName,level,step", &ret); 
+        if (ret) {
+            fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
+            exit(ret);
+        }
         
+        // add the file to the idx obj
+        ret = codes_index_add_file(gr_idx_obj, full_path); // TODO: rewrite this function to take file* obj
+        if (ret) {
+            fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
+            exit(ret);
+        }
+
+        codes_index_select_string(gr_idx_obj, "shortName", curr_param_name);
+        codes_index_select_long(gr_idx_obj, "level", curr_level);
+        codes_index_select_long(gr_idx_obj, "step", 0.0);
+
+        // TODO: make this a for loop which can be spawned as a child kernel
+        codes_handle* h = NULL;
+        while ((h=codes_handle_new_from_index(gr_idx_obj, &ret)) != NULL) {
+            if (ret) {
+                fprintf(stderr, "Error: %s\n", codes_get_error_message(ret));
+                exit(ret);
+            }
+            // may be able to take this out
+            size_t lenshortname = 200;
+            char oshortName[lenshortname];
+            long ostep, olevel;
+            codes_get_string(h, "shortName", oshortName, &lenshortname);
+            codes_get_long(h, "level", &olevel);
+            codes_get_long(h, "step", &ostep);
+            
+            long numberOfPoints = 0;
+            const double missing = 1.0e36;
+            CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
+            CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
+
+
+            // TODO: rewrite the code to allocate the space up front
+            double * grib_lats, *grib_lons, *grib_values;
+            grib_lats = (double*)malloc(numberOfPoints * sizeof(double));
+            if (!grib_lats) {
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                return;
+            }
+            grib_lons = (double*)malloc(numberOfPoints * sizeof(double));
+            if (!grib_lons) {
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                free(grib_lats);
+                return;
+            }
+            grib_values = (double*)malloc(numberOfPoints * sizeof(double));
+            if (!grib_values) {
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(numberOfPoints * sizeof(double)));
+                free(grib_lats);
+                free(grib_lons);
+                return;
+            }
+            // TODO: rewrite grib_get_data to only extract the values
+            CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
+
+            // call child kernel to match the stations to their values arrs
+            cuda_match_station_to_vals(st_arr, grib_values, hour, paramNum, numStations);
+
+            // free the rest of the space
+            free(grib_lats);
+            free(grib_lons);
+            free(grib_values);
+            codes_handle_delete(h);
+
+            
+        }
     }
 }
+
+__device__ void cuda_match_station_to_vals(station_t* st_arr, double* grib_values, int hour_idx, int paramNum, int numStations) {
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (id < numStations) {
+        station_t* curr_st = &st_arr[id];
+        curr_st->values[hour_idx][paramNum] = grib_values[curr_st->closestPoint];
+    }
+}
+
+// __device__ station_t* decompress_selected_params(station_t* st_arr, codes_index* gr_idx_obj, const char* curr_param_name, long curr_level, int numStations, int numParams) {
+//     // 
+// }
 
 
 
