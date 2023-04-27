@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-#include "grib_api.h"
+#include "cuda_grib_api.h"
 
 #define CODES_VERSION ECCODES_VERSION
 

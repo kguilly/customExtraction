@@ -200,7 +200,7 @@ extern int pthread_mutexattr_settype(pthread_mutexattr_t* attr, int type);
 /* Return true if two strings are equal */
 #define STR_EQ(a, b) (strcmp((a), (b)) == 0)
 
-#include "grib_api.h"
+#include "cuda_grib_api.h"
 
 #define GRIB_UNKNOWN_VALUE -9999.999
 #define GRIB_KEY_UNDEF "undef"
