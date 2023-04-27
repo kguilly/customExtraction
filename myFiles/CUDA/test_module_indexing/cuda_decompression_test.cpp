@@ -45,12 +45,12 @@ nvcc -rdc=true -g <files_to_compile> -leccodes
 #include <iostream>
 #include <stdlib.h>
 #include "eccodes.h"
-#include <cuda_runtime.h>
+// #include <cuda_runtime.h>
 #include <vector>
 #include <string>
 
 // personal functions
-#include "decompress_grib_test.h"
+// #include "decompress_grib_test.h"
 #include "shared_test_objs.h"
 
 #define MAX_NUM_STRINGS 100
@@ -98,22 +98,28 @@ int main() {
     std::string full_path = grib_file_path + vctrDate.at(0) + "/" + vctrDate.at(0) + \
                             vctrDate.at(1) + vctrDate.at(2) + "/" + "hrrr."  + vctrDate.at(0) + \
                             vctrDate.at(1) + vctrDate.at(2) + ".00.00.grib2";
-    std::cout << "Sending to CUDA..." << std::endl;
-    stationArr = cuda_decompress_grib(stationArr, full_path.c_str(), passed_params, numParams, numStations);
-    std::cout << "Returning from CUDA" << std::endl;
 
-    std::cout << "\nThe values for the stations after returning from CUDA:" << std::endl;
-    for (int i=0; i<numStations; i++) {
-        station_t curr_st = stationArr[i];
+    char*** trplPtr_passed_params = (char***)passed_params;
+
+    // TODO: find a way to pass the hour idx to the CUDA kernel
+    int main_hour_idx = 0;
+
+    // std::cout << "Sending to CUDA..." << std::endl;
+    // stationArr = cuda_orchestrate_decompress_grib(stationArr, full_path.c_str(), trplPtr_passed_params, numParams, main_hour_idx,numStations);
+    // std::cout << "Returning from CUDA" << std::endl;
+
+    // std::cout << "\nThe values for the stations after returning from CUDA:" << std::endl;
+    // for (int i=0; i<numStations; i++) {
+    //     station_t curr_st = stationArr[i];
         
-        for (int j=0; j<numParams; j++) {
-            double cur_val = curr_st.values[0][j];
-            std::string curr_param = passed_params[j][0];
-            printf("- Station %d's %s value: %0.3f\n", i, curr_param, cur_val);
-        }
+    //     for (int j=0; j<numParams; j++) {
+    //         double cur_val = curr_st.values[0][j];
+    //         std::string curr_param = passed_params[j][0];
+    //         printf("- Station %d's %s value: %0.3f\n", i, curr_param.c_str(), cur_val);
+    //     }
 
         
-    }
+    // }
 
     codes_index_delete(gr_idx_obj);
     delete [] stationArr;
@@ -176,7 +182,30 @@ void st_closest_pts (station_t* stationArr) {
     }
     CODES_CHECK(codes_grib_get_data(idx_h, grib_lats, grib_lons, gr_vals), 0);
 
-    stationArr = extract_indexes(stationArr, grib_lats, grib_lons, numStations, num_points);
+    // stationArr = extract_indexes(stationArr, grib_lats, grib_lons, numStations, num_points);
+
+    /* removed the cuda extraction to compile with g++ */
+    for (int i=0; i<numStations; i++) {
+        double min_distance = 999;
+        int min_index = -1;
+        
+        station_t * curr_station = &stationArr[i];
+        double st_lat = curr_station->lat;
+        double st_lon = curr_station->lon;
+
+        for (int j=0; j<num_points; j++) {
+            double lat = grib_lats[j];
+            double lon = grib_lons[j];
+            double distance = sqrt(pow((st_lat - lat), 2) + pow((st_lon - lon), 2));
+            if (distance < min_distance) {
+                min_distance = distance;
+                min_index = i;
+            }
+        }
+        curr_station->closestPoint = min_index;
+        
+    }
+
 
     std::free(grib_lats);
     std::free(grib_lons);
