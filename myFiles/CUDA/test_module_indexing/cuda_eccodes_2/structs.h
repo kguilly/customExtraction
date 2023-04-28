@@ -3,12 +3,44 @@
 #define STRUCTS_H
 
 #include <stdio.h>
+#include <unistd.h>
+
 
 #define MAX_SET_VALUES 10
 #define ACCESSORS_ARRAY_SIZE 5000
 #define MAX_NUM_SECTIONS 12
 #define STRING_VALUE_LEN 100
+#define MAX_NUM_CONCEPTS 2000
+#define MAX_NUM_HASH_ARRAY 2000
+#define MAX_ACCESSOR_NAMES 20
+#define MAX_ACCESSOR_ATTRIBUTES 20
 
+#if GRIB_PTHREADS
+#include <pthread.h>
+#define GRIB_MUTEX_INIT_ONCE(a, b) pthread_once(a, b);
+#define GRIB_MUTEX_LOCK(a) pthread_mutex_lock(a);
+#define GRIB_MUTEX_UNLOCK(a) pthread_mutex_unlock(a);
+/*
+ #define GRIB_MUTEX_LOCK(a) {pthread_mutex_lock(a); printf("MUTEX LOCK %p %s line %d\n",(void*)a,__FILE__,__LINE__);}
+ #define GRIB_MUTEX_UNLOCK(a) {pthread_mutex_unlock(a);printf("MUTEX UNLOCK %p %s line %d\n",(void*)a,__FILE__,__LINE__);}
+ */
+#elif GRIB_OMP_THREADS
+#include <omp.h>
+#ifdef _MSC_VER
+#define GRIB_OMP_CRITICAL(a) __pragma(omp critical(a))
+#else
+#define GRIB_OMP_STR(a) #a
+#define GRIB_OMP_XSTR(a) GRIB_OMP_STR(a)
+#define GRIB_OMP_CRITICAL(a) _Pragma(GRIB_OMP_XSTR(omp critical(a)))
+#endif
+#define GRIB_MUTEX_INIT_ONCE(a, b) (*(b))();
+#define GRIB_MUTEX_LOCK(a) omp_set_nest_lock(a);
+#define GRIB_MUTEX_UNLOCK(a) omp_unset_nest_lock(a);
+#else
+#define GRIB_MUTEX_INIT_ONCE(a, b)
+#define GRIB_MUTEX_LOCK(a)
+#define GRIB_MUTEX_UNLOCK(a)
+#endif
 
 
 typedef struct grib_handle grib_handle;
@@ -19,7 +51,14 @@ typedef struct grib_index grib_index;
 typedef struct grib_field grib_field;
 typedef struct grib_file grib_file;
 typedef struct grib_context grib_context;
-
+typedef struct grib_string_list grib_string_list;
+typedef struct grib_buffer grib_buffer;
+typedef struct grib_section grib_section;
+typedef struct grib_accessor grib_accessor;
+typedef struct grib_action grib_action;
+typedef struct grib_action_class grib_action_class;
+typedef struct grib_arguments grib_arguments;
+typedef struct grib_trie grib_trie;
 
 
 typedef enum ProductKind
@@ -31,6 +70,118 @@ typedef enum ProductKind
     PRODUCT_GTS,
     PRODUCT_TAF
 } ProductKind;
+
+#define SIZE 39
+struct grib_trie
+{
+    grib_trie* next[SIZE];
+    grib_context* context;
+    int first;
+    int last;
+    void* data;
+};
+
+struct grib_action_class
+{
+    grib_action_class** super; /** < link to a more general behaviour */
+    const char* name;          /** < name of the behaviour class */
+    size_t size;               /** < size in bytes of the structure */
+
+    int inited;
+    action_init_class_proc init_class;
+
+    action_init_proc init;
+    action_destroy_proc destroy; /** < destructor method to release the memory */
+
+    grib_dump_proc dump;                                 /** < dump method of the action  */
+    grib_xref_proc xref;                                 /** < dump method of the action  */
+    action_create_accessors_handle_proc create_accessor; /** < method to create the corresponding accessor from a handle*/
+    action_notify_change_proc notify_change;             /** < method to create the corresponding accessor from a handle*/
+
+    action_reparse_proc reparse;
+    action_execute_proc execute;
+};
+
+struct grib_arguments
+{
+    struct grib_arguments* next;
+    grib_expression* expression;
+};
+
+struct grib_action
+{
+    char* name;                /**  name of the definition statement */
+    char* op;                  /**  operator of the definition statement */
+    char* name_space;          /**  namespace of the definition statement */
+    grib_action* next;         /**  next action in the list */
+    grib_action_class* cclass; /**  link to the structure containing a specific behaviour */
+    grib_context* context;     /**  Context */
+    unsigned long flags;
+    char* defaultkey;              /** name of the key used as default if not found */
+    grib_arguments* default_value; /** default expression as in .def file */
+    char* set;
+    char* debug_info; /** purely for debugging and tracing */
+};
+
+
+struct grib_accessor
+{
+    const char* name;       /** < name of the accessor                       */
+    const char* name_space; /** < namespace to which the accessor belongs    */
+    grib_context* context;
+    grib_handle* h;
+    grib_action* creator;        /** < action that created the accessor           */
+    long length;                 /** < byte length of the accessor                */
+    long offset;                 /** < offset of the data in the buffer           */
+    grib_section* parent;        /** < section to which the accessor is attached  */
+    grib_accessor* next;         /** < next accessor in list                      */
+    grib_accessor* previous;     /** < next accessor in list                      */
+    grib_accessor_class* cclass; /** < behaviour of the accessor                  */
+    unsigned long flags;         /** < Various flags                              */
+    grib_section* sub_section;
+
+    const char* all_names[MAX_ACCESSOR_NAMES];       /** < name of the accessor */
+    const char* all_name_spaces[MAX_ACCESSOR_NAMES]; /** < namespace to which the accessor belongs */
+    int dirty;
+
+    grib_accessor* same;        /** < accessors with the same name */
+    long loop;                  /** < used in lists */
+    long bufr_subset_number;    /** < bufr subset (bufr data accessors belong to different subsets)*/
+    long bufr_group_number;     /** < used in bufr */
+    grib_virtual_value* vvalue; /** < virtual value used when transient flag on **/
+    const char* set;
+    grib_accessor* attributes[MAX_ACCESSOR_ATTRIBUTES]; /** < attributes are accessors */
+    grib_accessor* parent_as_attribute;
+};
+
+struct grib_section
+{
+    grib_accessor* owner;
+    grib_handle* h;                 /** < Handles of all accessors and buffer  */
+    grib_accessor* aclength;        /** < block of the length of the block     */
+    grib_block_of_accessors* block; /** < block                                */
+    grib_action* branch;            /** < branch that created the block        */
+    size_t length;
+    size_t padding;
+};
+
+struct grib_buffer
+{
+    int property;        /** < property parameter of buffer         */
+    int validity;        /** < validity parameter of buffer         */
+    int growable;        /** < buffer can be grown                  */
+    size_t length;       /** < Buffer length                        */
+    size_t ulength;      /** < length used of the buffer            */
+    size_t ulength_bits; /** < length used of the buffer in bits  */
+    unsigned char* data; /** < the data byte array                  */
+};
+
+struct grib_string_list
+{
+    char* value;
+    int count;
+    grib_string_list* next;
+};
 
 struct grib_file
 {
