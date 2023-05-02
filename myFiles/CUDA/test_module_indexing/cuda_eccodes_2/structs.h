@@ -59,7 +59,9 @@ typedef struct grib_action grib_action;
 typedef struct grib_action_class grib_action_class;
 typedef struct grib_arguments grib_arguments;
 typedef struct grib_trie grib_trie;
-
+typedef struct grib_dependency grib_dependency;
+typedef struct grib_loader grib_loader;
+typedef struct grib_values grib_values;
 
 typedef enum ProductKind
 {
@@ -341,6 +343,7 @@ struct grib_field_list
     grib_field* field;
     grib_field_list* next;
 };
+
 struct grib_index
 {
     grib_context* context;
