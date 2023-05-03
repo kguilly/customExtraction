@@ -3,13 +3,37 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 
 #define ACCESSORS_ARRAY_SIZE 5000
+#define Assert(a) \
+    do {                                                          \
+        if (!(a)) codes_assertion_failed(#a, __FILE__, __LINE__); \
+    } while (0)
+#define DebugAssert(a) Assert(a)
+#define DebugAssert(a)
+#define DEFAULT_FILE_POOL_MAX_OPENED_FILES 0
+#define ECC_PATH_DELIMITER_CHAR ';'
+#define ECC_PATH_MAXLEN 8192
+#define GRIB_DECODING_ERROR -13
+#define GRIB_IO_PROBLEM -11
+#define GRIB_END_OF_FILE -1
+#define GRIB_LOG_DEBUG 4
+#define GRIB_LOG_ERROR 2
+#define GRIB_LOG_FATAL 3
+#define GRIB_LOG_INFO 0
+#define GRIB_LOG_WARNING 1
 #define GRIB_MUTEX_INIT_ONCE(a, b)
 #define GRIB_MUTEX_LOCK(a)
 #define GRIB_MUTEX_UNLOCK(a)
+#define GRIB_MY_BUFFER 0
+#define GRIB_NOT_FOUND -10
+#define GRIB_REAL_MODE8 8
+#define GRIB_SUCCESS 0
+#define GRIB_WRONG_LENGTH -23
 #define ITRIE_SIZE 40
 #define MAX_ACCESSOR_NAMES 20
 #define MAX_ACCESSOR_ATTRIBUTES 20
@@ -20,7 +44,6 @@
 #define MAX_SMART_TABLE_COLUMNS 20
 #define STRING_VALUE_LEN 100
 #define TRIE_SIZE 39
-
 
 /* structs & enums */
 typedef enum ProductKind
@@ -33,7 +56,9 @@ typedef enum ProductKind
     PRODUCT_TAF
 } ProductKind;
 
+typedef struct codes_condition codes_condition;
 typedef struct code_table_entry code_table_entry;
+typedef struct grib_accessors_list grib_accessors_list;
 typedef struct grib_accessor grib_accessor;
 typedef struct grib_accessor_class grib_accessor_class;
 typedef struct grib_action grib_action;
@@ -41,18 +66,22 @@ typedef struct grib_action_class grib_action_class;
 typedef struct grib_action_file grib_action_file;
 typedef struct grib_action_file_list grib_action_file_list;
 typedef struct grib_arguments grib_arguments;
+typedef struct grib_block_of_accessors grib_block_of_accessors;
 typedef struct grib_buffer grib_buffer;
 typedef struct grib_codetable grib_codetable;
 typedef struct grib_concept_condition grib_concept_condition;
 typedef struct grib_concept_value grib_concept_value;
 typedef struct grib_context grib_context;
 typedef struct grib_dependency grib_dependency;
+typedef struct grib_dumper grib_dumper;
+typedef struct grib_dumper_class grib_dumper_class;
 typedef struct grib_expression grib_expression;
 typedef struct grib_expression_class grib_expression_class;
 typedef struct grib_handle grib_handle;
 typedef struct grib_hash_array_value grib_hash_array_value;
 typedef struct grib_iarray grib_iarray;
 typedef struct grib_iterator grib_iterator;
+typedef struct grib_iterator_class grib_iterator_class;
 typedef struct grib_itrie grib_itrie;
 typedef struct grib_loader grib_loader;
 typedef struct grib_multi_support grib_multi_support;
@@ -66,12 +95,29 @@ typedef struct grib_virtual_value grib_virtual_value;
 
 
 
+struct codes_condition
+{
+    char* left;
+    int rightType;
+    char* rightString;
+    long rightLong;
+    double rightDouble;
+};
 
 struct code_table_entry
 {
     char* abbreviation;
     char* title;
     char* units;
+};
+
+struct grib_accessors_list
+{
+    grib_accessor* accessor;
+    int rank;
+    grib_accessors_list* next;
+    grib_accessors_list* prev;
+    grib_accessors_list* last;
 };
 
 struct grib_accessor
@@ -221,6 +267,12 @@ struct grib_arguments
     grib_expression* expression;
 };
 
+struct grib_block_of_accessors
+{
+    grib_accessor* first;
+    grib_accessor* last;
+};
+
 struct grib_buffer
 {
     int property;        /** < property parameter of buffer         */
@@ -345,6 +397,39 @@ struct grib_dependency
     grib_accessor* observed;
     grib_accessor* observer;
     int run;
+};
+
+struct grib_dumper
+{
+    FILE* out;
+    unsigned long option_flags;
+    void* arg;
+    int depth;
+    long count;
+    grib_context* context;
+    grib_dumper_class* cclass;
+};
+
+struct grib_dumper_class
+{
+    grib_dumper_class** super;
+    const char* name;
+    size_t size;
+    int inited;
+    dumper_init_class_proc init_class;
+    dumper_init_proc init;
+    dumper_destroy_proc destroy;
+    dumper_dump_proc dump_long;
+    dumper_dump_proc dump_double;
+    dumper_dump_proc dump_string;
+    dumper_dump_proc dump_string_array;
+    dumper_dump_proc dump_label;
+    dumper_dump_proc dump_bytes;
+    dumper_dump_proc dump_bits;
+    dumper_dump_section_proc dump_section;
+    dumper_dump_values_proc dump_values;
+    dumper_header_proc header;
+    dumper_footer_proc footer;
 };
 
 struct grib_expression
@@ -558,13 +643,13 @@ struct grib_virtual_value
 
 
 /* initialization headers */
-typedef int (*action_create_accessors_handle_proc)(grib_section* p, grib_action* a, grib_loader* h);
-typedef void (*action_destroy_proc)(grib_context* context, grib_action* a);
-typedef int (*action_execute_proc)(grib_action* a, grib_handle*);
-typedef void (*action_init_class_proc)(grib_action_class* a);
-typedef void (*action_init_proc)(grib_action* a);
-typedef int (*action_notify_change_proc)(grib_action* a, grib_accessor* observer, grib_accessor* observed);
-typedef grib_action* (*action_reparse_proc)(grib_action* a, grib_accessor*, int*);
+typedef int (*action_create_accessors_handle_proc)(grib_section*, grib_action*, grib_loader*);
+typedef void (*action_destroy_proc)(grib_context*, grib_action*);
+typedef int (*action_execute_proc)(grib_action*, grib_handle*);
+typedef void (*action_init_class_proc)(grib_action_class*);
+typedef void (*action_init_proc)(grib_action*);
+typedef int (*action_notify_change_proc)(grib_action*, grib_accessor*, grib_accessor*);
+typedef grib_action* (*action_reparse_proc)(grib_action*, grib_accessor*, int*);
 
 typedef int (*accessor_clear_proc)(grib_accessor*);
 typedef grib_accessor* (*accessor_clone_proc)(grib_accessor*, grib_section*, int*);
@@ -572,29 +657,29 @@ typedef int (*accessor_compare_proc)(grib_accessor*, grib_accessor*);
 typedef void (*accessor_destroy_proc)(grib_context*, grib_accessor*);
 typedef void (*accessor_dump_proc)(grib_accessor*, grib_dumper*);
 typedef int (*accessor_get_native_type_proc)(grib_accessor*);
-typedef void (*accessor_init_proc)(grib_accessor*, const long len, grib_arguments*);
+typedef void (*accessor_init_proc)(grib_accessor*, const long, grib_arguments*);
 typedef void (*accessor_init_class_proc)(grib_accessor_class*);
 typedef int (*accessor_nearest_proc)(grib_accessor*, double, double*);
 typedef grib_accessor* (*accessor_next_proc)(grib_accessor*, int);
 typedef int (*accessor_notify_change_proc)(grib_accessor*, grib_accessor*);
-typedef int (*accessor_pack_bytes_proc)(grib_accessor*, const unsigned char*, size_t* len);
-typedef int (*accessor_pack_double_proc)(grib_accessor*, const double*, size_t* len);
+typedef int (*accessor_pack_bytes_proc)(grib_accessor*, const unsigned char*, size_t*);
+typedef int (*accessor_pack_double_proc)(grib_accessor*, const double*, size_t*);
 typedef int (*accessor_pack_expression_proc)(grib_accessor*, grib_expression*);
 typedef int (*accessor_pack_is_missing_proc)(grib_accessor*);
-typedef int (*accessor_pack_long_proc)(grib_accessor*, const long*, size_t* len);
+typedef int (*accessor_pack_long_proc)(grib_accessor*, const long*, size_t*);
 typedef int (*accessor_pack_missing_proc)(grib_accessor*);
-typedef int (*accessor_pack_string_array_proc)(grib_accessor*, const char**, size_t* len);
-typedef int (*accessor_pack_string_proc)(grib_accessor*, const char*, size_t* len);
+typedef int (*accessor_pack_string_array_proc)(grib_accessor*, const char**, size_t*);
+typedef int (*accessor_pack_string_proc)(grib_accessor*, const char*, size_t*);
 typedef void (*accessor_post_init_proc)(grib_accessor*);
 typedef size_t (*accessor_preferred_size_proc)(grib_accessor*, int);
-typedef int (*accessor_unpack_bytes_proc)(grib_accessor*, unsigned char*, size_t* len);
+typedef int (*accessor_unpack_bytes_proc)(grib_accessor*, unsigned char*, size_t*);
 typedef int (*accessor_unpack_double_element_proc)(grib_accessor*, size_t, double*);
 typedef int (*accessor_unpack_double_element_set_proc)(grib_accessor*, const size_t*, size_t, double*);
-typedef int (*accessor_unpack_double_proc)(grib_accessor*, double*, size_t* len);
+typedef int (*accessor_unpack_double_proc)(grib_accessor*, double*, size_t*);
 typedef int (*accessor_unpack_double_subarray_proc)(grib_accessor*, double*, size_t, size_t);
-typedef int (*accessor_unpack_long_proc)(grib_accessor*, long*, size_t* len);
-typedef int (*accessor_unpack_string_array_proc)(grib_accessor*, char**, size_t* len);
-typedef int (*accessor_unpack_string_proc)(grib_accessor*, char*, size_t* len);
+typedef int (*accessor_unpack_long_proc)(grib_accessor*, long*, size_t*);
+typedef int (*accessor_unpack_string_array_proc)(grib_accessor*, char**, size_t*);
+typedef int (*accessor_unpack_string_proc)(grib_accessor*, char*, size_t*);
 typedef void (*accessor_update_size_proc)(grib_accessor*, size_t);
 typedef void (*accessor_resize_proc)(grib_accessor*, size_t);
 typedef size_t (*accessor_string_proc)(grib_accessor*);
@@ -602,43 +687,149 @@ typedef grib_section* (*accessor_sub_section_proc)(grib_accessor*);
 typedef long (*accessor_value_proc)(grib_accessor*);
 typedef int (*accessor_value_with_ret_proc)(grib_accessor*, long*);
 
-typedef void (*expression_add_dependency_proc)(grib_expression* e, grib_accessor* observer);
-typedef void (*expression_class_init_proc)(grib_expression_class* e);
-typedef void (*expression_destroy_proc)(grib_context*, grib_expression* e);
+typedef void (*codes_assertion_failed_proc)(const char*);
+
+typedef int (*dumper_destroy_proc)(grib_dumper*);
+typedef void (*dumper_dump_proc)(grib_dumper*, grib_accessor*, const char*);
+typedef void (*dumper_dump_section_proc)(grib_dumper*, grib_accessor*, grib_block_of_accessors*);
+typedef void (*dumper_dump_values_proc)(grib_dumper*, grib_accessor*);
+typedef void (*dumper_footer_proc)(grib_dumper*, grib_handle*);
+typedef void (*dumper_header_proc)(grib_dumper*, grib_handle*);
+typedef int (*dumper_init_proc)(grib_dumper*);
+typedef void (*dumper_init_class_proc)(grib_dumper_class*);
+
+typedef void (*expression_add_dependency_proc)(grib_expression*, grib_accessor*);
+typedef void (*expression_class_init_proc)(grib_expression_class*);
+typedef void (*expression_destroy_proc)(grib_context*, grib_expression*);
 typedef int (*expression_evaluate_double_proc)(grib_expression*, grib_handle*, double*);
 typedef int (*expression_evaluate_long_proc)(grib_expression*, grib_handle*, long*);
 typedef const char* (*expression_evaluate_string_proc)(grib_expression*, grib_handle*, char*, size_t*, int*);
 typedef const char* (*expression_get_name_proc)(grib_expression*);
-typedef void (*expression_init_proc)(grib_expression* e);
+typedef void (*expression_init_proc)(grib_expression*);
 typedef int (*expression_native_type_proc)(grib_expression*, grib_handle*);
 typedef void (*expression_print_proc)(grib_context*, grib_expression*, grib_handle*);
 
-
-typedef int (*grib_data_eof_proc)(const grib_context* c, void* stream);
-typedef off_t (*grib_data_tell_proc)(const grib_context* c, void* stream);
-typedef off_t (*grib_data_seek_proc)(const grib_context* c, off_t offset, int whence, void* stream);
-typedef size_t (*grib_data_read_proc)(const grib_context* c, void* ptr, size_t size, void* stream);
-typedef size_t (*grib_data_write_proc)(const grib_context* c, const void* ptr, size_t size, void* stream);
+typedef int (*grib_data_eof_proc)(const grib_context*, void*);
+typedef off_t (*grib_data_tell_proc)(const grib_context*, void*);
+typedef off_t (*grib_data_seek_proc)(const grib_context*, off_t, int, void*);
+typedef size_t (*grib_data_read_proc)(const grib_context*, void*, size_t, void*);
+typedef size_t (*grib_data_write_proc)(const grib_context*, const void*, size_t, void*);
 typedef void (*grib_dump_proc)(grib_action*, FILE*, int);
-typedef void (*grib_log_proc)(const grib_context* c, int level, const char* mesg);
-typedef void (*grib_print_proc)(const grib_context* c, void* descriptor, const char* mesg);
-typedef void (*grib_free_proc)(const grib_context* c, void* data);
-typedef void* (*grib_malloc_proc)(const grib_context* c, size_t length);
-typedef void* (*grib_realloc_proc)(const grib_context* c, void* data, size_t length);
+typedef int (*grib_loader_init_accessor_proc)(grib_loader*, grib_accessor*, grib_arguments*);
+typedef int (*grib_loader_lookup_long_proc)(grib_context*, grib_loader*, const char*, long*);
+typedef void (*grib_log_proc)(const grib_context*, int, const char*);
+typedef void (*grib_print_proc)(const grib_context*, void*, const char*);
+typedef void (*grib_free_proc)(const grib_context*, void*);
+typedef void* (*grib_malloc_proc)(const grib_context*, size_t);
+typedef void* (*grib_realloc_proc)(const grib_context*, void*, size_t);
 typedef void (*grib_xref_proc)(grib_action*, FILE*, const char*);
 
-typedef int (*iterator_destroy_proc)(grib_iterator* i);
-typedef long (*iterator_has_next_proc)(grib_iterator* i);
+typedef int (*iterator_destroy_proc)(grib_iterator* );
+typedef long (*iterator_has_next_proc)(grib_iterator* );
 typedef void (*iterator_init_class_proc)(grib_iterator_class*);
-typedef int (*iterator_init_proc)(grib_iterator* i, grib_handle*, grib_arguments*);
-typedef int (*iterator_next_proc)(grib_iterator* i, double* lat, double* lon, double* val);
-typedef int (*iterator_previous_proc)(grib_iterator* i, double* lat, double* lon, double* val);
-typedef int (*iterator_reset_proc)(grib_iterator* i);
+typedef int (*iterator_init_proc)(grib_iterator*, grib_handle*, grib_arguments*);
+typedef int (*iterator_next_proc)(grib_iterator*, double*, double*, double*);
+typedef int (*iterator_previous_proc)(grib_iterator*, double*, double*, double*);
+typedef int (*iterator_reset_proc)(grib_iterator*);
+
+static codes_assertion_failed_proc assertion = NULL;
+static grib_context default_grib_context = {
+    0,               /* inited                     */
+    0,               /* debug                      */
+    0,               /* write_on_fail              */
+    0,               /* no_abort                   */
+    0,               /* io_buffer_size             */
+    0,               /* no_big_group_split         */
+    0,               /* no_spd                     */
+    0,               /* keep_matrix                */
+    0,               /* grib_definition_files_path */
+    0,               /* grib_samples_path          */
+    0,               /* grib_concept_path          */
+    0,               /* grib_reader                */
+    0,               /* user data                  */
+    GRIB_REAL_MODE8, /* real mode for fortran      */
+
+#if MANAGE_MEM
+    &grib_transient_free,    /* free_mem                   */
+    &grib_transient_malloc,  /* alloc_mem                  */
+    &grib_transient_realloc, /* realloc_mem                */
+
+    &grib_permanent_free,   /* free_persistant_mem        */
+    &grib_permanent_malloc, /* alloc_persistant_mem       */
+
+    &grib_buffer_free,    /* buffer_free_mem            */
+    &grib_buffer_malloc,  /* buffer_alloc_mem           */
+    &grib_buffer_realloc, /* buffer_realloc_mem         */
+
+#else
+
+    &default_free,    /* free_mem                  */
+    &default_malloc,  /* alloc_mem                 */
+    &default_realloc, /* realloc_mem               */
+
+    &default_long_lasting_free,   /* free_persistant_mem       */
+    &default_long_lasting_malloc, /* alloc_persistant_mem      */
+
+    &default_buffer_free,    /* free_buffer_mem           */
+    &default_buffer_malloc,  /* alloc_buffer_mem          */
+    &default_buffer_realloc, /* realloc_buffer_mem        */
+#endif
+
+    &default_read,  /* file read procedure        */
+    &default_write, /* file write procedure       */
+    &default_tell,  /* lfile tell procedure       */
+    &default_seek,  /* lfile seek procedure       */
+    &default_feof,  /* file feof procedure        */
+
+    &default_log,   /* output_log                 */
+    &default_print, /* print                      */
+    0,              /* codetable                  */
+    0,              /* smart_table                */
+    0,              /* outfilename                */
+    0,              /* multi_support_on           */
+    0,              /* multi_support              */
+    0,              /* grib_definition_files_dir  */
+    0,              /* handle_file_count          */
+    0,              /* handle_total_count         */
+    0,              /* message_file_offset        */
+    0,              /* no_fail_on_wrong_length    */
+    0,              /* gts_header_on              */
+    0,              /* gribex_mode_on             */
+    0,              /* large_constant_fields      */
+    0,              /* keys                       */
+    0,              /* keys_count                 */
+    0,              /* concepts_index             */
+    0,              /* concepts_count             */
+    {0,}, /* concepts                   */
+    0, /* hash_array_index           */
+    0, /* hash_array_count           */
+    {0,},                                 /* hash_array                 */
+    0,                                 /* def_files                  */
+    0,                                 /* blocklist                  */
+    0,                                 /* ieee_packing               */
+    0,                                 /* bufrdc_mode                */
+    0,                                 /* bufr_set_to_missing_if_out_of_range */
+    0,                                 /* bufr_multi_element_constant_arrays */
+    0,                                 /* grib_data_quality_checks   */
+    0,                                 /* log_stream                 */
+    0,                                 /* classes                    */
+    0,                                 /* lists                      */
+    0,                                 /* expanded_descriptors       */
+    DEFAULT_FILE_POOL_MAX_OPENED_FILES /* file_pool_max_opened_files */
+#if GRIB_PTHREADS
+    ,
+    PTHREAD_MUTEX_INITIALIZER /* mutex                      */
+#endif
+};
 
 
 
 /* function headers */
-grib_accessor* grib_find_accessors(const grib_handle*, const char*);
+void codes_assertion_failed(const char*, const char*, int);
+void codes_check(const char*, const char*, int, int, const char*);
+
+grib_accessor* grib_find_accessor(const grib_handle*, const char*);
+grib_accessors_list* grib_find_accessors_list(const grib_handle*, const char*);
 
 grib_context* grib_context_get_default();
 
@@ -647,13 +838,29 @@ grib_handle* grib_new_from_file(grib_context*, FILE*, int*);
 static grib_handle* grib_handle_new_from_file_no_multi(grib_context*, FILE*, int, int*);
 
 int codes_get_long(const grib_handle*, const char*, long*);
+void grib_context_set_handle_file_count(grib_context*, int);
+void grib_check(const char*, const char*, int, int, const char*);
 int grib_get_data(const grib_handle*, double*, double*, double*);
 int grib_get_long(const grib_handle*, const char*, long*);
 int grib_iterator_next(grib_iterator*, double*, double*, double*);
 int grib_unpack_long(grib_accessor*, long*, size_t*);
 
-void grib_context_set_handle_file_count(grib_context*, int);
-void grib_check(const char*, const char*, int, int, const char*);
+static void default_buffer_free(const grib_context*, void*);
+static void* default_buffer_malloc(const grib_context*, size_t);
+static void* default_buffer_realloc(const grib_context*, void*, size_t);
+static void default_log(const grib_context*, int, const char*);
+static void default_long_lasting_free(const grib_context*, void*);
+static void* default_long_lasting_malloc(const grib_context*, size_t);
+static int default_feof(const grib_context*, void*);
+static void default_free(const grib_context*, void*);
+static void* default_malloc(const grib_context*, size_t);
+static void default_print(const grib_context*, void*, const char*);
+static size_t default_read(const grib_context*, void*, size_t, void*);
+static void* default_realloc(const grib_context*, void*, size_t);
+static off_t default_seek(const grib_context*, off_t, int, void*);
+static off_t default_tell(const grib_context*, void*);
+static size_t default_write(const grib_context*, const void*, size_t, void*);
+
 
 
 
