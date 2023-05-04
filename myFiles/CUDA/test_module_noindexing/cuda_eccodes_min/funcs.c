@@ -8,6 +8,20 @@
 #include <stdarg.h>
 #include <errno.h>
 
+int codes_access(const char* name, int mode)
+{
+    /* F_OK tests for the existence of the file  */
+    if (mode != F_OK) {
+        return access(name, mode);
+    }
+
+    if (codes_memfs_exists(name)) { /* Check memory */
+        return 0;
+    }
+
+    return access(name, mode);
+}
+
 void codes_assertion_failed(const char* message, const char* file, int line)
 {
     /* Default behaviour is to abort
@@ -55,6 +69,52 @@ grib_accessor* grib_find_accessor(const grib_handle* h, const char* name)
         }
     }
     return aret;
+}
+
+grib_action* grib_parse_file(grib_context* gc, const char* filename)
+{
+    grib_action_file* af;
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex_file);
+
+    af = 0;
+
+    gc = gc ? gc : grib_context_get_default();
+
+    grib_parser_context = gc;
+
+    if (!gc->grib_reader)
+        gc->grib_reader = (grib_action_file_list*)grib_context_malloc_clear_persistent(gc, sizeof(grib_action_file_list));
+    else {
+        af = grib_find_action_file(filename, gc->grib_reader);
+    }
+
+    if (!af) {
+        grib_action* a;
+        grib_context_log(gc, GRIB_LOG_DEBUG, "Loading %s", filename);
+
+        a = grib_parse_stream(gc, filename);
+
+        if (error) {
+            if (a)
+                grib_action_delete(gc, a);
+            GRIB_MUTEX_UNLOCK(&mutex_file);
+            return NULL;
+        }
+
+        af = (grib_action_file*)grib_context_malloc_clear_persistent(gc, sizeof(grib_action_file));
+
+        af->root = a;
+
+        af->filename = grib_context_strdup_persistent(gc, filename);
+        grib_push_action_file(af, gc->grib_reader); /* Add af to grib_reader action file list */
+    }
+    else
+        grib_context_log(gc, GRIB_LOG_DEBUG, "Using cached version of %s", filename);
+
+    GRIB_MUTEX_UNLOCK(&mutex_file);
+    return af->root;
 }
 
 grib_accessors_list* grib_find_accessors_list(const grib_handle* ch, const char* name)
@@ -741,6 +801,106 @@ grib_iterator* grib_iterator_new(const grib_handle* ch, unsigned long flags, int
     return iter;
 }
 
+static grib_multi_support* grib_get_multi_support(grib_context* c, FILE* f)
+{
+    int i                    = 0;
+    grib_multi_support* gm   = c->multi_support;
+    grib_multi_support* prev = NULL;
+
+    while (gm) {
+        if (gm->file == f)
+            return gm;
+        prev = gm;
+        gm   = gm->next;
+    }
+
+    if (!gm) {
+        gm = grib_multi_support_new(c);
+        if (!c->multi_support) {
+            c->multi_support = gm;
+        }
+        else {
+            if (prev)
+                prev->next = gm;
+        }
+    }
+
+    gm->next = 0;
+    if (gm->message)
+        grib_context_free(c, gm->message);
+    gm->message            = NULL;
+    gm->section_number     = 0;
+    gm->sections_length[0] = 16;
+    for (i = 1; i < 8; i++)
+        gm->sections_length[i] = 0;
+    gm->sections_length[8] = 4;
+    gm->file               = f;
+
+    return gm;
+}
+
+static grib_multi_support* grib_multi_support_new(grib_context* c)
+{
+    int i = 0;
+    grib_multi_support* gm =
+        (grib_multi_support*)grib_context_malloc_clear(c, sizeof(grib_multi_support));
+    gm->file                  = NULL;
+    gm->message               = NULL;
+    gm->message_length        = 0;
+    gm->bitmap_section        = NULL;
+    gm->bitmap_section_length = 0;
+    gm->section_number        = 0;
+    gm->next                  = 0;
+    gm->sections_length[0]    = 16;
+    for (i = 1; i < 8; i++)
+        gm->sections_length[i] = 0;
+    gm->sections_length[8] = 4;
+
+    return gm;
+}
+
+grib_section* grib_create_root_section(const grib_context* context, grib_handle* h)
+{
+    char* fpath     = 0;
+    grib_section* s = (grib_section*)grib_context_malloc_clear(context, sizeof(grib_section));
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex1);
+    if (h->context->grib_reader == NULL) {
+        if ((fpath = grib_context_full_defs_path(h->context, "boot.def")) == NULL) {
+            grib_context_log(h->context, GRIB_LOG_FATAL,
+                             "Unable to find boot.def. Context path=%s\n"
+                             "\nPossible causes:\n"
+                             "- The software is not correctly installed\n"
+                             "- The environment variable ECCODES_DEFINITION_PATH is defined but incorrect\n",
+                             context->grib_definition_files_path);
+        }
+        grib_parse_file(h->context, fpath);
+    }
+    GRIB_MUTEX_UNLOCK(&mutex1);
+
+    s->h        = h;
+    s->aclength = NULL;
+    s->owner    = NULL;
+    s->block    = (grib_block_of_accessors*)
+        grib_context_malloc_clear(context, sizeof(grib_block_of_accessors));
+    grib_context_log(context, GRIB_LOG_DEBUG, "Creating root section");
+    return s;
+}
+
+grib_trie* grib_trie_new(grib_context* c)
+{
+#ifdef RECYCLE_TRIE
+    grib_trie* t = grib_context_malloc_clear_persistent(c, sizeof(grib_trie));
+#else
+    grib_trie* t = (grib_trie*)grib_context_malloc_clear(c, sizeof(grib_trie));
+#endif
+    t->context = c;
+    t->first   = TRIE_SIZE;
+    t->last    = -1;
+    return t;
+}
+
 int codes_get_long(const grib_handle* h, const char* key, long* value)
 {
     return grib_get_long(h, key, value);
@@ -839,6 +999,30 @@ static int grib2_has_next_section(unsigned char* msgbegin, size_t msglen, unsign
     /*secbegin += seclen;*/
 
     return 1;
+}
+
+void grib_accessors_list_delete(grib_context* c, grib_accessors_list* al)
+{
+    grib_accessors_list* tmp;
+
+    while (al) {
+        tmp = al->next;
+        /*grib_accessor_delete(c, al->accessor);*/
+        grib_context_free(c, al);
+        al = tmp;
+    }
+}
+
+int grib_accessors_list_value_count(grib_accessors_list* al, size_t* count)
+{
+    long lcount = 0;
+    *count      = 0;
+    while (al) {
+        grib_value_count(al->accessor, &lcount);
+        *count += lcount;
+        al = al->next;
+    }
+    return 0;
 }
 
 const char* grib_arguments_get_name(grib_handle* h, grib_arguments* args, int n)
@@ -985,6 +1169,55 @@ void grib_context_increment_handle_file_count(grib_context* c)
     GRIB_MUTEX_UNLOCK(&mutex_c);
 }
 
+void grib_context_log(const grib_context* c, int level, const char* fmt, ...)
+{
+    /* Save some CPU */
+    if ((level == GRIB_LOG_DEBUG && c->debug < 1) ||
+        (level == GRIB_LOG_WARNING && c->debug < 2)) {
+        return;
+    }
+    else {
+        char msg[1024];
+        va_list list;
+        const int errsv = errno;
+
+        va_start(list, fmt);
+        vsprintf(msg, fmt, list);
+        va_end(list);
+
+        if (level & GRIB_LOG_PERROR) {
+            level = level & ~GRIB_LOG_PERROR;
+
+            /* #if HAS_STRERROR */
+#if 1
+            strcat(msg, " (");
+            strcat(msg, strerror(errsv));
+            strcat(msg, ")");
+#else
+            if (errsv > 0 && errsv < sys_nerr) {
+                strcat(msg, " (");
+                strcat(msg, sys_errlist[errsv]);
+                strcat(msg, " )");
+            }
+#endif
+        }
+
+        if (c->output_log)
+            c->output_log(c, level, msg);
+    }
+}
+
+char* grib_context_strdup(const grib_context* c, const char* s)
+{
+    char* dup = 0;
+    if (s) {
+        dup = (char*)grib_context_malloc(c, (strlen(s) * sizeof(char)) + 1);
+        if (dup)
+            strcpy(dup, s);
+    }
+    return dup;
+}
+
 void grib_context_set_handle_file_count(grib_context* c, int new_count)
 {
     if (!c)
@@ -1050,6 +1283,35 @@ void* grib_context_malloc_clear(const grib_context* c, size_t size)
     return p;
 }
 
+void* grib_context_malloc_clear_persistent(const grib_context* c, size_t size)
+{
+    void* p = grib_context_malloc_persistent(c, size);
+    if (p)
+        memset(p, 0, size);
+    return p;
+}
+
+int grib_create_accessor(grib_section* p, grib_action* a, grib_loader* h)
+{
+    grib_action_class* c = a->cclass;
+    init(c);
+    while (c) {
+        if (c->create_accessor) {
+            int ret;
+            /* ECC-604: Do not lock excessively */
+            /*GRIB_MUTEX_INIT_ONCE(&once,&init_mutex);*/
+            /*GRIB_MUTEX_LOCK(&mutex1);*/
+            ret = c->create_accessor(p, a, h);
+            /*GRIB_MUTEX_UNLOCK(&mutex1);*/
+            return ret;
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    fprintf(stderr, "Cannot create accessor %s %s\n", a->name, a->cclass->name);
+    DebugAssert(0);
+    return 0;
+}
+
 void grib_empty_section(grib_context* c, grib_section* b)
 {
     grib_accessor* current = NULL;
@@ -1105,6 +1367,65 @@ int grib_get_data(const grib_handle* h, double* lats, double* lons, double* valu
     return err;
 }
 
+int _grib_get_double_array_internal(const grib_handle* h, grib_accessor* a, double* val, size_t buffer_len, size_t* decoded_length)
+{
+    if (a) {
+        int err = _grib_get_double_array_internal(h, a->same, val, buffer_len, decoded_length);
+
+        if (err == GRIB_SUCCESS) {
+            size_t len = buffer_len - *decoded_length;
+            err        = grib_unpack_double(a, val + *decoded_length, &len);
+            *decoded_length += len;
+        }
+
+        return err;
+    }
+    else {
+        return GRIB_SUCCESS;
+    }
+}
+
+int grib_get_double_array_internal(const grib_handle* h, const char* name, double* val, size_t* length)
+{
+    int ret = grib_get_double_array(h, name, val, length);
+
+    if (ret != GRIB_SUCCESS)
+        grib_context_log(h->context, GRIB_LOG_ERROR,
+                         "unable to get %s as double array (%s)",
+                         name, grib_get_error_message(ret));
+
+    return ret;
+}
+
+int grib_get_double_array(const grib_handle* h, const char* name, double* val, size_t* length)
+{
+    size_t len              = *length;
+    grib_accessor* a        = NULL;
+    grib_accessors_list* al = NULL;
+    int ret                 = 0;
+
+    if (name[0] == '/') {
+        al = grib_find_accessors_list(h, name);
+        if (!al)
+            return GRIB_NOT_FOUND;
+        ret = grib_accessors_list_unpack_double(al, val, length);
+        grib_accessors_list_delete(h->context, al);
+        return ret;
+    }
+    else {
+        a = grib_find_accessor(h, name);
+        if (!a)
+            return GRIB_NOT_FOUND;
+        if (name[0] == '#') {
+            return grib_unpack_double(a, val, length);
+        }
+        else {
+            *length = 0;
+            return _grib_get_double_array_internal(h, a, val, len, length);
+        }
+    }
+}
+
 const char* grib_get_error_message(int code)
 {
     code = -code;
@@ -1141,6 +1462,19 @@ int grib_get_long(const grib_handle* h, const char* name, long* val)
             return GRIB_NOT_FOUND;
         ret = grib_unpack_long(a, val, &length);
     }
+    return ret;
+}
+
+int grib_get_long_internal(grib_handle* h, const char* name, long* val)
+{
+    int ret = grib_get_long(h, name, val);
+
+    if (ret != GRIB_SUCCESS) {
+        grib_context_log(h->context, GRIB_LOG_ERROR,
+                         "unable to get %s as long (%s)",
+                         name, grib_get_error_message(ret));
+    }
+
     return ret;
 }
 
@@ -1182,6 +1516,64 @@ int grib_get_string_length(const grib_handle* h, const char* name, size_t* size)
     }
 }
 
+char* grib_context_full_defs_path(grib_context* c, const char* basename)
+{
+    int err         = 0;
+    char full[1024] = {0,};
+    grib_string_list* dir      = NULL;
+    grib_string_list* fullpath = 0;
+    if (!c)
+        c = grib_context_get_default();
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+
+    if (*basename == '/' || *basename == '.') {
+        return (char*)basename;
+    }
+    else {
+        GRIB_MUTEX_LOCK(&mutex_c); /* See ECC-604 */
+        fullpath = (grib_string_list*)grib_trie_get(c->def_files, basename);
+        GRIB_MUTEX_UNLOCK(&mutex_c);
+        if (fullpath != NULL) {
+            return fullpath->value;
+        }
+        if (!c->grib_definition_files_dir) {
+            err = init_definition_files_dir(c);
+        }
+
+        if (err != GRIB_SUCCESS) {
+            grib_context_log(c, GRIB_LOG_ERROR,
+                             "Unable to find definition files directory");
+            return NULL;
+        }
+
+        dir = c->grib_definition_files_dir;
+
+        while (dir) {
+            sprintf(full, "%s/%s", dir->value, basename);
+            if (!codes_access(full, F_OK)) {
+                fullpath = (grib_string_list*)grib_context_malloc_clear_persistent(c, sizeof(grib_string_list));
+                Assert(fullpath);
+                fullpath->value = grib_context_strdup(c, full);
+                GRIB_MUTEX_LOCK(&mutex_c);
+                grib_trie_insert(c->def_files, basename, fullpath);
+                grib_context_log(c, GRIB_LOG_DEBUG, "Found def file %s", full);
+                GRIB_MUTEX_UNLOCK(&mutex_c);
+                return fullpath->value;
+            }
+            dir = dir->next;
+        }
+    }
+
+    GRIB_MUTEX_LOCK(&mutex_c);
+    /* Store missing files so we don't check for them again and again */
+    grib_trie_insert(c->def_files, basename, &grib_file_not_found);
+    /*grib_context_log(c,GRIB_LOG_ERROR,"Def file \"%s\" not found",basename);*/
+    GRIB_MUTEX_UNLOCK(&mutex_c);
+    full[0] = 0;
+    return NULL;
+}
+
 void grib_context_increment_handle_total_count(grib_context* c)
 {
     if (!c)
@@ -1204,6 +1596,25 @@ int grib_context_seek(const grib_context* c, off_t offset, int whence, void* str
     if (!c)
         c = grib_context_get_default();
     return c->seek(c, offset, whence, stream);
+}
+
+unsigned long grib_decode_unsigned_byte_long(const unsigned char* p, long o, int l)
+{
+    long accum      = 0;
+    int i           = 0;
+    unsigned char b = p[o++];
+
+    Assert(l <= max_nbits);
+
+    accum <<= 8;
+    accum |= b;
+
+    for (i = 1; i < l; i++) {
+        b = p[o++];
+        accum <<= 8;
+        accum |= b;
+    }
+    return accum;
 }
 
 int grib_encode_unsigned_long(unsigned char* p, unsigned long val, long* bitp, long nbits)
@@ -1339,6 +1750,72 @@ long grib_byte_offset(grib_accessor* a)
     return 0;
 }
 
+int _grib_get_size(const grib_handle* h, grib_accessor* a, size_t* size)
+{
+    long count = 0;
+    int err    = 0;
+
+    if (!a)
+        return GRIB_NOT_FOUND;
+
+    *size = 0;
+    while (a) {
+        if (err == 0) {
+            err = grib_value_count(a, &count);
+            if (err)
+                return err;
+            *size += count;
+        }
+        a = a->same;
+    }
+    return GRIB_SUCCESS;
+}
+
+int grib_get_size(const grib_handle* ch, const char* name, size_t* size)
+{
+    grib_handle* h          = (grib_handle*)ch;
+    grib_accessor* a        = NULL;
+    grib_accessors_list* al = NULL;
+    int ret                 = 0;
+    *size                   = 0;
+
+    if (name[0] == '/') {
+        al = grib_find_accessors_list(h, name);
+        if (!al)
+            return GRIB_NOT_FOUND;
+        ret = grib_accessors_list_value_count(al, size);
+        grib_accessors_list_delete(h->context, al);
+        return ret;
+    }
+    else {
+        a = grib_find_accessor(h, name);
+        if (!a)
+            return GRIB_NOT_FOUND;
+        if (name[0] == '#') {
+            long count = *size;
+            ret        = grib_value_count(a, &count);
+            *size      = count;
+            return ret;
+        }
+        else
+            return _grib_get_size(h, a, size);
+    }
+}
+
+int grib_pack_long(grib_accessor* a, const long* v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (long) %d",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?(*v):0); */
+    while (c) {
+        if (c->pack_long) {
+            return c->pack_long(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+
 int grib_unpack_long(grib_accessor* a, long* v, size_t* len)
 {
     grib_accessor_class* c = a->cclass;
@@ -1367,6 +1844,119 @@ int grib_unpack_string(grib_accessor* a, char* v, size_t* len)
     return 0;
 }
 
+void* grib_trie_insert(grib_trie* t, const char* key, void* data)
+{
+    grib_trie* last = t;
+    const char* k   = key;
+    void* old       = NULL;
+
+    if (!t) {
+        Assert(!"grib_trie_insert: grib_trie==NULL");
+        return NULL;
+    }
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex);
+
+    while (*k && t) {
+        last = t;
+        DebugCheckBounds((int)*k, key);
+        t = t->next[mapping[(int)*k]];
+        if (t)
+            k++;
+    }
+
+    if (*k == 0) {
+        old     = t->data;
+        t->data = data;
+    }
+    else {
+        t = last;
+        while (*k) {
+            int j = 0;
+            DebugCheckBounds((int)*k, key);
+            j = mapping[(int)*k++];
+            if (j < t->first)
+                t->first = j;
+            if (j > t->last)
+                t->last = j;
+            t = t->next[j] = grib_trie_new(t->context);
+        }
+        old     = t->data;
+        t->data = data;
+    }
+    GRIB_MUTEX_UNLOCK(&mutex);
+    return data == old ? NULL : old;
+}
+
+int grib_section_adjust_sizes(grib_section* s, int update, int depth)
+{
+    int err          = 0;
+    grib_accessor* a = s ? s->block->first : NULL;
+    size_t length    = update ? 0 : (s ? s->padding : 0);
+    size_t offset    = (s && s->owner) ? s->owner->offset : 0;
+    int force_update = update > 1;
+
+    while (a) {
+        register long l;
+        /* grib_section_adjust_sizes(grib_get_sub_section(a),update,depth+1); */
+        err = grib_section_adjust_sizes(a->sub_section, update, depth + 1);
+        if (err)
+            return err;
+        /*grib_context_log(a->context,GRIB_LOG_DEBUG,"grib_section_adjust_sizes: %s %ld [len=%ld] (depth=%d)",a->name,(long)a->offset,(long)a->length,depth);*/
+
+        l = a->length;
+
+        if (offset != a->offset) {
+            grib_context_log(a->context, GRIB_LOG_ERROR,
+                             "Offset mismatch %s A->offset %ld offset %ld\n", a->name, (long)a->offset, (long)offset);
+            a->offset = offset;
+            return GRIB_DECODING_ERROR;
+        }
+        length += l;
+        offset += l;
+        a = a->next;
+    }
+
+    if (s) {
+        if (s->aclength) {
+            size_t len = 1;
+            long plen  = 0;
+            int lret   = grib_unpack_long(s->aclength, &plen, &len);
+            Assert(lret == GRIB_SUCCESS);
+            /* This happens when there is some padding */
+            if ((plen != length) || force_update) {
+                if (update) {
+                    plen = length;
+                    lret = grib_pack_long(s->aclength, &plen, &len);
+                    Assert(lret == GRIB_SUCCESS);
+                    s->padding = 0;
+                }
+                else {
+                    if (!s->h->partial) {
+                        if (length >= plen) {
+                            if (s->owner) {
+                                grib_context_log(s->h->context, GRIB_LOG_ERROR, "Invalid size %ld found for %s, assuming %ld",
+                                             (long)plen, s->owner->name, (long)length);
+                            }
+                            plen = length;
+                        }
+                        s->padding = plen - length;
+                    }
+                    length = plen;
+                }
+            }
+        }
+
+        if (s->owner) {
+            /*grib_context_log(s->owner->context,GRIB_LOG_DEBUG,"grib_section_adjust_sizes: updating owner (%s->length old=%ld new=%ld)",s->owner->name,(long)s->owner->length,(long)length);*/
+            s->owner->length = length;
+        }
+        s->length = length;
+    }
+    return err;
+}
+
 void grib_section_delete(grib_context* c, grib_section* b)
 {
     if (!b)
@@ -1378,6 +1968,20 @@ void grib_section_delete(grib_context* c, grib_section* b)
     grib_context_free(c, b);
 }
 
+void grib_section_post_init(grib_section* s)
+{
+    grib_accessor* a = s ? s->block->first : NULL;
+
+    while (a) {
+        grib_accessor_class* c = a->cclass;
+        if (c->post_init)
+            c->post_init(a);
+        if (a->sub_section)
+            grib_section_post_init(a->sub_section);
+        a = a->next;
+    }
+}
+
 long grib_string_length(grib_accessor* a)
 {
     grib_accessor_class* c = NULL;
@@ -1387,6 +1991,24 @@ long grib_string_length(grib_accessor* a)
     while (c) {
         if (c->string_length)
             return c->string_length(a);
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+
+int grib_value_count(grib_accessor* a, long* count)
+{
+    grib_accessor_class* c = NULL;
+    int err                = 0;
+    if (a)
+        c = a->cclass;
+
+    while (c) {
+        if (c->value_count) {
+            err = c->value_count(a, count);
+            return err;
+        }
         c = c->super ? *(c->super) : NULL;
     }
     DebugAssert(0);
@@ -1531,6 +2153,120 @@ static void* allocate_buffer(void* data, size_t* length, int* err)
     if (u->buffer == NULL)
         *err = GRIB_OUT_OF_MEMORY; /* Cannot allocate buffer */
     return u->buffer;
+}
+
+static void init(grib_action_class* c)
+{
+    if (!c)
+        return;
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init_mutex);
+    GRIB_MUTEX_LOCK(&mutex1);
+    if (!c->inited) {
+        if (c->super) {
+            init(*(c->super));
+        }
+        c->init_class(c);
+        c->inited = 1;
+    }
+    GRIB_MUTEX_UNLOCK(&mutex1);
+}
+
+static int init(grib_iterator* iter, grib_handle* h, grib_arguments* args)
+{
+    grib_iterator_gen* self = (grib_iterator_gen*)iter;
+    size_t dli              = 0;
+    int err                 = GRIB_SUCCESS;
+    const char* s_rawData   = NULL;
+    const char* s_numPoints = NULL;
+    long numberOfPoints     = 0;
+    self->carg              = 1;
+
+    s_numPoints        = grib_arguments_get_name(h, args, self->carg++);
+    self->missingValue = grib_arguments_get_name(h, args, self->carg++);
+    s_rawData          = grib_arguments_get_name(h, args, self->carg++);
+
+    iter->h    = h; /* We may not need to keep them */
+    iter->args = args;
+    if ((err = grib_get_size(h, s_rawData, &dli)) != GRIB_SUCCESS)
+        return err;
+
+    if ((err = grib_get_long_internal(h, s_numPoints, &numberOfPoints)) != GRIB_SUCCESS)
+        return err;
+
+    if (numberOfPoints != dli) {
+        grib_context_log(h->context, GRIB_LOG_ERROR, "Geoiterator: %s != size(%s) (%ld!=%ld)",
+                         s_numPoints, s_rawData, numberOfPoints, dli);
+        return GRIB_WRONG_GRID;
+    }
+    iter->nv = dli;
+    if (iter->nv == 0) {
+        grib_context_log(h->context, GRIB_LOG_ERROR, "Geoiterator: size(%s) is %ld", s_rawData, dli);
+        return GRIB_WRONG_GRID;
+    }
+    iter->data = (double*)grib_context_malloc(h->context, (iter->nv) * sizeof(double));
+
+    if ((err = grib_get_double_array_internal(h, s_rawData, iter->data, &(iter->nv))))
+        return err;
+
+    iter->e = -1;
+
+    return err;
+}
+
+static int init_definition_files_dir(grib_context* c)
+{
+    int err = 0;
+    char path[ECC_PATH_MAXLEN];
+    char* p                = NULL;
+    grib_string_list* next = NULL;
+
+    if (!c)
+        c = grib_context_get_default();
+
+    if (c->grib_definition_files_dir)
+        return 0;
+    if (!c->grib_definition_files_path)
+        return GRIB_NO_DEFINITIONS;
+
+    /* Note: strtok modifies its first argument so we copy */
+    strncpy(path, c->grib_definition_files_path, ECC_PATH_MAXLEN-1);
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex_c);
+
+    p = path;
+
+    while (*p != ECC_PATH_DELIMITER_CHAR && *p != '\0')
+        p++;
+
+    if (*p != ECC_PATH_DELIMITER_CHAR) {
+        /* No delimiter found so this is a single directory */
+        c->grib_definition_files_dir        = (grib_string_list*)grib_context_malloc_clear_persistent(c, sizeof(grib_string_list));
+        c->grib_definition_files_dir->value = codes_resolve_path(c, path);
+    }
+    else {
+        /* Definitions path contains multiple directories */
+        char* dir = NULL;
+        dir       = strtok(path, ECC_PATH_DELIMITER_STR);
+
+        while (dir != NULL) {
+            if (next) {
+                next->next = (grib_string_list*)grib_context_malloc_clear_persistent(c, sizeof(grib_string_list));
+                next       = next->next;
+            }
+            else {
+                c->grib_definition_files_dir = (grib_string_list*)grib_context_malloc_clear_persistent(c, sizeof(grib_string_list));
+                next                         = c->grib_definition_files_dir;
+            }
+            next->value = codes_resolve_path(c, dir);
+            dir         = strtok(NULL, ECC_PATH_DELIMITER_STR);
+        }
+    }
+
+    GRIB_MUTEX_UNLOCK(&mutex_c);
+
+    return err;
 }
 
 static int init_iterator(grib_iterator_class* c, grib_iterator* i, grib_handle* h, grib_arguments* args)

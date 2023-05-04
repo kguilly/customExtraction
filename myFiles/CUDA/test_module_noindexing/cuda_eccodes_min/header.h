@@ -17,10 +17,26 @@
 #define BIT_MASK(x) \
 (((x) == max_nbits) ? (unsigned long)-1UL : (1UL << (x)) - 1)
 #define DebugAssert(a) Assert(a)
+
+#ifdef DEBUG
 #define DebugAssert(a)
+static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
+
+#define DebugCheckBounds(index, value)                                                                  \
+    do {                                                                                                \
+        if (!((index) >= 0 && (index) < NUM_MAPPINGS)) {                                                \
+            printf("ERROR: string='%s' index=%ld @ %s +%d \n", value, (long)index, __FILE__, __LINE__); \
+            abort();                                                                                    \
+        }                                                                                               \
+    } while (0)
+#else
+#define DebugCheckBounds(index, value)
+#endif
 #define DEFAULT_FILE_POOL_MAX_OPENED_FILES 0
 #define ECC_PATH_DELIMITER_CHAR ';'
+#define ECC_PATH_DELIMITER_STR ":"
 #define ECC_PATH_MAXLEN 8192
+#define ecc_snprintf snprintf 
 #define GRIB_7777_NOT_FOUND -5
 #define GRIB_BUFFER_TOO_SMALL -3
 #define GROW_BUF_IF_REQUIRED(desired_length)      \
@@ -33,6 +49,7 @@
 #define GRIB_INLINE
 #define GRIB_INTERNAL_ERROR -2
 #define GRIB_INVALID_ARGUMENT -19
+#define GRIB_INVALID_SECTION_NUMBER -21
 #define GRIB_IO_PROBLEM -11
 #define GRIB_LOG_DEBUG 4
 #define GRIB_LOG_ERROR 2
@@ -45,6 +62,7 @@
 #define GRIB_MUTEX_LOCK(a)
 #define GRIB_MUTEX_UNLOCK(a)
 #define GRIB_MY_BUFFER 0
+#define GRIB_NO_DEFINITIONS -38
 #define GRIB_NOT_FOUND -10
 #define GRIB_NOT_IMPLEMENTED -4
 #define GRIB_OUT_OF_MEMORY -17
@@ -54,6 +72,7 @@
 #define GRIB_UNSUPPORTED_EDITION -64
 #define GRIB_USER_BUFFER 1
 #define GRIB_WRONG_LENGTH -23
+#define GRIB_WRONG_GRID -42
 #define ITRIE_SIZE 40
 #define MAX_ACCESSOR_NAMES 20
 #define MAX_ACCESSOR_ATTRIBUTES 20
@@ -107,6 +126,7 @@ typedef struct grib_hash_array_value grib_hash_array_value;
 typedef struct grib_iarray grib_iarray;
 typedef struct grib_iterator grib_iterator;
 typedef struct grib_iterator_class grib_iterator_class;
+typedef struct grib_iterator_gen grib_iterator_gen;
 typedef struct grib_itrie grib_itrie;
 typedef struct grib_loader grib_loader;
 typedef struct grib_multi_support grib_multi_support;
@@ -678,6 +698,14 @@ struct grib_iterator_class
     iterator_has_next_proc has_next;
 };
 
+struct grib_iterator_gen
+{
+  grib_iterator it;
+    /* Members defined in gen */
+    long carg;
+    const char* missingValue;
+};
+
 struct grib_itrie
 {
     grib_itrie* next[ITRIE_SIZE];
@@ -897,6 +925,21 @@ static const unsigned long dmasks[] = {
 };
 static const int max_nbits        = sizeof(unsigned long) * 8;
 static const int max_nbits_size_t = sizeof(size_t) * 8;
+static void default_buffer_free(const grib_context*, void*);
+static void* default_buffer_malloc(const grib_context*, size_t);
+static void* default_buffer_realloc(const grib_context*, void*, size_t);
+static void default_log(const grib_context*, int, const char*);
+static void default_long_lasting_free(const grib_context*, void*);
+static void* default_long_lasting_malloc(const grib_context*, size_t);
+static int default_feof(const grib_context*, void*);
+static void default_free(const grib_context*, void*);
+static void* default_malloc(const grib_context*, size_t);
+static void default_print(const grib_context*, void*, const char*);
+static size_t default_read(const grib_context*, void*, size_t, void*);
+static void* default_realloc(const grib_context*, void*, size_t);
+static off_t default_seek(const grib_context*, off_t, int, void*);
+static off_t default_tell(const grib_context*, void*);
+static size_t default_write(const grib_context*, const void*, size_t, void*);
 static grib_context default_grib_context = {
     0,               /* inited                     */
     0,               /* debug                      */
@@ -985,6 +1028,267 @@ static grib_context default_grib_context = {
     PTHREAD_MUTEX_INITIALIZER /* mutex                      */
 #endif
 };
+grib_context* grib_parser_context = 0;
+static int error = 0;
+extern grib_string_list grib_file_not_found;
+static const int mapping[] = {
+    0,  /* 00 */
+    0,  /* 01 */
+    0,  /* 02 */
+    0,  /* 03 */
+    0,  /* 04 */
+    0,  /* 05 */
+    0,  /* 06 */
+    0,  /* 07 */
+    0,  /* 08 */
+    0,  /* 09 */
+    0,  /* 0a */
+    0,  /* 0b */
+    0,  /* 0c */
+    0,  /* 0d */
+    0,  /* 0e */
+    0,  /* 0f */
+    0,  /* 10 */
+    0,  /* 11 */
+    0,  /* 12 */
+    0,  /* 13 */
+    0,  /* 14 */
+    0,  /* 15 */
+    0,  /* 16 */
+    0,  /* 17 */
+    0,  /* 18 */
+    0,  /* 19 */
+    0,  /* 1a */
+    0,  /* 1b */
+    0,  /* 1c */
+    0,  /* 1d */
+    0,  /* 1e */
+    0,  /* 1f */
+    0,  /* 20 */
+    0,  /* 21 */
+    0,  /* 22 */
+    38, /* # */
+    0,  /* 24 */
+    0,  /* 25 */
+    0,  /* 26 */
+    0,  /* 27 */
+    0,  /* 28 */
+    0,  /* 29 */
+    0,  /* 2a */
+    0,  /* 2b */
+    0,  /* 2c */
+    0,  /* 2d */
+    0,  /* 2e */
+    0,  /* 2f */
+    1,  /* 0 */
+    2,  /* 1 */
+    3,  /* 2 */
+    4,  /* 3 */
+    5,  /* 4 */
+    6,  /* 5 */
+    7,  /* 6 */
+    8,  /* 7 */
+    9,  /* 8 */
+    10, /* 9 */
+    0,  /* 3a */
+    0,  /* 3b */
+    0,  /* 3c */
+    0,  /* 3d */
+    0,  /* 3e */
+    0,  /* 3f */
+    0,  /* 40 */
+    11, /* A */
+    12, /* B */
+    13, /* C */
+    14, /* D */
+    15, /* E */
+    16, /* F */
+    17, /* G */
+    18, /* H */
+    19, /* I */
+    20, /* J */
+    21, /* K */
+    22, /* L */
+    23, /* M */
+    24, /* N */
+    25, /* O */
+    26, /* P */
+    27, /* Q */
+    28, /* R */
+    29, /* S */
+    30, /* T */
+    31, /* U */
+    32, /* V */
+    33, /* W */
+    34, /* X */
+    35, /* Y */
+    36, /* Z */
+    0,  /* 5b */
+    0,  /* 5c */
+    0,  /* 5d */
+    0,  /* 5e */
+    37, /* _ */
+    0,  /* 60 */
+    11, /* a */
+    12, /* b */
+    13, /* c */
+    14, /* d */
+    15, /* e */
+    16, /* f */
+    17, /* g */
+    18, /* h */
+    19, /* i */
+    20, /* j */
+    21, /* k */
+    22, /* l */
+    23, /* m */
+    24, /* n */
+    25, /* o */
+    26, /* p */
+    27, /* q */
+    28, /* r */
+    29, /* s */
+    30, /* t */
+    31, /* u */
+    32, /* v */
+    33, /* w */
+    34, /* x */
+    35, /* y */
+    36, /* z */
+    0,  /* 7b */
+    0,  /* 7c */
+    0,  /* 7d */
+    0,  /* 7e */
+    0,  /* 7f */
+    0,  /* 80 */
+    0,  /* 81 */
+    0,  /* 82 */
+    0,  /* 83 */
+    0,  /* 84 */
+    0,  /* 85 */
+    0,  /* 86 */
+    0,  /* 87 */
+    0,  /* 88 */
+    0,  /* 89 */
+    0,  /* 8a */
+    0,  /* 8b */
+    0,  /* 8c */
+    0,  /* 8d */
+    0,  /* 8e */
+    0,  /* 8f */
+    0,  /* 90 */
+    0,  /* 91 */
+    0,  /* 92 */
+    0,  /* 93 */
+    0,  /* 94 */
+    0,  /* 95 */
+    0,  /* 96 */
+    0,  /* 97 */
+    0,  /* 98 */
+    0,  /* 99 */
+    0,  /* 9a */
+    0,  /* 9b */
+    0,  /* 9c */
+    0,  /* 9d */
+    0,  /* 9e */
+    0,  /* 9f */
+    0,  /* a0 */
+    0,  /* a1 */
+    0,  /* a2 */
+    0,  /* a3 */
+    0,  /* a4 */
+    0,  /* a5 */
+    0,  /* a6 */
+    0,  /* a7 */
+    0,  /* a8 */
+    0,  /* a9 */
+    0,  /* aa */
+    0,  /* ab */
+    0,  /* ac */
+    0,  /* ad */
+    0,  /* ae */
+    0,  /* af */
+    0,  /* b0 */
+    0,  /* b1 */
+    0,  /* b2 */
+    0,  /* b3 */
+    0,  /* b4 */
+    0,  /* b5 */
+    0,  /* b6 */
+    0,  /* b7 */
+    0,  /* b8 */
+    0,  /* b9 */
+    0,  /* ba */
+    0,  /* bb */
+    0,  /* bc */
+    0,  /* bd */
+    0,  /* be */
+    0,  /* bf */
+    0,  /* c0 */
+    0,  /* c1 */
+    0,  /* c2 */
+    0,  /* c3 */
+    0,  /* c4 */
+    0,  /* c5 */
+    0,  /* c6 */
+    0,  /* c7 */
+    0,  /* c8 */
+    0,  /* c9 */
+    0,  /* ca */
+    0,  /* cb */
+    0,  /* cc */
+    0,  /* cd */
+    0,  /* ce */
+    0,  /* cf */
+    0,  /* d0 */
+    0,  /* d1 */
+    0,  /* d2 */
+    0,  /* d3 */
+    0,  /* d4 */
+    0,  /* d5 */
+    0,  /* d6 */
+    0,  /* d7 */
+    0,  /* d8 */
+    0,  /* d9 */
+    0,  /* da */
+    0,  /* db */
+    0,  /* dc */
+    0,  /* dd */
+    0,  /* de */
+    0,  /* df */
+    0,  /* e0 */
+    0,  /* e1 */
+    0,  /* e2 */
+    0,  /* e3 */
+    0,  /* e4 */
+    0,  /* e5 */
+    0,  /* e6 */
+    0,  /* e7 */
+    0,  /* e8 */
+    0,  /* e9 */
+    0,  /* ea */
+    0,  /* eb */
+    0,  /* ec */
+    0,  /* ed */
+    0,  /* ee */
+    0,  /* ef */
+    0,  /* f0 */
+    0,  /* f1 */
+    0,  /* f2 */
+    0,  /* f3 */
+    0,  /* f4 */
+    0,  /* f5 */
+    0,  /* f6 */
+    0,  /* f7 */
+    0,  /* f8 */
+    0,  /* f9 */
+    0,  /* fa */
+    0,  /* fb */
+    0,  /* fc */
+    0,  /* fd */
+    0,  /* fe */
+    0,  /* ff */
+};
 
 static const struct table_entry table[] = {
 #include "subfuncs/grib_iterator_factory.h"
@@ -992,10 +1296,12 @@ static const struct table_entry table[] = {
 
 
 /* function headers */
+int codes_access(const char* name, int mode);
 void codes_assertion_failed(const char*, const char*, int);
 void codes_check(const char*, const char*, int, int, const char*);
 
 grib_accessor* grib_find_accessor(const grib_handle*, const char*);
+grib_action* grib_parse_file(grib_context* gc, const char* filename);
 grib_accessors_list* grib_find_accessors_list(const grib_handle*, const char*);
 
 grib_buffer* grib_new_buffer(const grib_context* c, const unsigned char* data, size_t buflen);
@@ -1012,9 +1318,15 @@ grib_handle* grib_new_handle(grib_context* c);
 
 grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret);
 grib_iterator* grib_iterator_new(const grib_handle*, unsigned long flags, int*);
+static grib_multi_support* grib_get_multi_support(grib_context* c, FILE* f);
+static grib_multi_support* grib_multi_support_new(grib_context* c);
+grib_section* grib_create_root_section(const grib_context* context, grib_handle* h);
+grib_trie* grib_trie_new(grib_context* c);
 
 static void init_class(grib_iterator_class*);
+static void init(grib_action_class* c);
 static int init(grib_iterator* i, grib_handle*, grib_arguments*);
+static int init_definition_files_dir(grib_context* c);
 static int destroy(grib_iterator* i);
 static int reset(grib_iterator* i);
 static long has_next(grib_iterator* i);
@@ -1024,17 +1336,22 @@ static int determine_product_kind(grib_handle* h, ProductKind* prod_kind);
 static void grib2_build_message(grib_context* context, unsigned char* sections[], size_t sections_len[], void** data, size_t* len);
 static int grib2_get_next_section(unsigned char* msgbegin, size_t msglen, unsigned char** secbegin, size_t* seclen, int* secnum, int* err);
 static int grib2_has_next_section(unsigned char* msgbegin, size_t msglen, unsigned char* secbegin, size_t seclen, int* err);
+void grib_accessors_list_delete(grib_context* c, grib_accessors_list* al);
+int grib_accessors_list_value_count(grib_accessors_list* al, size_t* count);
 const char* grib_arguments_get_name(grib_handle* h, grib_arguments* args, int n);
 void grib_buffer_delete(const grib_context* c, grib_buffer* b);
 void grib_context_set_handle_total_count(grib_context* c, int new_count);
 void grib_get_buffer_ownership(const grib_context* c, grib_buffer* b);
 int grib_get_string(const grib_handle* h, const char* name, char* val, size_t* length);
+char* grib_context_full_defs_path(grib_context* c, const char* basename);
 static void grib_grow_buffer_to(const grib_context* c, grib_buffer* b, size_t ns);
 void grib_grow_buffer(const grib_context* c, grib_buffer* b, size_t new_size);
 void grib_accessor_delete(grib_context* ct, grib_accessor* a);
 int grib_handle_delete(grib_handle* h);
 void* grib_context_malloc(const grib_context* c, size_t size);
 void* grib_context_malloc_clear(const grib_context* c, size_t size);
+void* grib_context_malloc_clear_persistent(const grib_context* c, size_t size);
+int grib_create_accessor(grib_section* p, grib_action* a, grib_loader* h);
 void grib_empty_section(grib_context* c, grib_section* b);
 const char* grib_expression_get_name(grib_expression*);
 void grib_context_set_handle_file_count(grib_context*, int);
@@ -1043,44 +1360,44 @@ void grib_check(const char*, const char*, int, int, const char*);
 void grib_context_free(const grib_context* c, void* p);
 void grib_context_increment_handle_file_count(grib_context* c);
 void grib_context_log(const grib_context*, int, const char*, ...);
+char* grib_context_strdup(const grib_context* c, const char* s);
 int grib_get_data(const grib_handle*, double*, double*, double*);
+int _grib_get_double_array_internal(const grib_handle* h, grib_accessor* a, double* val, size_t buffer_len, size_t* decoded_length);
+int grib_get_double_array_internal(const grib_handle* h, const char* name, double* val, size_t* length);
+int grib_get_double_array(const grib_handle* h, const char* name, double* val, size_t* length);
 const char* grib_get_error_message(int code);
 int grib_get_length(const grib_handle* h, const char* name, size_t* length);
 int grib_get_long(const grib_handle*, const char*, long*);
+int grib_get_long_internal(grib_handle* h, const char* name, long* val);
 int _grib_get_string_length(grib_accessor* a, size_t* size);
 int grib_get_string_length(const grib_handle* h, const char* name, size_t* size);
 void grib_context_increment_handle_total_count(grib_context* c);
 size_t grib_context_read(const grib_context* c, void* ptr, size_t size, void* stream);
 static GRIB_INLINE int grib_inline_strcmp(const char* a, const char* b);
 int grib_context_seek(const grib_context* c, off_t offset, int whence, void* stream);
+unsigned long grib_decode_unsigned_byte_long(const unsigned char* p, long o, int l);
 int grib_encode_unsigned_long(unsigned char* p, unsigned long val, long* bitp, long nbits);
 int grib_is_defined(const grib_handle* h, const char* name);
 int grib_iterator_delete(grib_iterator* i);
 int grib_iterator_init(grib_iterator* i, grib_handle* h, grib_arguments* args);
 int grib_iterator_next(grib_iterator*, double*, double*, double*);
 long grib_byte_offset(grib_accessor* a);
+int _grib_get_size(const grib_handle* h, grib_accessor* a, size_t* size);
+int grib_get_size(const grib_handle* ch, const char* name, size_t* size);
+int grib_pack_long(grib_accessor* a, const long* v, size_t* len);
 int grib_unpack_long(grib_accessor*, long*, size_t*);
 int grib_unpack_string(grib_accessor* a, char* v, size_t* len);
+void* grib_trie_insert(grib_trie* t, const char* key, void* data);
 long grib_string_length(grib_accessor* a);
+int grib_value_count(grib_accessor* a, long* count);
+int grib_section_adjust_sizes(grib_section* s, int update, int depth);
 void grib_section_delete(grib_context* c, grib_section* b);
+void grib_section_post_init(grib_section* s);
 
-static void default_buffer_free(const grib_context*, void*);
-static void* default_buffer_malloc(const grib_context*, size_t);
-static void* default_buffer_realloc(const grib_context*, void*, size_t);
-static void default_log(const grib_context*, int, const char*);
-static void default_long_lasting_free(const grib_context*, void*);
-static void* default_long_lasting_malloc(const grib_context*, size_t);
-static int default_feof(const grib_context*, void*);
-static void default_free(const grib_context*, void*);
-static void* default_malloc(const grib_context*, size_t);
-static void default_print(const grib_context*, void*, const char*);
-static size_t default_read(const grib_context*, void*, size_t, void*);
-static void* default_realloc(const grib_context*, void*, size_t);
-static off_t default_seek(const grib_context*, off_t, int, void*);
-static off_t default_tell(const grib_context*, void*);
-static size_t default_write(const grib_context*, const void*, size_t, void*);
+
 
 static void* allocate_buffer(void* data, size_t* length, int* err);
+static void init(grib_action_class* c);
 static int read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok);
 static int init_iterator(grib_iterator_class* c, grib_iterator* i, grib_handle* h, grib_arguments* args);
 size_t stdio_read(void* data, void* buf, size_t len, int* err);
