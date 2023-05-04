@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <string.h>
 
 
 #define ACCESSORS_ARRAY_SIZE 5000
@@ -18,21 +19,30 @@
 #define DEFAULT_FILE_POOL_MAX_OPENED_FILES 0
 #define ECC_PATH_DELIMITER_CHAR ';'
 #define ECC_PATH_MAXLEN 8192
+#define GRIB_BUFFER_TOO_SMALL -3
 #define GRIB_DECODING_ERROR -13
-#define GRIB_IO_PROBLEM -11
 #define GRIB_END_OF_FILE -1
+#define GRIB_INTERNAL_ERROR -2
+#define GRIB_INVALID_ARGUMENT -19
+#define GRIB_IO_PROBLEM -11
 #define GRIB_LOG_DEBUG 4
 #define GRIB_LOG_ERROR 2
 #define GRIB_LOG_FATAL 3
 #define GRIB_LOG_INFO 0
+#define GRIB_LOG_PERROR (1 << 10)
 #define GRIB_LOG_WARNING 1
+#define GRIB_MESSAGE_TOO_LARGE -47
 #define GRIB_MUTEX_INIT_ONCE(a, b)
 #define GRIB_MUTEX_LOCK(a)
 #define GRIB_MUTEX_UNLOCK(a)
 #define GRIB_MY_BUFFER 0
 #define GRIB_NOT_FOUND -10
+#define GRIB_NOT_IMPLEMENTED -4
+#define GRIB_OUT_OF_MEMORY -17
+#define GRIB_PREMATURE_END_OF_FILE -45
 #define GRIB_REAL_MODE8 8
 #define GRIB_SUCCESS 0
+#define GRIB_UNSUPPORTED_EDITION -64
 #define GRIB_WRONG_LENGTH -23
 #define ITRIE_SIZE 40
 #define MAX_ACCESSOR_NAMES 20
@@ -42,6 +52,7 @@
 #define MAX_NUM_SECTIONS 12
 #define MAX_SET_VALUES 10
 #define MAX_SMART_TABLE_COLUMNS 20
+#define NUMBER(x) (sizeof(x) / sizeof(x[0]))
 #define STRING_VALUE_LEN 100
 #define TRIE_SIZE 39
 
@@ -56,11 +67,13 @@ typedef enum ProductKind
     PRODUCT_TAF
 } ProductKind;
 
+typedef struct alloc_buffer alloc_buffer;
 typedef struct codes_condition codes_condition;
 typedef struct code_table_entry code_table_entry;
 typedef struct grib_accessors_list grib_accessors_list;
 typedef struct grib_accessor grib_accessor;
 typedef struct grib_accessor_class grib_accessor_class;
+typedef struct grib_accessor_iterator grib_accessor_iterator;
 typedef struct grib_action grib_action;
 typedef struct grib_action_class grib_action_class;
 typedef struct grib_action_file grib_action_file;
@@ -72,6 +85,7 @@ typedef struct grib_codetable grib_codetable;
 typedef struct grib_concept_condition grib_concept_condition;
 typedef struct grib_concept_value grib_concept_value;
 typedef struct grib_context grib_context;
+typedef struct grib_darray grib_darray;
 typedef struct grib_dependency grib_dependency;
 typedef struct grib_dumper grib_dumper;
 typedef struct grib_dumper_class grib_dumper_class;
@@ -92,8 +106,111 @@ typedef struct grib_string_list grib_string_list;
 typedef struct grib_trie grib_trie;
 typedef struct grib_values grib_values;
 typedef struct grib_virtual_value grib_virtual_value;
+typedef struct reader reader;
+typedef struct table_entry table_entry;
+
+/* funnction pointer typedefs */
+typedef int (*action_create_accessors_handle_proc)(grib_section*, grib_action*, grib_loader*);
+typedef void (*action_destroy_proc)(grib_context*, grib_action*);
+typedef int (*action_execute_proc)(grib_action*, grib_handle*);
+typedef void (*action_init_class_proc)(grib_action_class*);
+typedef void (*action_init_proc)(grib_action*);
+typedef int (*action_notify_change_proc)(grib_action*, grib_accessor*, grib_accessor*);
+typedef grib_action* (*action_reparse_proc)(grib_action*, grib_accessor*, int*);
+
+typedef int (*accessor_clear_proc)(grib_accessor*);
+typedef grib_accessor* (*accessor_clone_proc)(grib_accessor*, grib_section*, int*);
+typedef int (*accessor_compare_proc)(grib_accessor*, grib_accessor*);
+typedef void (*accessor_destroy_proc)(grib_context*, grib_accessor*);
+typedef void (*accessor_dump_proc)(grib_accessor*, grib_dumper*);
+typedef int (*accessor_get_native_type_proc)(grib_accessor*);
+typedef void (*accessor_init_proc)(grib_accessor*, const long, grib_arguments*);
+typedef void (*accessor_init_class_proc)(grib_accessor_class*);
+typedef int (*accessor_nearest_proc)(grib_accessor*, double, double*);
+typedef grib_accessor* (*accessor_next_proc)(grib_accessor*, int);
+typedef int (*accessor_notify_change_proc)(grib_accessor*, grib_accessor*);
+typedef int (*accessor_pack_bytes_proc)(grib_accessor*, const unsigned char*, size_t*);
+typedef int (*accessor_pack_double_proc)(grib_accessor*, const double*, size_t*);
+typedef int (*accessor_pack_expression_proc)(grib_accessor*, grib_expression*);
+typedef int (*accessor_pack_is_missing_proc)(grib_accessor*);
+typedef int (*accessor_pack_long_proc)(grib_accessor*, const long*, size_t*);
+typedef int (*accessor_pack_missing_proc)(grib_accessor*);
+typedef int (*accessor_pack_string_array_proc)(grib_accessor*, const char**, size_t*);
+typedef int (*accessor_pack_string_proc)(grib_accessor*, const char*, size_t*);
+typedef void (*accessor_post_init_proc)(grib_accessor*);
+typedef size_t (*accessor_preferred_size_proc)(grib_accessor*, int);
+typedef int (*accessor_unpack_bytes_proc)(grib_accessor*, unsigned char*, size_t*);
+typedef int (*accessor_unpack_double_element_proc)(grib_accessor*, size_t, double*);
+typedef int (*accessor_unpack_double_element_set_proc)(grib_accessor*, const size_t*, size_t, double*);
+typedef int (*accessor_unpack_double_proc)(grib_accessor*, double*, size_t*);
+typedef int (*accessor_unpack_double_subarray_proc)(grib_accessor*, double*, size_t, size_t);
+typedef int (*accessor_unpack_long_proc)(grib_accessor*, long*, size_t*);
+typedef int (*accessor_unpack_string_array_proc)(grib_accessor*, char**, size_t*);
+typedef int (*accessor_unpack_string_proc)(grib_accessor*, char*, size_t*);
+typedef void (*accessor_update_size_proc)(grib_accessor*, size_t);
+typedef void (*accessor_resize_proc)(grib_accessor*, size_t);
+typedef size_t (*accessor_string_proc)(grib_accessor*);
+typedef grib_section* (*accessor_sub_section_proc)(grib_accessor*);
+typedef long (*accessor_value_proc)(grib_accessor*);
+typedef int (*accessor_value_with_ret_proc)(grib_accessor*, long*);
+
+typedef void (*codes_assertion_failed_proc)(const char*);
+
+typedef int (*dumper_destroy_proc)(grib_dumper*);
+typedef void (*dumper_dump_proc)(grib_dumper*, grib_accessor*, const char*);
+typedef void (*dumper_dump_section_proc)(grib_dumper*, grib_accessor*, grib_block_of_accessors*);
+typedef void (*dumper_dump_values_proc)(grib_dumper*, grib_accessor*);
+typedef void (*dumper_footer_proc)(grib_dumper*, grib_handle*);
+typedef void (*dumper_header_proc)(grib_dumper*, grib_handle*);
+typedef int (*dumper_init_proc)(grib_dumper*);
+typedef void (*dumper_init_class_proc)(grib_dumper_class*);
+
+typedef void (*expression_add_dependency_proc)(grib_expression*, grib_accessor*);
+typedef void (*expression_class_init_proc)(grib_expression_class*);
+typedef void (*expression_destroy_proc)(grib_context*, grib_expression*);
+typedef int (*expression_evaluate_double_proc)(grib_expression*, grib_handle*, double*);
+typedef int (*expression_evaluate_long_proc)(grib_expression*, grib_handle*, long*);
+typedef const char* (*expression_evaluate_string_proc)(grib_expression*, grib_handle*, char*, size_t*, int*);
+typedef const char* (*expression_get_name_proc)(grib_expression*);
+typedef void (*expression_init_proc)(grib_expression*);
+typedef int (*expression_native_type_proc)(grib_expression*, grib_handle*);
+typedef void (*expression_print_proc)(grib_context*, grib_expression*, grib_handle*);
+
+typedef int (*grib_data_eof_proc)(const grib_context*, void*);
+typedef off_t (*grib_data_tell_proc)(const grib_context*, void*);
+typedef off_t (*grib_data_seek_proc)(const grib_context*, off_t, int, void*);
+typedef size_t (*grib_data_read_proc)(const grib_context*, void*, size_t, void*);
+typedef size_t (*grib_data_write_proc)(const grib_context*, const void*, size_t, void*);
+typedef void (*grib_dump_proc)(grib_action*, FILE*, int);
+typedef int (*grib_loader_init_accessor_proc)(grib_loader*, grib_accessor*, grib_arguments*);
+typedef int (*grib_loader_lookup_long_proc)(grib_context*, grib_loader*, const char*, long*);
+typedef void (*grib_log_proc)(const grib_context*, int, const char*);
+typedef void (*grib_print_proc)(const grib_context*, void*, const char*);
+typedef void (*grib_free_proc)(const grib_context*, void*);
+typedef void* (*grib_malloc_proc)(const grib_context*, size_t);
+typedef void* (*grib_realloc_proc)(const grib_context*, void*, size_t);
+typedef void (*grib_xref_proc)(grib_action*, FILE*, const char*);
+
+typedef int (*iterator_destroy_proc)(grib_iterator* );
+typedef long (*iterator_has_next_proc)(grib_iterator* );
+typedef void (*iterator_init_class_proc)(grib_iterator_class*);
+typedef int (*iterator_init_proc)(grib_iterator*, grib_handle*, grib_arguments*);
+typedef int (*iterator_next_proc)(grib_iterator*, double*, double*, double*);
+typedef int (*iterator_previous_proc)(grib_iterator*, double*, double*, double*);
+typedef int (*iterator_reset_proc)(grib_iterator*);
+
+typedef void* (*allocproc)(void*, size_t*, int*);
+typedef size_t (*readproc)(void*, void*, size_t, int*);
+typedef int (*seekproc)(void*, off_t);
+typedef off_t (*tellproc)(void*);
 
 
+
+struct alloc_buffer
+{
+    size_t size;
+    void* buffer;
+};
 
 struct codes_condition
 {
@@ -210,6 +327,12 @@ struct grib_accessor_class
     accessor_unpack_double_subarray_proc unpack_double_subarray;
     accessor_clear_proc clear;
     accessor_clone_proc make_clone;
+};
+
+struct grib_accessor_iterator 
+{
+    grib_accessor att;
+    grib_arguments* args;
 };
 
 struct grib_action
@@ -641,98 +764,115 @@ struct grib_virtual_value
     int type;
 };
 
+struct reader
+{
+    void* read_data;
+    readproc read;
 
-/* initialization headers */
-typedef int (*action_create_accessors_handle_proc)(grib_section*, grib_action*, grib_loader*);
-typedef void (*action_destroy_proc)(grib_context*, grib_action*);
-typedef int (*action_execute_proc)(grib_action*, grib_handle*);
-typedef void (*action_init_class_proc)(grib_action_class*);
-typedef void (*action_init_proc)(grib_action*);
-typedef int (*action_notify_change_proc)(grib_action*, grib_accessor*, grib_accessor*);
-typedef grib_action* (*action_reparse_proc)(grib_action*, grib_accessor*, int*);
+    void* alloc_data;
+    allocproc alloc;
+    int headers_only;
 
-typedef int (*accessor_clear_proc)(grib_accessor*);
-typedef grib_accessor* (*accessor_clone_proc)(grib_accessor*, grib_section*, int*);
-typedef int (*accessor_compare_proc)(grib_accessor*, grib_accessor*);
-typedef void (*accessor_destroy_proc)(grib_context*, grib_accessor*);
-typedef void (*accessor_dump_proc)(grib_accessor*, grib_dumper*);
-typedef int (*accessor_get_native_type_proc)(grib_accessor*);
-typedef void (*accessor_init_proc)(grib_accessor*, const long, grib_arguments*);
-typedef void (*accessor_init_class_proc)(grib_accessor_class*);
-typedef int (*accessor_nearest_proc)(grib_accessor*, double, double*);
-typedef grib_accessor* (*accessor_next_proc)(grib_accessor*, int);
-typedef int (*accessor_notify_change_proc)(grib_accessor*, grib_accessor*);
-typedef int (*accessor_pack_bytes_proc)(grib_accessor*, const unsigned char*, size_t*);
-typedef int (*accessor_pack_double_proc)(grib_accessor*, const double*, size_t*);
-typedef int (*accessor_pack_expression_proc)(grib_accessor*, grib_expression*);
-typedef int (*accessor_pack_is_missing_proc)(grib_accessor*);
-typedef int (*accessor_pack_long_proc)(grib_accessor*, const long*, size_t*);
-typedef int (*accessor_pack_missing_proc)(grib_accessor*);
-typedef int (*accessor_pack_string_array_proc)(grib_accessor*, const char**, size_t*);
-typedef int (*accessor_pack_string_proc)(grib_accessor*, const char*, size_t*);
-typedef void (*accessor_post_init_proc)(grib_accessor*);
-typedef size_t (*accessor_preferred_size_proc)(grib_accessor*, int);
-typedef int (*accessor_unpack_bytes_proc)(grib_accessor*, unsigned char*, size_t*);
-typedef int (*accessor_unpack_double_element_proc)(grib_accessor*, size_t, double*);
-typedef int (*accessor_unpack_double_element_set_proc)(grib_accessor*, const size_t*, size_t, double*);
-typedef int (*accessor_unpack_double_proc)(grib_accessor*, double*, size_t*);
-typedef int (*accessor_unpack_double_subarray_proc)(grib_accessor*, double*, size_t, size_t);
-typedef int (*accessor_unpack_long_proc)(grib_accessor*, long*, size_t*);
-typedef int (*accessor_unpack_string_array_proc)(grib_accessor*, char**, size_t*);
-typedef int (*accessor_unpack_string_proc)(grib_accessor*, char*, size_t*);
-typedef void (*accessor_update_size_proc)(grib_accessor*, size_t);
-typedef void (*accessor_resize_proc)(grib_accessor*, size_t);
-typedef size_t (*accessor_string_proc)(grib_accessor*);
-typedef grib_section* (*accessor_sub_section_proc)(grib_accessor*);
-typedef long (*accessor_value_proc)(grib_accessor*);
-typedef int (*accessor_value_with_ret_proc)(grib_accessor*, long*);
+    seekproc seek;
+    seekproc seek_from_start;
+    tellproc tell;
+    off_t offset;
 
-typedef void (*codes_assertion_failed_proc)(const char*);
+    size_t message_size;
 
-typedef int (*dumper_destroy_proc)(grib_dumper*);
-typedef void (*dumper_dump_proc)(grib_dumper*, grib_accessor*, const char*);
-typedef void (*dumper_dump_section_proc)(grib_dumper*, grib_accessor*, grib_block_of_accessors*);
-typedef void (*dumper_dump_values_proc)(grib_dumper*, grib_accessor*);
-typedef void (*dumper_footer_proc)(grib_dumper*, grib_handle*);
-typedef void (*dumper_header_proc)(grib_dumper*, grib_handle*);
-typedef int (*dumper_init_proc)(grib_dumper*);
-typedef void (*dumper_init_class_proc)(grib_dumper_class*);
+};
 
-typedef void (*expression_add_dependency_proc)(grib_expression*, grib_accessor*);
-typedef void (*expression_class_init_proc)(grib_expression_class*);
-typedef void (*expression_destroy_proc)(grib_context*, grib_expression*);
-typedef int (*expression_evaluate_double_proc)(grib_expression*, grib_handle*, double*);
-typedef int (*expression_evaluate_long_proc)(grib_expression*, grib_handle*, long*);
-typedef const char* (*expression_evaluate_string_proc)(grib_expression*, grib_handle*, char*, size_t*, int*);
-typedef const char* (*expression_get_name_proc)(grib_expression*);
-typedef void (*expression_init_proc)(grib_expression*);
-typedef int (*expression_native_type_proc)(grib_expression*, grib_handle*);
-typedef void (*expression_print_proc)(grib_context*, grib_expression*, grib_handle*);
+struct table_entry
+{
+    const char* type;
+    grib_iterator_class** cclass;
+};
 
-typedef int (*grib_data_eof_proc)(const grib_context*, void*);
-typedef off_t (*grib_data_tell_proc)(const grib_context*, void*);
-typedef off_t (*grib_data_seek_proc)(const grib_context*, off_t, int, void*);
-typedef size_t (*grib_data_read_proc)(const grib_context*, void*, size_t, void*);
-typedef size_t (*grib_data_write_proc)(const grib_context*, const void*, size_t, void*);
-typedef void (*grib_dump_proc)(grib_action*, FILE*, int);
-typedef int (*grib_loader_init_accessor_proc)(grib_loader*, grib_accessor*, grib_arguments*);
-typedef int (*grib_loader_lookup_long_proc)(grib_context*, grib_loader*, const char*, long*);
-typedef void (*grib_log_proc)(const grib_context*, int, const char*);
-typedef void (*grib_print_proc)(const grib_context*, void*, const char*);
-typedef void (*grib_free_proc)(const grib_context*, void*);
-typedef void* (*grib_malloc_proc)(const grib_context*, size_t);
-typedef void* (*grib_realloc_proc)(const grib_context*, void*, size_t);
-typedef void (*grib_xref_proc)(grib_action*, FILE*, const char*);
-
-typedef int (*iterator_destroy_proc)(grib_iterator* );
-typedef long (*iterator_has_next_proc)(grib_iterator* );
-typedef void (*iterator_init_class_proc)(grib_iterator_class*);
-typedef int (*iterator_init_proc)(grib_iterator*, grib_handle*, grib_arguments*);
-typedef int (*iterator_next_proc)(grib_iterator*, double*, double*, double*);
-typedef int (*iterator_previous_proc)(grib_iterator*, double*, double*, double*);
-typedef int (*iterator_reset_proc)(grib_iterator*);
 
 static codes_assertion_failed_proc assertion = NULL;
+static const char *errors[] = {
+"No error",		/* 0 GRIB_SUCCESS */
+"End of resource reached",		/* -1 GRIB_END_OF_FILE */
+"Internal error",		/* -2 GRIB_INTERNAL_ERROR */
+"Passed buffer is too small",		/* -3 GRIB_BUFFER_TOO_SMALL */
+"Function not yet implemented",		/* -4 GRIB_NOT_IMPLEMENTED */
+"Missing 7777 at end of message",		/* -5 GRIB_7777_NOT_FOUND */
+"Passed array is too small",		/* -6 GRIB_ARRAY_TOO_SMALL */
+"File not found",		/* -7 GRIB_FILE_NOT_FOUND */
+"Code not found in code table",		/* -8 GRIB_CODE_NOT_FOUND_IN_TABLE */
+"Array size mismatch",		/* -9 GRIB_WRONG_ARRAY_SIZE */
+"Key/value not found",		/* -10 GRIB_NOT_FOUND */
+"Input output problem",		/* -11 GRIB_IO_PROBLEM */
+"Message invalid",		/* -12 GRIB_INVALID_MESSAGE */
+"Decoding invalid",		/* -13 GRIB_DECODING_ERROR */
+"Encoding invalid",		/* -14 GRIB_ENCODING_ERROR */
+"Code cannot unpack because of string too small",		/* -15 GRIB_NO_MORE_IN_SET */
+"Problem with calculation of geographic attributes",		/* -16 GRIB_GEOCALCULUS_PROBLEM */
+"Memory allocation error",		/* -17 GRIB_OUT_OF_MEMORY */
+"Value is read only",		/* -18 GRIB_READ_ONLY */
+"Invalid argument",		/* -19 GRIB_INVALID_ARGUMENT */
+"Null handle",		/* -20 GRIB_NULL_HANDLE */
+"Invalid section number",		/* -21 GRIB_INVALID_SECTION_NUMBER */
+"Value cannot be missing",		/* -22 GRIB_VALUE_CANNOT_BE_MISSING */
+"Wrong message length",		/* -23 GRIB_WRONG_LENGTH */
+"Invalid key type",		/* -24 GRIB_INVALID_TYPE */
+"Unable to set step",		/* -25 GRIB_WRONG_STEP */
+"Wrong units for step (step must be integer)",		/* -26 GRIB_WRONG_STEP_UNIT */
+"Invalid file id",		/* -27 GRIB_INVALID_FILE */
+"Invalid grib id",		/* -28 GRIB_INVALID_GRIB */
+"Invalid index id",		/* -29 GRIB_INVALID_INDEX */
+"Invalid iterator id",		/* -30 GRIB_INVALID_ITERATOR */
+"Invalid keys iterator id",		/* -31 GRIB_INVALID_KEYS_ITERATOR */
+"Invalid nearest id",		/* -32 GRIB_INVALID_NEAREST */
+"Invalid order by",		/* -33 GRIB_INVALID_ORDERBY */
+"Missing a key from the fieldset",		/* -34 GRIB_MISSING_KEY */
+"The point is out of the grid area",		/* -35 GRIB_OUT_OF_AREA */
+"Concept no match",		/* -36 GRIB_CONCEPT_NO_MATCH */
+"Hash array no match",		/* -37 GRIB_HASH_ARRAY_NO_MATCH */
+"Definitions files not found",		/* -38 GRIB_NO_DEFINITIONS */
+"Wrong type while packing",		/* -39 GRIB_WRONG_TYPE */
+"End of resource",		/* -40 GRIB_END */
+"Unable to code a field without values",		/* -41 GRIB_NO_VALUES */
+"Grid description is wrong or inconsistent",		/* -42 GRIB_WRONG_GRID */
+"End of index reached",		/* -43 GRIB_END_OF_INDEX */
+"Null index",		/* -44 GRIB_NULL_INDEX */
+"End of resource reached when reading message",		/* -45 GRIB_PREMATURE_END_OF_FILE */
+"An internal array is too small",		/* -46 GRIB_INTERNAL_ARRAY_TOO_SMALL */
+"Message is too large for the current architecture",		/* -47 GRIB_MESSAGE_TOO_LARGE */
+"Constant field",		/* -48 GRIB_CONSTANT_FIELD */
+"Switch unable to find a matching case",		/* -49 GRIB_SWITCH_NO_MATCH */
+"Underflow",		/* -50 GRIB_UNDERFLOW */
+"Message malformed",		/* -51 GRIB_MESSAGE_MALFORMED */
+"Index is corrupted",		/* -52 GRIB_CORRUPTED_INDEX */
+"Invalid number of bits per value",		/* -53 GRIB_INVALID_BPV */
+"Edition of two messages is different",		/* -54 GRIB_DIFFERENT_EDITION */
+"Value is different",		/* -55 GRIB_VALUE_DIFFERENT */
+"Invalid key value",		/* -56 GRIB_INVALID_KEY_VALUE */
+"String is smaller than requested",		/* -57 GRIB_STRING_TOO_SMALL */
+"Wrong type conversion",		/* -58 GRIB_WRONG_CONVERSION */
+"Missing BUFR table entry for descriptor",		/* -59 GRIB_MISSING_BUFR_ENTRY */
+"Null pointer",		/* -60 GRIB_NULL_POINTER */
+"Attribute is already present, cannot add",		/* -61 GRIB_ATTRIBUTE_CLASH */
+"Too many attributes. Increase MAX_ACCESSOR_ATTRIBUTES",		/* -62 GRIB_TOO_MANY_ATTRIBUTES */
+"Attribute not found.",		/* -63 GRIB_ATTRIBUTE_NOT_FOUND */
+"Edition not supported.",		/* -64 GRIB_UNSUPPORTED_EDITION */
+"Value out of coding range",		/* -65 GRIB_OUT_OF_RANGE */
+"Size of bitmap is incorrect",		/* -66 GRIB_WRONG_BITMAP_SIZE */
+"Functionality not enabled",		/* -67 GRIB_FUNCTIONALITY_NOT_ENABLED */
+"Value mismatch",		/* 1 GRIB_VALUE_MISMATCH */
+"double values are different",		/* 2 GRIB_DOUBLE_VALUE_MISMATCH */
+"long values are different",		/* 3 GRIB_LONG_VALUE_MISMATCH */
+"byte values are different",		/* 4 GRIB_BYTE_VALUE_MISMATCH */
+"string values are different",		/* 5 GRIB_STRING_VALUE_MISMATCH */
+"Offset mismatch",		/* 6 GRIB_OFFSET_MISMATCH */
+"Count mismatch",		/* 7 GRIB_COUNT_MISMATCH */
+"Name mismatch",		/* 8 GRIB_NAME_MISMATCH */
+"Type mismatch",		/* 9 GRIB_TYPE_MISMATCH */
+"Type and value mismatch",		/* 10 GRIB_TYPE_AND_VALUE_MISMATCH */
+"Unable to compare accessors",		/* 11 GRIB_UNABLE_TO_COMPARE_ACCESSORS */
+"Unable to reset iterator",		/* 12 GRIB_UNABLE_TO_RESET_ITERATOR */
+"Assertion failure",		/* 13 GRIB_ASSERTION_FAILURE */
+};
 static grib_context default_grib_context = {
     0,               /* inited                     */
     0,               /* debug                      */
@@ -822,6 +962,9 @@ static grib_context default_grib_context = {
 #endif
 };
 
+static const struct table_entry table[] = {
+#include "subfuncs/grib_iterator_factory.h"
+};
 
 
 /* function headers */
@@ -834,14 +977,39 @@ grib_accessors_list* grib_find_accessors_list(const grib_handle*, const char*);
 grib_context* grib_context_get_default();
 
 grib_handle* grib_handle_new_from_file(grib_context*, FILE*, int*);
-grib_handle* grib_new_from_file(grib_context*, FILE*, int*);
+grib_handle* grib_new_from_file(grib_context*, FILE*, int, int*);
+grib_handle* grib_handle_new_from_message(grib_context* c, const void* data, size_t buflen);
+grib_handle* grib_handle_new_from_partial_message(grib_context* c, const void* data, size_t buflen);
 static grib_handle* grib_handle_new_from_file_no_multi(grib_context*, FILE*, int, int*);
 
+grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret);
+grib_iterator* grib_iterator_new(const grib_handle*, unsigned long flags, int*);
+
+static void init_class(grib_iterator_class*);
+static int init(grib_iterator* i, grib_handle*, grib_arguments*);
+static int destroy(grib_iterator* i);
+static int reset(grib_iterator* i);
+static long has_next(grib_iterator* i);
+
 int codes_get_long(const grib_handle*, const char*, long*);
+const char* grib_arguments_get_name(grib_handle* h, grib_arguments* args, int n);
+void grib_buffer_delete(const grib_context* c, grib_buffer* b);
+void* grib_context_malloc(const grib_context* c, size_t size);
+void* grib_context_malloc_clear(const grib_context* c, size_t size);
+const char* grib_expression_get_name(grib_expression*);
 void grib_context_set_handle_file_count(grib_context*, int);
 void grib_check(const char*, const char*, int, int, const char*);
+void grib_context_free(const grib_context* c, void* p);
+void grib_context_increment_handle_file_count(grib_context* c);
+void grib_context_log(const grib_context*, int, const char*, ...);
 int grib_get_data(const grib_handle*, double*, double*, double*);
+const char* grib_get_error_message(int code);
 int grib_get_long(const grib_handle*, const char*, long*);
+void grib_context_increment_handle_total_count(grib_context* c);
+size_t grib_context_read(const grib_context* c, void* ptr, size_t size, void* stream);
+int grib_context_seek(const grib_context* c, off_t offset, int whence, void* stream);
+int grib_iterator_delete(grib_iterator* i);
+int grib_iterator_init(grib_iterator* i, grib_handle* h, grib_arguments* args);
 int grib_iterator_next(grib_iterator*, double*, double*, double*);
 int grib_unpack_long(grib_accessor*, long*, size_t*);
 
@@ -861,7 +1029,19 @@ static off_t default_seek(const grib_context*, off_t, int, void*);
 static off_t default_tell(const grib_context*, void*);
 static size_t default_write(const grib_context*, const void*, size_t, void*);
 
+static void* allocate_buffer(void* data, size_t* length, int* err);
+static int read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok);
+static int init_iterator(grib_iterator_class* c, grib_iterator* i, grib_handle* h, grib_arguments* args);
+size_t stdio_read(void* data, void* buf, size_t len, int* err);
+int stdio_seek_from_start(void* data, off_t len);
+int stdio_seek(void* data, off_t len);
+off_t stdio_tell(void* data);
+void* wmo_read_grib_from_file_malloc(FILE* f, int headers_only, size_t* size, off_t* offset, int* err);
+static void* _wmo_read_any_from_file_malloc(FILE* f, int* err, size_t* size, off_t* offset,
+                                            int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok, int headers_only);
 
+static int read_GRIB(reader* r);
+static int read_the_rest(reader* r, size_t message_length, unsigned char* tmp, int already_read, int check7777);
 
 
 
