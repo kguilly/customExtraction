@@ -14,14 +14,23 @@
     do {                                                          \
         if (!(a)) codes_assertion_failed(#a, __FILE__, __LINE__); \
     } while (0)
+#define BIT_MASK(x) \
+(((x) == max_nbits) ? (unsigned long)-1UL : (1UL << (x)) - 1)
 #define DebugAssert(a) Assert(a)
 #define DebugAssert(a)
 #define DEFAULT_FILE_POOL_MAX_OPENED_FILES 0
 #define ECC_PATH_DELIMITER_CHAR ';'
 #define ECC_PATH_MAXLEN 8192
+#define GRIB_7777_NOT_FOUND -5
 #define GRIB_BUFFER_TOO_SMALL -3
+#define GROW_BUF_IF_REQUIRED(desired_length)      \
+    if (buf->length < (desired_length)) {         \
+        grib_grow_buffer(c, buf, desired_length); \
+        tmp = buf->data;                          \
+    }
 #define GRIB_DECODING_ERROR -13
 #define GRIB_END_OF_FILE -1
+#define GRIB_INLINE
 #define GRIB_INTERNAL_ERROR -2
 #define GRIB_INVALID_ARGUMENT -19
 #define GRIB_IO_PROBLEM -11
@@ -43,6 +52,7 @@
 #define GRIB_REAL_MODE8 8
 #define GRIB_SUCCESS 0
 #define GRIB_UNSUPPORTED_EDITION -64
+#define GRIB_USER_BUFFER 1
 #define GRIB_WRONG_LENGTH -23
 #define ITRIE_SIZE 40
 #define MAX_ACCESSOR_NAMES 20
@@ -55,6 +65,7 @@
 #define NUMBER(x) (sizeof(x) / sizeof(x[0]))
 #define STRING_VALUE_LEN 100
 #define TRIE_SIZE 39
+#define UINT3(a, b, c) (size_t)((a << 16) + (b << 8) + c);
 
 /* structs & enums */
 typedef enum ProductKind
@@ -873,6 +884,19 @@ static const char *errors[] = {
 "Unable to reset iterator",		/* 12 GRIB_UNABLE_TO_RESET_ITERATOR */
 "Assertion failure",		/* 13 GRIB_ASSERTION_FAILURE */
 };
+static const unsigned long dmasks[] = {
+    0xFF,
+    0xFE,
+    0xFC,
+    0xF8,
+    0xF0,
+    0xE0,
+    0xC0,
+    0x80,
+    0x00,
+};
+static const int max_nbits        = sizeof(unsigned long) * 8;
+static const int max_nbits_size_t = sizeof(size_t) * 8;
 static grib_context default_grib_context = {
     0,               /* inited                     */
     0,               /* debug                      */
@@ -974,13 +998,17 @@ void codes_check(const char*, const char*, int, int, const char*);
 grib_accessor* grib_find_accessor(const grib_handle*, const char*);
 grib_accessors_list* grib_find_accessors_list(const grib_handle*, const char*);
 
+grib_buffer* grib_new_buffer(const grib_context* c, const unsigned char* data, size_t buflen);
 grib_context* grib_context_get_default();
 
+static grib_handle* grib_handle_create(grib_handle* gl, grib_context* c, const void* data, size_t buflen);
 grib_handle* grib_handle_new_from_file(grib_context*, FILE*, int*);
 grib_handle* grib_new_from_file(grib_context*, FILE*, int, int*);
 grib_handle* grib_handle_new_from_message(grib_context* c, const void* data, size_t buflen);
 grib_handle* grib_handle_new_from_partial_message(grib_context* c, const void* data, size_t buflen);
 static grib_handle* grib_handle_new_from_file_no_multi(grib_context*, FILE*, int, int*);
+static grib_handle* grib_handle_new_from_file_multi(grib_context* c, FILE* f, int* error);
+grib_handle* grib_new_handle(grib_context* c);
 
 grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret);
 grib_iterator* grib_iterator_new(const grib_handle*, unsigned long flags, int*);
@@ -992,26 +1020,49 @@ static int reset(grib_iterator* i);
 static long has_next(grib_iterator* i);
 
 int codes_get_long(const grib_handle*, const char*, long*);
+static int determine_product_kind(grib_handle* h, ProductKind* prod_kind);
+static void grib2_build_message(grib_context* context, unsigned char* sections[], size_t sections_len[], void** data, size_t* len);
+static int grib2_get_next_section(unsigned char* msgbegin, size_t msglen, unsigned char** secbegin, size_t* seclen, int* secnum, int* err);
+static int grib2_has_next_section(unsigned char* msgbegin, size_t msglen, unsigned char* secbegin, size_t seclen, int* err);
 const char* grib_arguments_get_name(grib_handle* h, grib_arguments* args, int n);
 void grib_buffer_delete(const grib_context* c, grib_buffer* b);
+void grib_context_set_handle_total_count(grib_context* c, int new_count);
+void grib_get_buffer_ownership(const grib_context* c, grib_buffer* b);
+int grib_get_string(const grib_handle* h, const char* name, char* val, size_t* length);
+static void grib_grow_buffer_to(const grib_context* c, grib_buffer* b, size_t ns);
+void grib_grow_buffer(const grib_context* c, grib_buffer* b, size_t new_size);
+void grib_accessor_delete(grib_context* ct, grib_accessor* a);
+int grib_handle_delete(grib_handle* h);
 void* grib_context_malloc(const grib_context* c, size_t size);
 void* grib_context_malloc_clear(const grib_context* c, size_t size);
+void grib_empty_section(grib_context* c, grib_section* b);
 const char* grib_expression_get_name(grib_expression*);
 void grib_context_set_handle_file_count(grib_context*, int);
+off_t grib_context_tell(const grib_context* c, void* stream);
 void grib_check(const char*, const char*, int, int, const char*);
 void grib_context_free(const grib_context* c, void* p);
 void grib_context_increment_handle_file_count(grib_context* c);
 void grib_context_log(const grib_context*, int, const char*, ...);
 int grib_get_data(const grib_handle*, double*, double*, double*);
 const char* grib_get_error_message(int code);
+int grib_get_length(const grib_handle* h, const char* name, size_t* length);
 int grib_get_long(const grib_handle*, const char*, long*);
+int _grib_get_string_length(grib_accessor* a, size_t* size);
+int grib_get_string_length(const grib_handle* h, const char* name, size_t* size);
 void grib_context_increment_handle_total_count(grib_context* c);
 size_t grib_context_read(const grib_context* c, void* ptr, size_t size, void* stream);
+static GRIB_INLINE int grib_inline_strcmp(const char* a, const char* b);
 int grib_context_seek(const grib_context* c, off_t offset, int whence, void* stream);
+int grib_encode_unsigned_long(unsigned char* p, unsigned long val, long* bitp, long nbits);
+int grib_is_defined(const grib_handle* h, const char* name);
 int grib_iterator_delete(grib_iterator* i);
 int grib_iterator_init(grib_iterator* i, grib_handle* h, grib_arguments* args);
 int grib_iterator_next(grib_iterator*, double*, double*, double*);
+long grib_byte_offset(grib_accessor* a);
 int grib_unpack_long(grib_accessor*, long*, size_t*);
+int grib_unpack_string(grib_accessor* a, char* v, size_t* len);
+long grib_string_length(grib_accessor* a);
+void grib_section_delete(grib_context* c, grib_section* b);
 
 static void default_buffer_free(const grib_context*, void*);
 static void* default_buffer_malloc(const grib_context*, size_t);
