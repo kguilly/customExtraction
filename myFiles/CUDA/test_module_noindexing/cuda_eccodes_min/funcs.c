@@ -117,6 +117,26 @@ grib_action* grib_parse_file(grib_context* gc, const char* filename)
     return af->root;
 }
 
+grib_accessors_list* accessor_bufr_data_array_get_dataAccessors(grib_accessor* a)
+{
+    grib_accessor_bufr_data_array* self = (grib_accessor_bufr_data_array*)a;
+    return self->dataAccessors;
+}
+
+grib_accessors_list* grib_accessors_list_last(grib_accessors_list* al)
+{
+    /*grib_accessors_list* last=al;*/
+    /*grib_accessors_list* next=al->next;*/
+
+    /*
+    while(next) {
+      last=next;
+      next=last->next;
+    }
+     */
+    return al->last;
+}
+
 grib_accessors_list* grib_find_accessors_list(const grib_handle* ch, const char* name)
 {
     char* str                  = NULL;
@@ -160,6 +180,26 @@ grib_accessors_list* grib_find_accessors_list(const grib_handle* ch, const char*
     return al;
 }
 
+static grib_accessors_list* search_by_condition(grib_handle* h, const char* name, codes_condition* condition)
+{
+    grib_accessors_list* al;
+    grib_accessors_list* result = NULL;
+    grib_accessor* data         = search_and_cache(h, "dataAccessors", 0);
+    if (data && condition->left) {
+        al = accessor_bufr_data_array_get_dataAccessors(data);
+        if (!al)
+            return NULL;
+        result = (grib_accessors_list*)grib_context_malloc_clear(al->accessor->context, sizeof(grib_accessors_list));
+        search_accessors_list_by_condition(al, name, condition, result);
+        if (!result->accessor) {
+            grib_accessors_list_delete(h->context, result);
+            result = NULL;
+        }
+    }
+
+    return result;
+}
+
 grib_buffer* grib_new_buffer(const grib_context* c, const unsigned char* data, size_t buflen)
 {
     grib_buffer* b = (grib_buffer*)grib_context_malloc_clear(c, sizeof(grib_buffer));
@@ -201,9 +241,9 @@ grib_context* grib_context_get_default()
         const char* grib_data_quality_checks            = NULL;
         const char* file_pool_max_opened_files          = NULL;
 
-#ifdef ENABLE_FLOATING_POINT_EXCEPTIONS
+    #ifdef ENABLE_FLOATING_POINT_EXCEPTIONS
         feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-#endif
+    #endif
 
         write_on_fail                       = codes_getenv("ECCODES_GRIB_WRITE_ON_FAIL");
         bufrdc_mode                         = getenv("ECCODES_BUFRDC_MODE_ON");
@@ -225,9 +265,9 @@ grib_context* grib_context_get_default()
         /* On UNIX, when we read from a file we get exactly what is in the file on disk.
          * But on Windows a file can be opened in binary or text mode. In binary mode the system behaves exactly as in UNIX.
          */
-#ifdef ECCODES_ON_WINDOWS
+    #ifdef ECCODES_ON_WINDOWS
         _set_fmode(_O_BINARY);
-#endif
+    #endif
 
         default_grib_context.inited = 1;
         default_grib_context.io_buffer_size = io_buffer_size ? atoi(io_buffer_size) : 0;
@@ -252,20 +292,20 @@ grib_context* grib_context_get_default()
             default_grib_context.log_stream = stdout;
         }
 
-#ifdef ECCODES_SAMPLES_PATH
+    #ifdef ECCODES_SAMPLES_PATH
         if (!default_grib_context.grib_samples_path)
             default_grib_context.grib_samples_path = ECCODES_SAMPLES_PATH;
-#endif
+    #endif
 
         default_grib_context.grib_definition_files_path = codes_getenv("ECCODES_DEFINITION_PATH");
-#ifdef ECCODES_DEFINITION_PATH
+    #ifdef ECCODES_DEFINITION_PATH
         if (!default_grib_context.grib_definition_files_path) {
             default_grib_context.grib_definition_files_path = strdup(ECCODES_DEFINITION_PATH);
         }
         else {
             default_grib_context.grib_definition_files_path = strdup(default_grib_context.grib_definition_files_path);
         }
-#endif
+    #endif
 
         /* GRIB-779: Special case for ECMWF testing. Not for external use! */
         /* Append the new path to our existing path */
@@ -303,7 +343,7 @@ grib_context* grib_context_get_default()
                 default_grib_context.grib_definition_files_path = strdup(buffer);
             }
         }
-#ifdef ECCODES_DEFINITION_PATH
+    #ifdef ECCODES_DEFINITION_PATH
         {
             /* ECC-1088 */
             if (strstr(default_grib_context.grib_definition_files_path, ECCODES_DEFINITION_PATH) == NULL) {
@@ -314,7 +354,7 @@ grib_context* grib_context_get_default()
                 default_grib_context.grib_definition_files_path = strdup(buffer);
             }
         }
-#endif
+    #endif
 
         /* Samples path extra: Added at the head of (i.e. before) existing path */
         {
@@ -325,7 +365,7 @@ grib_context* grib_context_get_default()
                 default_grib_context.grib_samples_path = strdup(buffer);
             }
         }
-#ifdef ECCODES_SAMPLES_PATH
+    #ifdef ECCODES_SAMPLES_PATH
         {
             if (strstr(default_grib_context.grib_samples_path, ECCODES_SAMPLES_PATH) == NULL) {
                 char buffer[ECC_PATH_MAXLEN];
@@ -334,7 +374,7 @@ grib_context* grib_context_get_default()
                 default_grib_context.grib_samples_path = strdup(buffer);
             }
         }
-#endif
+    #endif
 
         grib_context_log(&default_grib_context, GRIB_LOG_DEBUG, "Definitions path: %s",
                          default_grib_context.grib_definition_files_path);
@@ -888,6 +928,24 @@ grib_section* grib_create_root_section(const grib_context* context, grib_handle*
     return s;
 }
 
+grib_itrie* grib_hash_keys_new(grib_context* c, int* count)
+{
+    grib_itrie* t = (grib_itrie*)grib_context_malloc_clear(c, sizeof(grib_itrie));
+    t->context    = c;
+    t->id         = -1;
+    t->count      = count;
+    return t;
+}
+
+grib_itrie* grib_itrie_new(grib_context* c, int* count)
+{
+    grib_itrie* t = (grib_itrie*)grib_context_malloc_clear(c, sizeof(grib_itrie));
+    t->context    = c;
+    t->id         = -1;
+    t->count      = count;
+    return t;
+}
+
 grib_trie* grib_trie_new(grib_context* c)
 {
 #ifdef RECYCLE_TRIE
@@ -901,9 +959,116 @@ grib_trie* grib_trie_new(grib_context* c)
     return t;
 }
 
+char* codes_getenv(const char* name)
+{
+    /* Look for the new ecCodes environment variable names */
+    /* if not found, then look for old grib_api ones for backward compatibility */
+    char* result = getenv(name);
+    if (result == NULL) {
+        const char* old_name = name;
+
+        /* Test the most commonly used variables first */
+        if (STR_EQ(name, "ECCODES_SAMPLES_PATH"))
+            old_name = "GRIB_SAMPLES_PATH";
+        else if (STR_EQ(name, "ECCODES_DEFINITION_PATH"))
+            old_name = "GRIB_DEFINITION_PATH";
+        else if (STR_EQ(name, "ECCODES_DEBUG"))
+            old_name = "GRIB_API_DEBUG";
+
+        else if (STR_EQ(name, "ECCODES_FAIL_IF_LOG_MESSAGE"))
+            old_name = "GRIB_API_FAIL_IF_LOG_MESSAGE";
+        else if (STR_EQ(name, "ECCODES_GRIB_WRITE_ON_FAIL"))
+            old_name = "GRIB_API_WRITE_ON_FAIL";
+        else if (STR_EQ(name, "ECCODES_GRIB_LARGE_CONSTANT_FIELDS"))
+            old_name = "GRIB_API_LARGE_CONSTANT_FIELDS";
+        else if (STR_EQ(name, "ECCODES_NO_ABORT"))
+            old_name = "GRIB_API_NO_ABORT";
+        else if (STR_EQ(name, "ECCODES_GRIBEX_MODE_ON"))
+            old_name = "GRIB_GRIBEX_MODE_ON";
+        else if (STR_EQ(name, "ECCODES_GRIB_IEEE_PACKING"))
+            old_name = "GRIB_IEEE_PACKING";
+        else if (STR_EQ(name, "ECCODES_IO_BUFFER_SIZE"))
+            old_name = "GRIB_API_IO_BUFFER_SIZE";
+        else if (STR_EQ(name, "ECCODES_LOG_STREAM"))
+            old_name = "GRIB_API_LOG_STREAM";
+        else if (STR_EQ(name, "ECCODES_GRIB_NO_BIG_GROUP_SPLIT"))
+            old_name = "GRIB_API_NO_BIG_GROUP_SPLIT";
+        else if (STR_EQ(name, "ECCODES_GRIB_NO_SPD"))
+            old_name = "GRIB_API_NO_SPD";
+        else if (STR_EQ(name, "ECCODES_GRIB_KEEP_MATRIX"))
+            old_name = "GRIB_API_KEEP_MATRIX";
+        else if (STR_EQ(name, "_ECCODES_ECMWF_TEST_DEFINITION_PATH"))
+            old_name = "_GRIB_API_ECMWF_TEST_DEFINITION_PATH";
+        else if (STR_EQ(name, "_ECCODES_ECMWF_TEST_SAMPLES_PATH"))
+            old_name = "_GRIB_API_ECMWF_TEST_SAMPLES_PATH";
+        else if (STR_EQ(name, "ECCODES_GRIB_JPEG"))
+            old_name = "GRIB_JPEG";
+        else if (STR_EQ(name, "ECCODES_GRIB_DUMP_JPG_FILE"))
+            old_name = "GRIB_DUMP_JPG_FILE";
+        else if (STR_EQ(name, "ECCODES_PRINT_MISSING"))
+            old_name = "GRIB_PRINT_MISSING";
+
+        result = getenv(old_name);
+    }
+    return result;
+}
+
 int codes_get_long(const grib_handle* h, const char* key, long* value)
 {
     return grib_get_long(h, key, value);
+}
+
+char* codes_resolve_path(grib_context* c, const char* path)
+{
+    char* result = NULL;
+#if defined(ECCODES_HAVE_REALPATH)
+    char resolved[ECC_PATH_MAXLEN + 1];
+    if (!realpath(path, resolved)) {
+        result = grib_context_strdup(c, path); /* Failed to resolve. Use original path */
+    }
+    else {
+        result = grib_context_strdup(c, resolved);
+    }
+#else
+    result = grib_context_strdup(c, path);
+#endif
+
+    return result;
+}
+
+static int condition_true(grib_accessor* a, codes_condition* condition)
+{
+    int ret = 0, err = 0;
+    long lval   = 0;
+    double dval = 0;
+
+    /* The condition has to be of the form:
+     *   key=value
+     * and the value has to be a single scalar (integer or double).
+     * If the key is an array of different values, then the condition is false.
+     * But if the key is a constant array and the value matches then it's true.
+     */
+
+    switch (condition->rightType) {
+        case GRIB_TYPE_LONG:
+            err = get_single_long_val(a, &lval);
+            if (err)
+                ret = 0;
+            else
+                ret = lval == condition->rightLong ? 1 : 0;
+            break;
+        case GRIB_TYPE_DOUBLE:
+            err = get_single_double_val(a, &dval);
+            if (err)
+                ret = 0;
+            else
+                ret = dval == condition->rightDouble ? 1 : 0;
+            break;
+        default:
+            ret = 0;
+            break;
+    }
+    return ret;
 }
 
 static int determine_product_kind(grib_handle* h, ProductKind* prod_kind)
@@ -928,6 +1093,82 @@ static int determine_product_kind(grib_handle* h, ProductKind* prod_kind)
             *prod_kind = PRODUCT_ANY;
     }
     return err;
+}
+
+static char* get_condition(const char* name, codes_condition* condition)
+{
+    char* equal        = (char*)name;
+    char* endCondition = NULL;
+    char* str          = NULL;
+    char* end          = NULL;
+    long lval;
+    grib_context* c = grib_context_get_default();
+
+    condition->rightType = GRIB_TYPE_UNDEFINED;
+
+    Assert(name[0] == '/');
+
+    while (*equal != 0 && *equal != '=')
+        equal++;
+    if (*equal == 0)
+        return NULL;
+
+    endCondition = equal;
+    while (*endCondition != 0 && *endCondition != '/')
+        endCondition++;
+    if (*endCondition == 0)
+        return NULL;
+
+    str = (char*)grib_context_malloc_clear(c, strlen(name));
+    memcpy(str, equal + 1, endCondition - equal - 1);
+
+    end  = NULL;
+    lval = strtol(str, &end, 10);
+    if (*end != 0) { /* strtol failed. Not an integer */
+        double dval;
+        dval = strtod(str, &end);
+        if (*end == 0) { /* strtod passed. So a double */
+            condition->rightType   = GRIB_TYPE_DOUBLE;
+            condition->rightDouble = dval;
+        }
+    }
+    else {
+        condition->rightType = GRIB_TYPE_LONG;
+        condition->rightLong = lval;
+    }
+
+    if (condition->rightType != GRIB_TYPE_UNDEFINED) {
+        strcpy(str, endCondition + 1);
+        condition->left = (char*)grib_context_malloc_clear(c, equal - name);
+        memcpy(condition->left, name + 1, equal - name - 1);
+    }
+    else {
+        grib_context_free(c, str);
+        str = NULL;
+    }
+    return str;
+}
+
+static char* get_rank(grib_context* c, const char* name, int* rank)
+{
+    char* p   = (char*)name;
+    char* end = p;
+    char* ret = NULL;
+
+    *rank = -1;
+
+    if (*p == '#') {
+        *rank = strtol(++p, &end, 10);
+        if (*end != '#') {
+            *rank = -1;
+        }
+        else {
+            DebugAssert(c);
+            end++;
+            ret = grib_context_strdup(c, end);
+        }
+    }
+    return ret;
 }
 
 static void grib2_build_message(grib_context* context, unsigned char* sections[], size_t sections_len[], void** data, size_t* len)
@@ -1011,6 +1252,43 @@ void grib_accessors_list_delete(grib_context* c, grib_accessors_list* al)
         grib_context_free(c, al);
         al = tmp;
     }
+}
+
+void grib_accessors_list_push(grib_accessors_list* al, grib_accessor* a, int rank)
+{
+    grib_accessors_list* last;
+    grib_context* c = a->context;
+
+    last = grib_accessors_list_last(al);
+    if (last && last->accessor) {
+        last->next           = (grib_accessors_list*)grib_context_malloc_clear(c, sizeof(grib_accessors_list));
+        last->next->accessor = a;
+        last->next->prev     = last;
+        last->next->rank     = rank;
+        al->last             = last->next;
+    }
+    else {
+        al->accessor = a;
+        al->rank     = rank;
+        al->last     = al;
+    }
+}
+
+int grib_accessors_list_unpack_double(grib_accessors_list* al, double* val, size_t* buffer_len)
+{
+    int err             = GRIB_SUCCESS;
+    size_t unpacked_len = 0;
+    size_t len          = 0;
+
+    while (al && err == GRIB_SUCCESS) {
+        len = *buffer_len - unpacked_len;
+        err = grib_unpack_double(al->accessor, val + unpacked_len, &len);
+        unpacked_len += len;
+        al = al->next;
+    }
+
+    *buffer_len = unpacked_len;
+    return err;
 }
 
 int grib_accessors_list_value_count(grib_accessors_list* al, size_t* count)
@@ -1288,6 +1566,17 @@ void* grib_context_malloc_clear_persistent(const grib_context* c, size_t size)
     void* p = grib_context_malloc_persistent(c, size);
     if (p)
         memset(p, 0, size);
+    return p;
+}
+
+void* grib_context_malloc_persistent(const grib_context* c, size_t size)
+{
+    void* p = c->alloc_persistent_mem(c, size);
+    if (!p) {
+        grib_context_log(c, GRIB_LOG_FATAL,
+                         "grib_context_malloc_persistent: error allocating %lu bytes", (unsigned long)size);
+        Assert(0);
+    }
     return p;
 }
 
@@ -1676,6 +1965,14 @@ int grib_encode_unsigned_long(unsigned char* p, unsigned long val, long* bitp, l
     return GRIB_SUCCESS;
 }
 
+static void grib_find_same_and_push(grib_accessors_list* al, grib_accessor* a)
+{
+    if (a) {
+        grib_find_same_and_push(al, a->same);
+        grib_accessors_list_push(al, a, al->rank);
+    }
+}
+
 static GRIB_INLINE int grib_inline_strcmp(const char* a, const char* b)
 {
     if (*a != *b)
@@ -1816,6 +2113,20 @@ int grib_pack_long(grib_accessor* a, const long* v, size_t* len)
     return 0;
 }
 
+int grib_unpack_double(grib_accessor* a, double* v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is unpacking (double)",(a->parent->owner)?(a->parent->owner->name):"root", a->name ); */
+    while (c) {
+        if (c->unpack_double) {
+            return c->unpack_double(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+
 int grib_unpack_long(grib_accessor* a, long* v, size_t* len)
 {
     grib_accessor_class* c = a->cclass;
@@ -1842,6 +2153,25 @@ int grib_unpack_string(grib_accessor* a, char* v, size_t* len)
     }
     DebugAssert(0);
     return 0;
+}
+
+void* grib_trie_get(grib_trie* t, const char* key)
+{
+    const char* k = key;
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex);
+
+    while (*k && t) {
+        DebugCheckBounds((int)*k, key);
+        t = t->next[mapping[(int)*k++]];
+    }
+
+    if (*k == 0 && t != NULL && t->data != NULL) {
+        GRIB_MUTEX_UNLOCK(&mutex);
+        return t->data;
+    }
+    GRIB_MUTEX_UNLOCK(&mutex);
+    return NULL;
 }
 
 void* grib_trie_insert(grib_trie* t, const char* key, void* data)
@@ -2172,7 +2502,7 @@ static void init(grib_action_class* c)
     GRIB_MUTEX_UNLOCK(&mutex1);
 }
 
-static int init(grib_iterator* iter, grib_handle* h, grib_arguments* args)
+static int init_2(grib_iterator* iter, grib_handle* h, grib_arguments* args)
 {
     grib_iterator_gen* self = (grib_iterator_gen*)iter;
     size_t dli              = 0;
@@ -2316,6 +2646,70 @@ static int read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_o
     int result = 0;
     result = _read_any(r, grib_ok, bufr_ok, hdf5_ok, wrap_ok);
     return result;
+}
+
+static void search_from_accessors_list(grib_accessors_list* al, const grib_accessors_list* end, const char* name, grib_accessors_list* result)
+{
+    char attribute_name[200] = {0,};
+    grib_accessor* accessor_result = 0;
+    grib_context* c = al->accessor->context;
+    int doFree = 1;
+
+    char* accessor_name = grib_split_name_attribute(c, name, attribute_name);
+    if (*attribute_name == 0) doFree = 0;
+
+    while (al && al != end && al->accessor) {
+        if (grib_inline_strcmp(al->accessor->name, accessor_name) == 0) {
+            if (attribute_name[0]) {
+                accessor_result = grib_accessor_get_attribute(al->accessor, attribute_name);
+            }
+            else {
+                accessor_result = al->accessor;
+            }
+            if (accessor_result) {
+                grib_accessors_list_push(result, accessor_result, al->rank);
+            }
+        }
+        al = al->next;
+    }
+    if (al == end && al->accessor) {
+        if (grib_inline_strcmp(al->accessor->name, accessor_name) == 0) {
+            if (attribute_name[0]) {
+                accessor_result = grib_accessor_get_attribute(al->accessor, attribute_name);
+            }
+            else {
+                accessor_result = al->accessor;
+            }
+            if (accessor_result) {
+                grib_accessors_list_push(result, accessor_result, al->rank);
+            }
+        }
+    }
+    if (doFree) grib_context_free(c, accessor_name);
+}
+
+static void search_accessors_list_by_condition(grib_accessors_list* al, const char* name, codes_condition* condition, grib_accessors_list* result)
+{
+    grib_accessors_list* start = NULL;
+    grib_accessors_list* end   = NULL;
+
+    while (al) {
+        if (!grib_inline_strcmp(al->accessor->name, condition->left)) {
+            if (start == NULL && condition_true(al->accessor, condition))
+                start = al;
+            if (start && !condition_true(al->accessor, condition))
+                end = al;
+        }
+        if (start != NULL && (end != NULL || al->next == NULL)) {
+            if (end == NULL)
+                end = al;
+            search_from_accessors_list(start, end, name, result);
+            al    = end;
+            start = NULL;
+            end   = NULL;
+        }
+        al = al->next;
+    }
 }
 
 size_t stdio_read(void* data, void* buf, size_t len, int* err)

@@ -69,6 +69,9 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_PREMATURE_END_OF_FILE -45
 #define GRIB_REAL_MODE8 8
 #define GRIB_SUCCESS 0
+#define GRIB_TYPE_DOUBLE 2
+#define GRIB_TYPE_LONG 1
+#define GRIB_TYPE_UNDEFINED 0
 #define GRIB_UNSUPPORTED_EDITION -64
 #define GRIB_USER_BUFFER 1
 #define GRIB_WRONG_LENGTH -23
@@ -82,6 +85,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define MAX_SET_VALUES 10
 #define MAX_SMART_TABLE_COLUMNS 20
 #define NUMBER(x) (sizeof(x) / sizeof(x[0]))
+#define STR_EQ(a, b) (strcmp((a), (b)) == 0)
 #define STRING_VALUE_LEN 100
 #define TRIE_SIZE 39
 #define UINT3(a, b, c) (size_t)((a << 16) + (b << 8) + c);
@@ -98,10 +102,13 @@ typedef enum ProductKind
 } ProductKind;
 
 typedef struct alloc_buffer alloc_buffer;
+typedef struct bufr_descriptor bufr_descriptor;
+typedef struct bufr_descriptors_array bufr_descriptors_array;
 typedef struct codes_condition codes_condition;
 typedef struct code_table_entry code_table_entry;
 typedef struct grib_accessors_list grib_accessors_list;
 typedef struct grib_accessor grib_accessor;
+typedef struct grib_accessor_bufr_data_array grib_accessor_bufr_data_array;
 typedef struct grib_accessor_class grib_accessor_class;
 typedef struct grib_accessor_iterator grib_accessor_iterator;
 typedef struct grib_action grib_action;
@@ -129,6 +136,7 @@ typedef struct grib_iterator_class grib_iterator_class;
 typedef struct grib_iterator_gen grib_iterator_gen;
 typedef struct grib_itrie grib_itrie;
 typedef struct grib_loader grib_loader;
+typedef struct grib_sarray grib_sarray;
 typedef struct grib_multi_support grib_multi_support;
 typedef struct grib_section grib_section;
 typedef struct grib_smart_table grib_smart_table;
@@ -136,6 +144,9 @@ typedef struct grib_smart_table_entry grib_smart_table_entry;
 typedef struct grib_string_list grib_string_list;
 typedef struct grib_trie grib_trie;
 typedef struct grib_values grib_values;
+typedef struct grib_vdarray grib_vdarray;
+typedef struct grib_vsarray grib_vsarray;
+typedef struct grib_viarray grib_viarray;
 typedef struct grib_virtual_value grib_virtual_value;
 typedef struct reader reader;
 typedef struct table_entry table_entry;
@@ -243,6 +254,35 @@ struct alloc_buffer
     void* buffer;
 };
 
+struct bufr_descriptor
+{
+    grib_context* context;
+    long code;
+    int F;
+    int X;
+    int Y;
+    int type;
+    /*char* name;   Not needed: All usage commented out. See ECC-489 */
+    char shortName[128];
+    char units[128];
+    long scale;
+    double factor;
+    long reference;
+    long width;
+    int nokey; /* set if descriptor does not have an associated key */
+    grib_accessor* a;
+};
+
+struct bufr_descriptors_array
+{
+    bufr_descriptor** v;
+    size_t size;
+    size_t n;
+    size_t incsize;
+    size_t number_of_pop_front;
+    grib_context* context;
+};
+
 struct codes_condition
 {
     char* left;
@@ -296,6 +336,59 @@ struct grib_accessor
     const char* set;
     grib_accessor* attributes[MAX_ACCESSOR_ATTRIBUTES]; /** < attributes are accessors */
     grib_accessor* parent_as_attribute;
+};
+
+struct grib_accessor_bufr_data_array
+{
+    grib_accessor att;
+    /* Members defined in gen */
+    /* Members defined in bufr_data_array */
+    const char* bufrDataEncodedName;
+    const char* numberOfSubsetsName;
+    const char* expandedDescriptorsName;
+    const char* flagsName;
+    const char* unitsName;
+    const char* elementsDescriptorsIndexName;
+    const char* compressedDataName;
+    bufr_descriptors_array* expanded;
+    grib_accessor* expandedAccessor;
+    int* canBeMissing;
+    long numberOfSubsets;
+    long compressedData;
+    grib_vdarray* numericValues;
+    grib_vsarray* stringValues;
+    grib_viarray* elementsDescriptorsIndex;
+    int do_decode;
+    int bitmapStartElementsDescriptorsIndex;
+    int bitmapCurrentElementsDescriptorsIndex;
+    int bitmapSize;
+    int bitmapStart;
+    int bitmapCurrent;
+    grib_accessors_list* dataAccessors;
+    int unpackMode;
+    int bitsToEndData;
+    grib_section* dataKeys;
+    double* inputBitmap;
+    int nInputBitmap;
+    int iInputBitmap;
+    long* inputReplications;
+    int nInputReplications;
+    int iInputReplications;
+    long* inputExtendedReplications;
+    int nInputExtendedReplications;
+    int iInputExtendedReplications;
+    long* inputShortReplications;
+    int nInputShortReplications;
+    int iInputShortReplications;
+    grib_iarray* iss_list;
+    grib_trie_with_rank* dataAccessorsTrie;
+    grib_sarray* tempStrings;
+    int change_ref_value_operand;
+    size_t refValListSize;
+    long* refValList;
+    long refValIndex;
+    bufr_tableb_override* tableb_override;
+    int set_to_missing_if_out_of_range;
 };
 
 struct grib_accessor_class
@@ -737,6 +830,15 @@ struct grib_loader
     int changing_edition;
 };
 
+struct grib_sarray
+{
+    char** v;
+    size_t size; /* capacity */
+    size_t n;    /* used size */
+    size_t incsize;
+    grib_context* context;
+};
+
 struct grib_section
 {
     grib_accessor* owner;
@@ -780,6 +882,15 @@ struct grib_trie
     void* data;
 };
 
+struct grib_trie_with_rank
+{
+    grib_trie_with_rank* next[SIZE];
+    grib_context* context;
+    int first;
+    int last;
+    grib_oarray* objs;
+};
+
 struct grib_values
 {
     const char* name;
@@ -791,6 +902,33 @@ struct grib_values
     int has_value;
     int equal;
     grib_values* next;
+};
+
+struct grib_vdarray
+{
+    grib_darray** v;
+    size_t size; /* capacity */
+    size_t n;    /* used size */
+    size_t incsize;
+    grib_context* context;
+};
+
+struct grib_vsarray
+{
+    grib_sarray** v;
+    size_t size; /* capacity */
+    size_t n;    /* used size */
+    size_t incsize;
+    grib_context* context;
+};
+
+struct grib_viarray
+{
+    grib_iarray** v;
+    size_t size; /* capacity */
+    size_t n;    /* used size */
+    size_t incsize;
+    grib_context* context;
 };
 
 struct grib_virtual_value
@@ -1302,7 +1440,9 @@ void codes_check(const char*, const char*, int, int, const char*);
 
 grib_accessor* grib_find_accessor(const grib_handle*, const char*);
 grib_action* grib_parse_file(grib_context* gc, const char* filename);
+grib_accessors_list* grib_accessors_list_last(grib_accessors_list* al);
 grib_accessors_list* grib_find_accessors_list(const grib_handle*, const char*);
+static grib_accessors_list* search_by_condition(grib_handle* h, const char* name, codes_condition* condition);
 
 grib_buffer* grib_new_buffer(const grib_context* c, const unsigned char* data, size_t buflen);
 grib_context* grib_context_get_default();
@@ -1321,22 +1461,31 @@ grib_iterator* grib_iterator_new(const grib_handle*, unsigned long flags, int*);
 static grib_multi_support* grib_get_multi_support(grib_context* c, FILE* f);
 static grib_multi_support* grib_multi_support_new(grib_context* c);
 grib_section* grib_create_root_section(const grib_context* context, grib_handle* h);
+grib_itrie* grib_hash_keys_new(grib_context* c, int* count);
+grib_itrie* grib_itrie_new(grib_context* c, int* count);
 grib_trie* grib_trie_new(grib_context* c);
 
 static void init_class(grib_iterator_class*);
 static void init(grib_action_class* c);
-static int init(grib_iterator* i, grib_handle*, grib_arguments*);
+static int init_2(grib_iterator* i, grib_handle*, grib_arguments*);
 static int init_definition_files_dir(grib_context* c);
 static int destroy(grib_iterator* i);
 static int reset(grib_iterator* i);
 static long has_next(grib_iterator* i);
 
+char* codes_getenv(const char* name);
 int codes_get_long(const grib_handle*, const char*, long*);
+char* codes_resolve_path(grib_context* c, const char* path);
+static int condition_true(grib_accessor* a, codes_condition* condition);
+static char* get_rank(grib_context* c, const char* name, int* rank);
 static int determine_product_kind(grib_handle* h, ProductKind* prod_kind);
+static char* get_condition(const char* name, codes_condition* condition);
 static void grib2_build_message(grib_context* context, unsigned char* sections[], size_t sections_len[], void** data, size_t* len);
 static int grib2_get_next_section(unsigned char* msgbegin, size_t msglen, unsigned char** secbegin, size_t* seclen, int* secnum, int* err);
 static int grib2_has_next_section(unsigned char* msgbegin, size_t msglen, unsigned char* secbegin, size_t seclen, int* err);
 void grib_accessors_list_delete(grib_context* c, grib_accessors_list* al);
+void grib_accessors_list_push(grib_accessors_list* al, grib_accessor* a, int rank);
+int grib_accessors_list_unpack_double(grib_accessors_list* al, double* val, size_t* buffer_len);
 int grib_accessors_list_value_count(grib_accessors_list* al, size_t* count);
 const char* grib_arguments_get_name(grib_handle* h, grib_arguments* args, int n);
 void grib_buffer_delete(const grib_context* c, grib_buffer* b);
@@ -1351,6 +1500,7 @@ int grib_handle_delete(grib_handle* h);
 void* grib_context_malloc(const grib_context* c, size_t size);
 void* grib_context_malloc_clear(const grib_context* c, size_t size);
 void* grib_context_malloc_clear_persistent(const grib_context* c, size_t size);
+void* grib_context_malloc_persistent(const grib_context* c, size_t size);
 int grib_create_accessor(grib_section* p, grib_action* a, grib_loader* h);
 void grib_empty_section(grib_context* c, grib_section* b);
 const char* grib_expression_get_name(grib_expression*);
@@ -1377,6 +1527,7 @@ static GRIB_INLINE int grib_inline_strcmp(const char* a, const char* b);
 int grib_context_seek(const grib_context* c, off_t offset, int whence, void* stream);
 unsigned long grib_decode_unsigned_byte_long(const unsigned char* p, long o, int l);
 int grib_encode_unsigned_long(unsigned char* p, unsigned long val, long* bitp, long nbits);
+static void grib_find_same_and_push(grib_accessors_list* al, grib_accessor* a);
 int grib_is_defined(const grib_handle* h, const char* name);
 int grib_iterator_delete(grib_iterator* i);
 int grib_iterator_init(grib_iterator* i, grib_handle* h, grib_arguments* args);
@@ -1385,8 +1536,10 @@ long grib_byte_offset(grib_accessor* a);
 int _grib_get_size(const grib_handle* h, grib_accessor* a, size_t* size);
 int grib_get_size(const grib_handle* ch, const char* name, size_t* size);
 int grib_pack_long(grib_accessor* a, const long* v, size_t* len);
+int grib_unpack_double(grib_accessor* a, double* v, size_t* len);
 int grib_unpack_long(grib_accessor*, long*, size_t*);
 int grib_unpack_string(grib_accessor* a, char* v, size_t* len);
+void* grib_trie_get(grib_trie* t, const char* key);
 void* grib_trie_insert(grib_trie* t, const char* key, void* data);
 long grib_string_length(grib_accessor* a);
 int grib_value_count(grib_accessor* a, long* count);
@@ -1399,6 +1552,8 @@ void grib_section_post_init(grib_section* s);
 static void* allocate_buffer(void* data, size_t* length, int* err);
 static void init(grib_action_class* c);
 static int read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok);
+static void search_from_accessors_list(grib_accessors_list* al, const grib_accessors_list* end, const char* name, grib_accessors_list* result);
+static void search_accessors_list_by_condition(grib_accessors_list* al, const char* name, codes_condition* condition, grib_accessors_list* result);
 static int init_iterator(grib_iterator_class* c, grib_iterator* i, grib_handle* h, grib_arguments* args);
 size_t stdio_read(void* data, void* buf, size_t len, int* err);
 int stdio_seek_from_start(void* data, off_t len);
