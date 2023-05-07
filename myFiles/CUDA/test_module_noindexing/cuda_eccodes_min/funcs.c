@@ -45,6 +45,109 @@ void codes_check(const char* call, const char* file, int line, int e, const char
     grib_check(call, file, line, e, msg);
 }
 
+grib_action* grib_action_create_noop(grib_context* context, const char* fname)
+{
+    char buf[1024];
+
+    grib_action_noop* a;
+    grib_action_class* c = grib_action_class_noop;
+    grib_action* act     = (grib_action*)grib_context_malloc_clear_persistent(context, c->size);
+    act->op              = grib_context_strdup_persistent(context, "section");
+
+    act->cclass  = c;
+    a            = (grib_action_noop*)act;
+    act->context = context;
+
+    sprintf(buf, "_noop%p", (void*)a);
+
+    act->name = grib_context_strdup_persistent(context, buf);
+
+    return act;
+}
+
+static grib_action* grib_parse_stream(grib_context* gc, const char* filename)
+{
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex_stream);
+
+    grib_parser_all_actions = 0;
+
+    if (parse(gc, filename) == 0) {
+        if (grib_parser_all_actions) {
+            GRIB_MUTEX_UNLOCK(&mutex_stream)
+            return grib_parser_all_actions;
+        }
+        else {
+            grib_action* ret = grib_action_create_noop(gc, filename);
+            GRIB_MUTEX_UNLOCK(&mutex_stream)
+            return ret;
+        }
+    }
+    else {
+        GRIB_MUTEX_UNLOCK(&mutex_stream);
+        return NULL;
+    }
+}
+
+grib_action_file* grib_find_action_file(const char* fname, grib_action_file_list* afl)
+{
+    grib_action_file* act = afl->first;
+    while (act) {
+        if (grib_inline_strcmp(act->filename, fname) == 0)
+            return act;
+        act = act->next;
+    }
+    return 0;
+}
+
+grib_accessor* _grib_accessor_get_attribute(grib_accessor* a, const char* name, int* index)
+{
+    int i = 0;
+    while (i < MAX_ACCESSOR_ATTRIBUTES && a->attributes[i]) {
+        if (!grib_inline_strcmp(a->attributes[i]->name, name)) {
+            *index = i;
+            return a->attributes[i];
+        }
+        i++;
+    }
+    return NULL;
+}
+
+grib_accessor* grib_accessor_get_attribute(grib_accessor* a, const char* name)
+{
+    int index                  = 0;
+    const char* p              = 0;
+    char* basename             = NULL;
+    const char* attribute_name = NULL;
+    grib_accessor* acc         = NULL;
+    p                          = name;
+    while (*(p + 1) != '\0' && (*p != '-' || *(p + 1) != '>'))
+        p++;
+    if (*(p + 1) == '\0') {
+        return _grib_accessor_get_attribute(a, name, &index);
+    }
+    else {
+        size_t size    = p - name;
+        attribute_name = p + 2;
+        basename       = (char*)grib_context_malloc_clear(a->context, size + 1);
+        basename       = (char*)memcpy(basename, name, size);
+        acc            = _grib_accessor_get_attribute(a, basename, &index);
+        grib_context_free(a->context, basename);
+        if (acc)
+            return grib_accessor_get_attribute(acc, attribute_name);
+        else
+            return NULL;
+    }
+}
+
+grib_accessor* grib_accessor_get_attribute_by_index(grib_accessor* a, int index)
+{
+    if (index < MAX_ACCESSOR_ATTRIBUTES)
+        return a->attributes[index];
+
+    return NULL;
+}
+
 grib_accessor* grib_find_accessor(const grib_handle* h, const char* name)
 {
     grib_accessor* aret = NULL;
@@ -69,6 +172,137 @@ grib_accessor* grib_find_accessor(const grib_handle* h, const char* name)
         }
     }
     return aret;
+}
+
+static grib_accessor* _grib_find_accessor(const grib_handle* ch, const char* name)
+{
+    grib_handle* h   = (grib_handle*)ch;
+    grib_accessor* a = NULL;
+    char* p          = NULL;
+    DebugAssert(name);
+
+    p = strchr((char*)name, '.');
+    if (p) {
+        int i = 0, len = 0;
+        char name_space[MAX_NAMESPACE_LEN];
+        char* basename = p + 1;
+        p--;
+        len = p - name + 1;
+
+        for (i = 0; i < len; i++)
+            name_space[i] = *(name + i);
+
+        name_space[len] = '\0';
+
+        a = search_and_cache(h, basename, name_space);
+    }
+    else {
+        a = search_and_cache(h, name, NULL);
+    }
+
+    if (a == NULL && h->main)
+        a = grib_find_accessor(h->main, name);
+
+    return a;
+}
+
+static grib_accessor* search(grib_section* s, const char* name, const char* name_space)
+{
+    grib_accessor* match = NULL;
+
+    grib_accessor* a = s ? s->block->first : NULL;
+    grib_accessor* b = NULL;
+
+    if (!a || !s)
+        return NULL;
+
+    while (a) {
+        grib_section* sub = a->sub_section;
+
+        if (matching(a, name, name_space))
+            match = a;
+
+        if ((b = search(sub, name, name_space)) != NULL)
+            match = b;
+
+        a = a->next;
+    }
+
+    return match;
+}
+
+static grib_accessor* search_and_cache(grib_handle* h, const char* name, const char* the_namespace)
+{
+    grib_accessor* a = NULL;
+
+    if (name[0] == '#') {
+        int rank       = -1;
+        char* basename = get_rank(h->context, name, &rank);
+        a              = search_by_rank(h, basename, rank, the_namespace);
+        grib_context_free(h->context, basename);
+    }
+    else {
+        a = _search_and_cache(h, name, the_namespace);
+    }
+
+    return a;
+}
+
+static grib_accessor* _search_and_cache(grib_handle* h, const char* name, const char* the_namespace)
+{
+    if (h->use_trie) {
+        grib_accessor* a = NULL;
+        int id           = -1;
+
+        if (h->trie_invalid && h->kid == NULL) {
+            int i = 0;
+            for (i = 0; i < ACCESSORS_ARRAY_SIZE; i++)
+                h->accessors[i] = NULL;
+
+            if (h->root)
+                rebuild_hash_keys(h, h->root);
+
+            h->trie_invalid = 0;
+            id              = grib_hash_keys_get_id(h->context->keys, name);
+        }
+        else {
+            id = grib_hash_keys_get_id(h->context->keys, name);
+
+            if ((a = h->accessors[id]) != NULL &&
+                (the_namespace == NULL || matching(a, name, the_namespace)))
+                return a;
+        }
+
+        a                = search(h->root, name, the_namespace);
+        h->accessors[id] = a;
+
+        return a;
+    }
+    else {
+        return search(h->root, name, the_namespace);
+    }
+}
+
+static grib_accessor* _search_by_rank(grib_accessor* a, const char* name, int rank)
+{
+    grib_trie_with_rank* t = accessor_bufr_data_array_get_dataAccessorsTrie(a);
+    grib_accessor* ret     = (grib_accessor*)grib_trie_with_rank_get(t, name, rank);
+    return ret;
+}
+
+static grib_accessor* search_by_rank(grib_handle* h, const char* name, int rank, const char* the_namespace)
+{
+    grib_accessor* data = search_and_cache(h, "dataAccessors", the_namespace);
+    if (data) {
+        return _search_by_rank(data, name, rank);
+    }
+    else {
+        int rank2;
+        char* str          = get_rank(h->context, name, &rank2);
+        grib_accessor* ret = _search_and_cache(h, str, the_namespace);
+        grib_context_free(h->context, str);
+        return ret;
+    }
 }
 
 grib_action* grib_parse_file(grib_context* gc, const char* filename)
@@ -487,6 +721,16 @@ grib_handle* grib_new_from_file(grib_context* c, FILE* f, int headers_only, int*
     return h;
 }
 
+grib_handle* grib_handle_of_accessor(const grib_accessor* a)
+{
+    if (a->parent == NULL) {
+        return a->h;
+    }
+    else {
+        return a->parent->h;
+    }
+}
+
 grib_handle* grib_handle_new_from_message(grib_context* c, const void* data, size_t buflen)
 {
     grib_handle* gl          = NULL;
@@ -794,6 +1038,24 @@ grib_handle* grib_new_handle(grib_context* c)
     return g;
 }
 
+const struct grib_keys_hash* grib_keys_hash_get (register const char *str, register size_t len)
+{
+  if (len <= MAX_WORD_LENGTH && len >= MIN_WORD_LENGTH)
+    {
+      register unsigned int key = hash_keys (str, len);
+
+      if (key <= MAX_HASH_VALUE)
+        if (len == lengthtable[key])
+          {
+            register const char *s = wordlist[key].name;
+
+            if (*str == *s && !memcmp (str + 1, s + 1, len - 1))
+              return &wordlist[key];
+          }
+    }
+  return 0;
+}
+
 grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret)
 {
     int i;
@@ -959,6 +1221,12 @@ grib_trie* grib_trie_new(grib_context* c)
     return t;
 }
 
+grib_trie_with_rank* accessor_bufr_data_array_get_dataAccessorsTrie(grib_accessor* a)
+{
+    grib_accessor_bufr_data_array* self = (grib_accessor_bufr_data_array*)a;
+    return self->dataAccessorsTrie;
+}
+
 char* codes_getenv(const char* name)
 {
     /* Look for the new ecCodes environment variable names */
@@ -1021,7 +1289,7 @@ int codes_get_long(const grib_handle* h, const char* key, long* value)
 char* codes_resolve_path(grib_context* c, const char* path)
 {
     char* result = NULL;
-#if defined(ECCODES_HAVE_REALPATH)
+    #if defined(ECCODES_HAVE_REALPATH)
     char resolved[ECC_PATH_MAXLEN + 1];
     if (!realpath(path, resolved)) {
         result = grib_context_strdup(c, path); /* Failed to resolve. Use original path */
@@ -1029,9 +1297,9 @@ char* codes_resolve_path(grib_context* c, const char* path)
     else {
         result = grib_context_strdup(c, resolved);
     }
-#else
+    #else
     result = grib_context_strdup(c, path);
-#endif
+    #endif
 
     return result;
 }
@@ -1171,6 +1439,86 @@ static char* get_rank(grib_context* c, const char* name, int* rank)
     return ret;
 }
 
+static int get_single_double_val(grib_accessor* a, double* result)
+{
+    grib_context* c = a->context;
+    int err         = 0;
+    size_t size     = 1;
+    if (c->bufr_multi_element_constant_arrays) {
+        long count = 0;
+        grib_value_count(a, &count);
+        if (count > 1) {
+            size_t i        = 0;
+            double val0     = 0;
+            int is_constant = 1;
+            double* values  = (double*)grib_context_malloc_clear(c, sizeof(double) * count);
+            size            = count;
+            err             = grib_unpack_double(a, values, &size);
+            val0            = values[0];
+            for (i = 0; i < size; i++) {
+                if (val0 != values[i]) {
+                    is_constant = 0;
+                    break;
+                }
+            }
+            if (is_constant) {
+                *result = val0;
+                grib_context_free(c, values);
+            }
+            else {
+                return GRIB_ARRAY_TOO_SMALL;
+            }
+        }
+        else {
+            err = grib_unpack_double(a, result, &size);
+        }
+    }
+    else {
+        err = grib_unpack_double(a, result, &size);
+    }
+    return err;
+}
+
+static int get_single_long_val(grib_accessor* a, long* result)
+{
+    grib_context* c = a->context;
+    int err         = 0;
+    size_t size     = 1;
+    if (c->bufr_multi_element_constant_arrays) {
+        long count = 0;
+        grib_value_count(a, &count);
+        if (count > 1) {
+            size_t i        = 0;
+            long val0       = 0;
+            int is_constant = 1;
+            long* values    = (long*)grib_context_malloc_clear(c, sizeof(long) * count);
+            size            = count;
+            err             = grib_unpack_long(a, values, &size);
+            val0            = values[0];
+            for (i = 0; i < size; i++) {
+                if (val0 != values[i]) {
+                    is_constant = 0;
+                    break;
+                }
+            }
+            if (is_constant) {
+                *result = val0;
+                grib_context_free(c, values);
+            }
+            else {
+                return GRIB_ARRAY_TOO_SMALL;
+            }
+        }
+        else {
+            err = grib_unpack_long(a, result, &size);
+        }
+    }
+    else {
+        err = grib_unpack_long(a, result, &size);
+    }
+    return err;
+}
+
 static void grib2_build_message(grib_context* context, unsigned char* sections[], size_t sections_len[], void** data, size_t* len)
 {
     int i              = 0;
@@ -1301,6 +1649,18 @@ int grib_accessors_list_value_count(grib_accessors_list* al, size_t* count)
         al = al->next;
     }
     return 0;
+}
+
+void grib_action_delete(grib_context* context, grib_action* a)
+{
+    grib_action_class* c = a->cclass;
+    init(c);
+    while (c) {
+        if (c->destroy)
+            c->destroy(context, a);
+        c = c->super ? *(c->super) : NULL;
+    }
+    grib_context_free_persistent(context, a);
 }
 
 const char* grib_arguments_get_name(grib_handle* h, grib_arguments* args, int n)
@@ -1437,6 +1797,14 @@ int grib_handle_delete(grib_handle* h)
     return GRIB_SUCCESS;
 }
 
+void grib_context_free_persistent(const grib_context* c, void* p)
+{
+    if (!c)
+        c = grib_context_get_default();
+    if (p)
+        c->free_persistent_mem(c, p);
+}
+
 void grib_context_increment_handle_file_count(grib_context* c)
 {
     if (!c)
@@ -1467,17 +1835,17 @@ void grib_context_log(const grib_context* c, int level, const char* fmt, ...)
             level = level & ~GRIB_LOG_PERROR;
 
             /* #if HAS_STRERROR */
-#if 1
+    #if 1
             strcat(msg, " (");
             strcat(msg, strerror(errsv));
             strcat(msg, ")");
-#else
+    #else
             if (errsv > 0 && errsv < sys_nerr) {
                 strcat(msg, " (");
                 strcat(msg, sys_errlist[errsv]);
                 strcat(msg, " )");
             }
-#endif
+    #endif
         }
 
         if (c->output_log)
@@ -1578,6 +1946,14 @@ void* grib_context_malloc_persistent(const grib_context* c, size_t size)
         Assert(0);
     }
     return p;
+}
+
+char* grib_context_strdup_persistent(const grib_context* c, const char* s)
+{
+    char* dup = (char*)grib_context_malloc_persistent(c, (strlen(s) * sizeof(char)) + 1);
+    if (dup)
+        strcpy(dup, s);
+    return dup;
 }
 
 int grib_create_accessor(grib_section* p, grib_action* a, grib_loader* h)
@@ -1984,6 +2360,84 @@ static GRIB_INLINE int grib_inline_strcmp(const char* a, const char* b)
     return (*a == 0 && *b == 0) ? 0 : 1;
 }
 
+int grib_hash_keys_get_id(grib_itrie* t, const char* key)
+{
+    const struct grib_keys_hash* hash = grib_keys_hash_get(key, strlen(key));
+
+    if (hash) {
+        /* printf("%s found %s (%d)\n",key,hash->name,hash->id); */
+        return hash->id;
+    }
+
+    /* printf("+++ \"%s\"\n",key); */
+    {
+        const char* k    = key;
+        grib_itrie* last = t;
+
+        GRIB_MUTEX_INIT_ONCE(&once, &init);
+        GRIB_MUTEX_LOCK(&mutex);
+
+        while (*k && t)
+            t = t->next[mapping[(int)*k++]];
+
+        if (t != NULL && t->id != -1) {
+            GRIB_MUTEX_UNLOCK(&mutex);
+            return t->id + TOTAL_KEYWORDS + 1;
+        }
+        else {
+            int ret = grib_hash_keys_insert(last, key);
+            GRIB_MUTEX_UNLOCK(&mutex);
+            return ret + TOTAL_KEYWORDS + 1;
+        }
+    }
+}
+
+static int grib_hash_keys_insert(grib_itrie* t, const char* key)
+{
+    const char* k    = key;
+    grib_itrie* last = t;
+    int* count;
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex);
+
+    Assert(t);
+    if (!t) return -1;
+
+    count = t->count;
+
+    while (*k && t) {
+        last = t;
+        t    = t->next[mapping[(int)*k]];
+        if (t)
+            k++;
+    }
+
+    if (*k != 0) {
+        t = last;
+        while (*k) {
+            int j      = mapping[(int)*k++];
+            t->next[j] = grib_hash_keys_new(t->context, count);
+            t          = t->next[j];
+        }
+    }
+    if (*(t->count) + TOTAL_KEYWORDS < ACCESSORS_ARRAY_SIZE) {
+        t->id = *(t->count);
+        (*(t->count))++;
+    }
+    else {
+        grib_context_log(t->context, GRIB_LOG_ERROR,
+                         "grib_hash_keys_insert: too many accessors, increase ACCESSORS_ARRAY_SIZE\n");
+        Assert(*(t->count) + TOTAL_KEYWORDS < ACCESSORS_ARRAY_SIZE);
+    }
+
+    GRIB_MUTEX_UNLOCK(&mutex);
+
+    /*printf("grib_hash_keys_get_id: %s -> %d\n",key,t->id);*/
+
+    return t->id;
+}
+
 int grib_is_defined(const grib_handle* h, const char* name)
 {
     grib_accessor* a = grib_find_accessor(h, name);
@@ -2099,6 +2553,13 @@ int grib_get_size(const grib_handle* ch, const char* name, size_t* size)
     }
 }
 
+void* grib_oarray_get(grib_oarray* v, int i)
+{
+    if (v == NULL || i > v->n - 1)
+        return NULL;
+    return v->v[i];
+}
+
 int grib_pack_long(grib_accessor* a, const long* v, size_t* len)
 {
     grib_accessor_class* c = a->cclass;
@@ -2111,6 +2572,15 @@ int grib_pack_long(grib_accessor* a, const long* v, size_t* len)
     }
     DebugAssert(0);
     return 0;
+}
+
+static void grib_push_action_file(grib_action_file* af, grib_action_file_list* afl)
+{
+    if (!afl->first)
+        afl->first = afl->last = af;
+    else
+        afl->last->next = af;
+    afl->last = af;
 }
 
 int grib_unpack_double(grib_accessor* a, double* v, size_t* len)
@@ -2219,6 +2689,31 @@ void* grib_trie_insert(grib_trie* t, const char* key, void* data)
     return data == old ? NULL : old;
 }
 
+void* grib_trie_with_rank_get(grib_trie_with_rank* t, const char* key, int rank)
+{
+    const char* k = key;
+    void* data;
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+
+    if (rank < 0)
+        return NULL;
+
+    GRIB_MUTEX_LOCK(&mutex);
+
+    while (*k && t) {
+        DebugCheckBounds((int)*k, key);
+        t = t->next[mapping[(int)*k++]];
+    }
+
+    if (*k == 0 && t != NULL) {
+        data = grib_oarray_get(t->objs, rank - 1);
+        GRIB_MUTEX_UNLOCK(&mutex);
+        return data;
+    }
+    GRIB_MUTEX_UNLOCK(&mutex);
+    return NULL;
+}
+
 int grib_section_adjust_sizes(grib_section* s, int update, int depth)
 {
     int err          = 0;
@@ -2310,6 +2805,24 @@ void grib_section_post_init(grib_section* s)
             grib_section_post_init(a->sub_section);
         a = a->next;
     }
+}
+
+char* grib_split_name_attribute(grib_context* c, const char* name, char* attribute_name)
+{
+    /*returns accessor name and attribute*/
+    size_t size         = 0;
+    char* accessor_name = NULL;
+    char* p             = strstr((char*)name, "->");
+    if (!p) {
+        *attribute_name = 0;
+        return (char*)name;
+    }
+    size          = p - name;
+    accessor_name = (char*)grib_context_malloc_clear(c, size + 1);
+    accessor_name = (char*)memcpy(accessor_name, name, size);
+    p += 2;
+    strcpy(attribute_name, p);
+    return accessor_name;
 }
 
 long grib_string_length(grib_accessor* a)
@@ -2485,6 +2998,22 @@ static void* allocate_buffer(void* data, size_t* length, int* err)
     return u->buffer;
 }
 
+static int matching(grib_accessor* a, const char* name, const char* name_space)
+{
+    int i = 0;
+    while (i < MAX_ACCESSOR_NAMES) {
+        if (a->all_names[i] == 0)
+            return 0;
+
+        if ((grib_inline_strcmp(name, a->all_names[i]) == 0) &&
+            ((name_space == NULL) || (a->all_name_spaces[i] != NULL &&
+                                      grib_inline_strcmp(a->all_name_spaces[i], name_space) == 0)))
+            return 1;
+        i++;
+    }
+    return 0;
+}
+
 static void init(grib_action_class* c)
 {
     if (!c)
@@ -2621,6 +3150,42 @@ static int init_iterator(grib_iterator_class* c, grib_iterator* i, grib_handle* 
     return GRIB_INTERNAL_ERROR;
 }
 
+static int parse(grib_context* gc, const char* filename)
+{
+    int err = 0;
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex_parse);
+
+    #ifdef YYDEBUG
+    {
+        extern int grib_yydebug;
+        grib_yydebug = getenv("YYDEBUG") != NULL;
+    }
+    #endif
+
+    gc = gc ? gc : grib_context_get_default();
+
+    grib_yyin  = NULL;
+    top        = 0;
+    parse_file = 0;
+    grib_parser_include(filename);
+    if (!grib_yyin) {
+        /* Could not read from file */
+        parse_file = 0;
+        GRIB_MUTEX_UNLOCK(&mutex_parse);
+        return GRIB_FILE_NOT_FOUND;
+    }
+    err        = grib_yyparse();
+    parse_file = 0;
+
+    if (err)
+        grib_context_log(gc, GRIB_LOG_ERROR, "Parsing error: %s, file: %s\n",
+                grib_get_error_message(err), filename);
+
+    GRIB_MUTEX_UNLOCK(&mutex_parse);
+    return err;
+}
+
 static int _read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok)
 {
     unsigned char c;
@@ -2646,6 +3211,35 @@ static int read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_o
     int result = 0;
     result = _read_any(r, grib_ok, bufr_ok, hdf5_ok, wrap_ok);
     return result;
+}
+
+static void rebuild_hash_keys(grib_handle* h, grib_section* s)
+{
+    grib_accessor* a = s ? s->block->first : NULL;
+
+    while (a) {
+        grib_section* sub = a->sub_section;
+        int i             = 0;
+        int id            = -1;
+        const char* p;
+        DebugAssert(h == grib_handle_of_accessor(a));
+
+        while (i < MAX_ACCESSOR_NAMES && ((p = a->all_names[i]) != NULL)) {
+            if (*p != '_') {
+                id = grib_hash_keys_get_id(a->context->keys, p);
+
+                if (a->same != a && i == 0) {
+                    grib_handle* hand   = grib_handle_of_accessor(a);
+                    a->same             = hand->accessors[id];
+                    hand->accessors[id] = a;
+                    DebugAssert(a->same != a);
+                }
+            }
+            i++;
+        }
+        rebuild_hash_keys(h, sub);
+        a = a->next;
+    }
 }
 
 static void search_from_accessors_list(grib_accessors_list* al, const grib_accessors_list* end, const char* name, grib_accessors_list* result)
@@ -2757,6 +3351,119 @@ off_t stdio_tell(void* data)
 {
     FILE* f = (FILE*)data;
     return ftello(f);
+}
+
+static unsigned int hash_keys (register const char *str, register size_t len)
+{
+  static const unsigned short asso_values[] =
+    {
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423,     1, 32423, 32423,     1, 32423, 32423,   100,  2542,
+       2012,  2507,  1904,  3737,  1317,   921,   233,     6,     5,     1,
+          1, 32423, 32423, 32423, 32423,  2617,  4123,  2527,   159,  1640,
+         52,  5304,  2521,   684,    43,   193,   551,   292,  1641,   211,
+       1969,    64,  1061,   161,    85,  4435,  2022,  3043,    60,  4866,
+          6,     1,     1, 32423, 32423,  1548, 32423,     5,   552,    54,
+          1,     2,   196,   180,   109,    10,  2716,  4017,    71,     7,
+          1,    20,    29,  1211,     1,     8,     4,    65,   258,   230,
+        764,     7,   784,    55,  1795,     2, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423,
+      32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423, 32423
+    };
+  register unsigned int hval = len;
+
+  switch (hval)
+    {
+      default:
+        hval += asso_values[(unsigned char)str[27]];
+      /*FALLTHROUGH*/
+      case 27:
+      case 26:
+        hval += asso_values[(unsigned char)str[25]];
+      /*FALLTHROUGH*/
+      case 25:
+        hval += asso_values[(unsigned char)str[24]];
+      /*FALLTHROUGH*/
+      case 24:
+        hval += asso_values[(unsigned char)str[23]];
+      /*FALLTHROUGH*/
+      case 23:
+        hval += asso_values[(unsigned char)str[22]];
+      /*FALLTHROUGH*/
+      case 22:
+      case 21:
+      case 20:
+        hval += asso_values[(unsigned char)str[19]];
+      /*FALLTHROUGH*/
+      case 19:
+        hval += asso_values[(unsigned char)str[18]];
+      /*FALLTHROUGH*/
+      case 18:
+      case 17:
+      case 16:
+        hval += asso_values[(unsigned char)str[15]+3];
+      /*FALLTHROUGH*/
+      case 15:
+        hval += asso_values[(unsigned char)str[14]];
+      /*FALLTHROUGH*/
+      case 14:
+        hval += asso_values[(unsigned char)str[13]];
+      /*FALLTHROUGH*/
+      case 13:
+        hval += asso_values[(unsigned char)str[12]];
+      /*FALLTHROUGH*/
+      case 12:
+        hval += asso_values[(unsigned char)str[11]+3];
+      /*FALLTHROUGH*/
+      case 11:
+        hval += asso_values[(unsigned char)str[10]+3];
+      /*FALLTHROUGH*/
+      case 10:
+        hval += asso_values[(unsigned char)str[9]];
+      /*FALLTHROUGH*/
+      case 9:
+        hval += asso_values[(unsigned char)str[8]];
+      /*FALLTHROUGH*/
+      case 8:
+        hval += asso_values[(unsigned char)str[7]];
+      /*FALLTHROUGH*/
+      case 7:
+        hval += asso_values[(unsigned char)str[6]];
+      /*FALLTHROUGH*/
+      case 6:
+        hval += asso_values[(unsigned char)str[5]];
+      /*FALLTHROUGH*/
+      case 5:
+        hval += asso_values[(unsigned char)str[4]];
+      /*FALLTHROUGH*/
+      case 4:
+        hval += asso_values[(unsigned char)str[3]];
+      /*FALLTHROUGH*/
+      case 3:
+        hval += asso_values[(unsigned char)str[2]];
+      /*FALLTHROUGH*/
+      case 2:
+        hval += asso_values[(unsigned char)str[1]];
+      /*FALLTHROUGH*/
+      case 1:
+        hval += asso_values[(unsigned char)str[0]];
+        break;
+    }
+  return hval + asso_values[(unsigned char)str[len - 1]];
 }
 
 void* wmo_read_grib_from_file_malloc(FILE* f, int headers_only, size_t* size, off_t* offset, int* err)
