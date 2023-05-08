@@ -7,7 +7,9 @@ of a grib2 file.
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "eccodes.h"
+// #include "eccodes.h"
+// it. is. time.
+#include "header.h"
 
 
 int main(){
@@ -27,14 +29,17 @@ int main(){
     }
 
     /* create new handle from a message in a file */
-    codes_handle* h = grib_handle_new_from_file(0, in, &err);
+    grib_handle* h = grib_handle_new_from_file(0, in, &err);
     if (h == NULL) {
         fprintf(stderr, "Error: unable to create handle from file %s\n", filename);
         return 1;
     }
 
-    CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
-    CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
+    // CODES_CHECK(codes_get_long(h, "numberOfPoints", &numberOfPoints), 0);
+    // CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
+
+    codes_get_long(h, "numberOfPoints", &numberOfPoints);
+    // codes_set_double(h, "missingValue", missing);
 
     lats = (double*)malloc(numberOfPoints * sizeof(double));
     if (!lats) {
@@ -55,11 +60,11 @@ int main(){
         return 1;
     }
 
-    CODES_CHECK(codes_grib_get_data(h, lats, lons, values), 0);
+    grib_get_data(h, lats, lons, values);
 
     free(lats);
     free(lons);
     free(values);
-    codes_handle_delete(h);
+    grib_handle_delete(h);
     return 0;
 }

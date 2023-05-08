@@ -48,6 +48,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_DECODING_ERROR -13
 #define GRIB_END_OF_FILE -1
 #define GRIB_FILE_NOT_FOUND -7
+#define GRIB_GEOCALCULUS_PROBLEM -16
 #define GRIB_INLINE
 #define GRIB_INTERNAL_ERROR -2
 #define GRIB_INVALID_ARGUMENT -19
@@ -127,6 +128,7 @@ typedef struct grib_action_noop grib_action_noop;
 typedef struct grib_arguments grib_arguments;
 typedef struct grib_block_of_accessors grib_block_of_accessors;
 typedef struct grib_buffer grib_buffer;
+typedef struct grib_codetable grib_codetable;
 typedef struct grib_codetable grib_codetable;
 typedef struct grib_concept_condition grib_concept_condition;
 typedef struct grib_concept_value grib_concept_value;
@@ -500,18 +502,18 @@ struct grib_action_class
     size_t size;               /** < size in bytes of the structure */
 
     int inited;
-    action_init_class_proc init_class;
+    action_init_class_proc init_class_gac;
 
     action_init_proc init;
-    action_destroy_proc destroy; /** < destructor method to release the memory */
+    action_destroy_proc destroy_gac; /** < destructor method to release the memory */
 
-    grib_dump_proc dump;                                 /** < dump method of the action  */
-    grib_xref_proc xref;                                 /** < dump method of the action  */
+    grib_dump_proc dump_gac;                                 /** < dump method of the action  */
+    grib_xref_proc xref_gac;                                 /** < dump method of the action  */
     action_create_accessors_handle_proc create_accessor; /** < method to create the corresponding accessor from a handle*/
     action_notify_change_proc notify_change;             /** < method to create the corresponding accessor from a handle*/
 
     action_reparse_proc reparse;
-    action_execute_proc execute;
+    action_execute_proc execute_gac;
 };
 
 struct grib_action_file
@@ -1105,7 +1107,7 @@ static const unsigned long dmasks[] = {
     0x80,
     0x00,
 };
-static grib_action_class _grib_action_class_noop = {
+static grib_action_class def_grib_action_class_noop = {
     0,                              /* super                     */
     "action_class_noop",                              /* name                      */
     sizeof(grib_action_noop),            /* size                      */
@@ -1123,7 +1125,7 @@ static grib_action_class _grib_action_class_noop = {
     0,                            /* reparse */
     &execute_gac,                            /* execute */
 };
-grib_action_class* grib_action_class_noop = &_grib_action_class_noop;
+grib_action_class* grib_action_class_noop = &def_grib_action_class_noop;
 static const unsigned char lengthtable[] = {
      0,  0,  0,  1,  0,  2,  2,  3,  2,  1,  0,  2,  2,  2,
      0,  1,  0,  2,  4,  0,  4,  4,  3,  3,  4,  0,  0,  5,
@@ -3444,100 +3446,14 @@ static const unsigned char lengthtable[] = {
   };
 static const int max_nbits        = sizeof(unsigned long) * 8;
 static const int max_nbits_size_t = sizeof(size_t) * 8;
-static grib_context default_grib_context = {
-    0,               /* inited                     */
-    0,               /* debug                      */
-    0,               /* write_on_fail              */
-    0,               /* no_abort                   */
-    0,               /* io_buffer_size             */
-    0,               /* no_big_group_split         */
-    0,               /* no_spd                     */
-    0,               /* keep_matrix                */
-    0,               /* grib_definition_files_path */
-    0,               /* grib_samples_path          */
-    0,               /* grib_concept_path          */
-    0,               /* grib_reader                */
-    0,               /* user data                  */
-    GRIB_REAL_MODE8, /* real mode for fortran      */
 
-#if MANAGE_MEM
-    &grib_transient_free,    /* free_mem                   */
-    &grib_transient_malloc,  /* alloc_mem                  */
-    &grib_transient_realloc, /* realloc_mem                */
-
-    &grib_permanent_free,   /* free_persistant_mem        */
-    &grib_permanent_malloc, /* alloc_persistant_mem       */
-
-    &grib_buffer_free,    /* buffer_free_mem            */
-    &grib_buffer_malloc,  /* buffer_alloc_mem           */
-    &grib_buffer_realloc, /* buffer_realloc_mem         */
-
-#else
-
-    &default_free,    /* free_mem                  */
-    &default_malloc,  /* alloc_mem                 */
-    &default_realloc, /* realloc_mem               */
-
-    &default_long_lasting_free,   /* free_persistant_mem       */
-    &default_long_lasting_malloc, /* alloc_persistant_mem      */
-
-    &default_buffer_free,    /* free_buffer_mem           */
-    &default_buffer_malloc,  /* alloc_buffer_mem          */
-    &default_buffer_realloc, /* realloc_buffer_mem        */
-#endif
-
-    &default_read,  /* file read procedure        */
-    &default_write, /* file write procedure       */
-    &default_tell,  /* lfile tell procedure       */
-    &default_seek,  /* lfile seek procedure       */
-    &default_feof,  /* file feof procedure        */
-
-    &default_log,   /* output_log                 */
-    &default_print, /* print                      */
-    0,              /* codetable                  */
-    0,              /* smart_table                */
-    0,              /* outfilename                */
-    0,              /* multi_support_on           */
-    0,              /* multi_support              */
-    0,              /* grib_definition_files_dir  */
-    0,              /* handle_file_count          */
-    0,              /* handle_total_count         */
-    0,              /* message_file_offset        */
-    0,              /* no_fail_on_wrong_length    */
-    0,              /* gts_header_on              */
-    0,              /* gribex_mode_on             */
-    0,              /* large_constant_fields      */
-    0,              /* keys                       */
-    0,              /* keys_count                 */
-    0,              /* concepts_index             */
-    0,              /* concepts_count             */
-    {0,}, /* concepts                   */
-    0, /* hash_array_index           */
-    0, /* hash_array_count           */
-    {0,},                                 /* hash_array                 */
-    0,                                 /* def_files                  */
-    0,                                 /* blocklist                  */
-    0,                                 /* ieee_packing               */
-    0,                                 /* bufrdc_mode                */
-    0,                                 /* bufr_set_to_missing_if_out_of_range */
-    0,                                 /* bufr_multi_element_constant_arrays */
-    0,                                 /* grib_data_quality_checks   */
-    0,                                 /* log_stream                 */
-    0,                                 /* classes                    */
-    0,                                 /* lists                      */
-    0,                                 /* expanded_descriptors       */
-    DEFAULT_FILE_POOL_MAX_OPENED_FILES /* file_pool_max_opened_files */
-#if GRIB_PTHREADS
-    ,
-    PTHREAD_MUTEX_INITIALIZER /* mutex                      */
-#endif
-};
 grib_context* grib_parser_context = 0;
+// static size_t entries_count = sizeof(entries)/sizeof(entries[0]);
 static int error = 0;
 grib_action* grib_parser_all_actions          = 0;
-extern grib_string_list grib_file_not_found;
-extern FILE* grib_yyin;
-static const int mapping[] = {
+grib_string_list grib_file_not_found;
+FILE* grib_yyin;
+const int mapping[] = {
     0,  /* 00 */
     0,  /* 01 */
     0,  /* 02 */
@@ -3795,10 +3711,21 @@ static const int mapping[] = {
     0,  /* fe */
     0,  /* ff */
 };
-static const char* parse_file = 0;
+const char* parse_file = 0;
+
+grib_iterator_class* grib_iterator_class_gaussian;
+grib_iterator_class* grib_iterator_class_gen;
+grib_iterator_class* grib_iterator_class_lambert_conformal;
+grib_iterator_class* grib_iterator_class_latlon;
+grib_iterator_class* grib_iterator_class_regular;
 static const struct table_entry table[] = {
-#include "subfuncs/grib_iterator_factory.h"
+{ "gaussian", &grib_iterator_class_gaussian, },
+{ "gen", &grib_iterator_class_gen, },
+{ "lambert_conformal", &grib_iterator_class_lambert_conformal, },
+{ "latlon", &grib_iterator_class_latlon, },
+{ "regular", &grib_iterator_class_regular, },
 };
+
 static int top = 0;
 static const struct grib_keys_hash wordlist[] = {
     {""}, {""}, {""},
@@ -10727,6 +10654,94 @@ static void* default_realloc(const grib_context*, void*, size_t);
 static off_t default_seek(const grib_context*, off_t, int, void*);
 static off_t default_tell(const grib_context*, void*);
 static size_t default_write(const grib_context*, const void*, size_t, void*);
+static grib_context default_grib_context = {
+    0,               /* inited                     */
+    0,               /* debug                      */
+    0,               /* write_on_fail              */
+    0,               /* no_abort                   */
+    0,               /* io_buffer_size             */
+    0,               /* no_big_group_split         */
+    0,               /* no_spd                     */
+    0,               /* keep_matrix                */
+    0,               /* grib_definition_files_path */
+    0,               /* grib_samples_path          */
+    0,               /* grib_concept_path          */
+    0,               /* grib_reader                */
+    0,               /* user data                  */
+    GRIB_REAL_MODE8, /* real mode for fortran      */
+
+#if MANAGE_MEM
+    &grib_transient_free,    /* free_mem                   */
+    &grib_transient_malloc,  /* alloc_mem                  */
+    &grib_transient_realloc, /* realloc_mem                */
+
+    &grib_permanent_free,   /* free_persistant_mem        */
+    &grib_permanent_malloc, /* alloc_persistant_mem       */
+
+    &grib_buffer_free,    /* buffer_free_mem            */
+    &grib_buffer_malloc,  /* buffer_alloc_mem           */
+    &grib_buffer_realloc, /* buffer_realloc_mem         */
+
+#else
+
+    &default_free,    /* free_mem                  */
+    &default_malloc,  /* alloc_mem                 */
+    &default_realloc, /* realloc_mem               */
+
+    &default_long_lasting_free,   /* free_persistant_mem       */
+    &default_long_lasting_malloc, /* alloc_persistant_mem      */
+
+    &default_buffer_free,    /* free_buffer_mem           */
+    &default_buffer_malloc,  /* alloc_buffer_mem          */
+    &default_buffer_realloc, /* realloc_buffer_mem        */
+#endif
+
+    &default_read,  /* file read procedure        */
+    &default_write, /* file write procedure       */
+    &default_tell,  /* lfile tell procedure       */
+    &default_seek,  /* lfile seek procedure       */
+    &default_feof,  /* file feof procedure        */
+
+    &default_log,   /* output_log                 */
+    &default_print, /* print                      */
+    0,              /* codetable                  */
+    0,              /* smart_table                */
+    0,              /* outfilename                */
+    0,              /* multi_support_on           */
+    0,              /* multi_support              */
+    0,              /* grib_definition_files_dir  */
+    0,              /* handle_file_count          */
+    0,              /* handle_total_count         */
+    0,              /* message_file_offset        */
+    0,              /* no_fail_on_wrong_length    */
+    0,              /* gts_header_on              */
+    0,              /* gribex_mode_on             */
+    0,              /* large_constant_fields      */
+    0,              /* keys                       */
+    0,              /* keys_count                 */
+    0,              /* concepts_index             */
+    0,              /* concepts_count             */
+    {0,}, /* concepts                   */
+    0, /* hash_array_index           */
+    0, /* hash_array_count           */
+    {0,},                                 /* hash_array                 */
+    0,                                 /* def_files                  */
+    0,                                 /* blocklist                  */
+    0,                                 /* ieee_packing               */
+    0,                                 /* bufrdc_mode                */
+    0,                                 /* bufr_set_to_missing_if_out_of_range */
+    0,                                 /* bufr_multi_element_constant_arrays */
+    0,                                 /* grib_data_quality_checks   */
+    0,                                 /* log_stream                 */
+    0,                                 /* classes                    */
+    0,                                 /* lists                      */
+    0,                                 /* expanded_descriptors       */
+    DEFAULT_FILE_POOL_MAX_OPENED_FILES /* file_pool_max_opened_files */
+#if GRIB_PTHREADS
+    ,
+    PTHREAD_MUTEX_INITIALIZER /* mutex                      */
+#endif
+};
 
 /* function headers */
 int codes_access(const char* name, int mode);
@@ -10784,8 +10799,10 @@ static long has_next(grib_iterator* i);
 
 char* codes_getenv(const char* name);
 int codes_get_long(const grib_handle*, const char*, long*);
+int codes_memfs_exists(const char* path);
 char* codes_resolve_path(grib_context* c, const char* path);
 static int condition_true(grib_accessor* a, codes_condition* condition);
+static const unsigned char* find(const char* path, size_t* length);
 static char* get_rank(grib_context* c, const char* name, int* rank);
 static int get_single_double_val(grib_accessor* a, double* result);
 static int get_single_long_val(grib_accessor* a, long* result);

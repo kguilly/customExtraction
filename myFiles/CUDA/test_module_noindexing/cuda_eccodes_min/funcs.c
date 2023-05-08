@@ -1061,6 +1061,13 @@ grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsig
     int i;
     const char* type = (char*)grib_arguments_get_name(h, args, 0);
 
+    /*
+        NOTE: 
+        - "table" includes a complicated process to implement. When stepping through the 
+           library, the type that was identified was "lambert conformal" 
+           I plan to only keep the code associated to lambert conformal. 
+
+    */
     for (i = 0; i < NUMBER(table); i++)
         if (strcmp(type, table[i].type) == 0) {
             grib_iterator_class* c = *(table[i].cclass);
@@ -1286,6 +1293,11 @@ int codes_get_long(const grib_handle* h, const char* key, long* value)
     return grib_get_long(h, key, value);
 }
 
+int codes_memfs_exists(const char* path) {
+    size_t dummy;
+    return find(path, &dummy) != NULL;
+}
+
 char* codes_resolve_path(grib_context* c, const char* path)
 {
     char* result = NULL;
@@ -1361,6 +1373,23 @@ static int determine_product_kind(grib_handle* h, ProductKind* prod_kind)
             *prod_kind = PRODUCT_ANY;
     }
     return err;
+}
+
+static const unsigned char* find(const char* path, size_t* length) {
+    size_t i;
+
+    // TODO: could not trace back the definition of the entries array
+    // after debugging through the lib, the parent function returns 
+    // null anyway, so we can probably safely take this out
+    // for(i = 0; i < entries_count; i++) {
+    //     if(strcmp(path, entries[i].path) == 0) {
+    //         /*printf("Found in MEMFS %s\\n", path);*/
+    //         *length = entries[i].length;
+    //         return entries[i].content;
+    //     }
+    // }
+
+    return NULL;
 }
 
 static char* get_condition(const char* name, codes_condition* condition)
@@ -1656,8 +1685,8 @@ void grib_action_delete(grib_context* context, grib_action* a)
     grib_action_class* c = a->cclass;
     init(c);
     while (c) {
-        if (c->destroy)
-            c->destroy(context, a);
+        if (c->destroy_gac)
+            c->destroy_gac(context, a);
         c = c->super ? *(c->super) : NULL;
     }
     grib_context_free_persistent(context, a);
@@ -3025,10 +3054,32 @@ static void init(grib_action_class* c)
         if (c->super) {
             init(*(c->super));
         }
-        c->init_class(c);
+        c->init_class_gac(c);
         c->inited = 1;
     }
     GRIB_MUTEX_UNLOCK(&mutex1);
+}
+
+static void init_class_gac (grib_action_class* c) {
+
+}
+static void dump_gac (grib_action* act, FILE*f, int lvl) {
+
+}
+
+static void destroy_gac (grib_context* context, grib_action* act)
+{
+    grib_context_free_persistent(context, act->name);
+    grib_context_free_persistent(context, act->op);
+}
+
+static void xref_gac (grib_action* d, FILE* f, const char* path)
+{
+}
+
+static int execute_gac (grib_action* act, grib_handle* h)
+{
+    return 0;
 }
 
 static int init_2(grib_iterator* iter, grib_handle* h, grib_arguments* args)
@@ -3168,14 +3219,17 @@ static int parse(grib_context* gc, const char* filename)
     grib_yyin  = NULL;
     top        = 0;
     parse_file = 0;
-    grib_parser_include(filename);
-    if (!grib_yyin) {
-        /* Could not read from file */
-        parse_file = 0;
-        GRIB_MUTEX_UNLOCK(&mutex_parse);
-        return GRIB_FILE_NOT_FOUND;
-    }
-    err        = grib_yyparse();
+    // grib_parser_include(filename);
+    // if (!grib_yyin) {
+    //     /* Could not read from file */
+    //     parse_file = 0;
+    //     GRIB_MUTEX_UNLOCK(&mutex_parse);
+    //     return GRIB_FILE_NOT_FOUND;
+    // }
+    // TODO: may need to change this. function was very complex
+    //       in grib_yacc.c
+    // err        = grib_yyparse();
+    err = 0;
     parse_file = 0;
 
     if (err)
