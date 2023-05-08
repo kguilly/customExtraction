@@ -45,6 +45,25 @@ void codes_check(const char* call, const char* file, int line, int e, const char
     grib_check(call, file, line, e, msg);
 }
 
+static grib_action_class def_grib_action_class_noop = {
+        0,                              /* super                     */
+    "action_class_noop",                              /* name                      */
+    sizeof(grib_action_noop),            /* size                      */
+    0,                                   /* inited */
+    &init_class_gac,                         /* init_class */
+    0,                               /* init                      */
+    &destroy_gac,                            /* destroy */
+
+    &dump_gac,                               /* dump                      */
+    &xref_gac,                               /* xref                      */
+
+    0,             /* create_accessor*/
+
+    0,                            /* notify_change */
+    0,                            /* reparse */
+    &execute_gac,                            /* execute */
+};
+grib_action_class* grib_action_class_noop = &def_grib_action_class_noop;
 grib_action* grib_action_create_noop(grib_context* context, const char* fname)
 {
     char buf[1024];
@@ -70,7 +89,8 @@ static grib_action* grib_parse_stream(grib_context* gc, const char* filename)
     GRIB_MUTEX_INIT_ONCE(&once, &init);
     GRIB_MUTEX_LOCK(&mutex_stream);
 
-    grib_parser_all_actions = 0;
+    grib_action* grib_parser_all_actions = 0;
+    // grib_parser_all_actions = 0;
 
     if (parse(gc, filename) == 0) {
         if (grib_parser_all_actions) {
@@ -315,7 +335,7 @@ grib_action* grib_parse_file(grib_context* gc, const char* filename)
     af = 0;
 
     gc = gc ? gc : grib_context_get_default();
-
+    grib_context* grib_parser_context = 0;
     grib_parser_context = gc;
 
     if (!gc->grib_reader)
@@ -452,6 +472,94 @@ grib_buffer* grib_new_buffer(const grib_context* c, const unsigned char* data, s
     return b;
 }
 
+static grib_context default_grib_context = {
+    0,               /* inited                     */
+    0,               /* debug                      */
+    0,               /* write_on_fail              */
+    0,               /* no_abort                   */
+    0,               /* io_buffer_size             */
+    0,               /* no_big_group_split         */
+    0,               /* no_spd                     */
+    0,               /* keep_matrix                */
+    0,               /* grib_definition_files_path */
+    0,               /* grib_samples_path          */
+    0,               /* grib_concept_path          */
+    0,               /* grib_reader                */
+    0,               /* user data                  */
+    GRIB_REAL_MODE8, /* real mode for fortran      */
+
+#if MANAGE_MEM
+    &grib_transient_free,    /* free_mem                   */
+    &grib_transient_malloc,  /* alloc_mem                  */
+    &grib_transient_realloc, /* realloc_mem                */
+
+    &grib_permanent_free,   /* free_persistant_mem        */
+    &grib_permanent_malloc, /* alloc_persistant_mem       */
+
+    &grib_buffer_free,    /* buffer_free_mem            */
+    &grib_buffer_malloc,  /* buffer_alloc_mem           */
+    &grib_buffer_realloc, /* buffer_realloc_mem         */
+
+#else
+
+    &default_free,    /* free_mem                  */
+    &default_malloc,  /* alloc_mem                 */
+    &default_realloc, /* realloc_mem               */
+
+    &default_long_lasting_free,   /* free_persistant_mem       */
+    &default_long_lasting_malloc, /* alloc_persistant_mem      */
+
+    &default_buffer_free,    /* free_buffer_mem           */
+    &default_buffer_malloc,  /* alloc_buffer_mem          */
+    &default_buffer_realloc, /* realloc_buffer_mem        */
+#endif
+
+    &default_read,  /* file read procedure        */
+    &default_write, /* file write procedure       */
+    &default_tell,  /* lfile tell procedure       */
+    &default_seek,  /* lfile seek procedure       */
+    &default_feof,  /* file feof procedure        */
+
+    &default_log,   /* output_log                 */
+    &default_print, /* print                      */
+    0,              /* codetable                  */
+    0,              /* smart_table                */
+    0,              /* outfilename                */
+    0,              /* multi_support_on           */
+    0,              /* multi_support              */
+    0,              /* grib_definition_files_dir  */
+    0,              /* handle_file_count          */
+    0,              /* handle_total_count         */
+    0,              /* message_file_offset        */
+    0,              /* no_fail_on_wrong_length    */
+    0,              /* gts_header_on              */
+    0,              /* gribex_mode_on             */
+    0,              /* large_constant_fields      */
+    0,              /* keys                       */
+    0,              /* keys_count                 */
+    0,              /* concepts_index             */
+    0,              /* concepts_count             */
+    {0,}, /* concepts                   */
+    0, /* hash_array_index           */
+    0, /* hash_array_count           */
+    {0,},                                 /* hash_array                 */
+    0,                                 /* def_files                  */
+    0,                                 /* blocklist                  */
+    0,                                 /* ieee_packing               */
+    0,                                 /* bufrdc_mode                */
+    0,                                 /* bufr_set_to_missing_if_out_of_range */
+    0,                                 /* bufr_multi_element_constant_arrays */
+    0,                                 /* grib_data_quality_checks   */
+    0,                                 /* log_stream                 */
+    0,                                 /* classes                    */
+    0,                                 /* lists                      */
+    0,                                 /* expanded_descriptors       */
+    DEFAULT_FILE_POOL_MAX_OPENED_FILES /* file_pool_max_opened_files */
+#if GRIB_PTHREADS
+    ,
+    PTHREAD_MUTEX_INITIALIZER /* mutex                      */
+#endif
+};
 grib_context* grib_context_get_default()
 {
     GRIB_MUTEX_INIT_ONCE(&once, &init);
@@ -953,6 +1061,11 @@ static grib_handle* grib_handle_new_from_file_no_multi(grib_context* c, FILE* f,
     data              = wmo_read_grib_from_file_malloc(f, headers_only, &olen, &offset, error);
     end_msg_offset    = grib_context_tell(c, f);
 
+// TODO: error hit here, likely caused by one of the above three functions,
+//       probably "wmo_read_grib_from_file_malloc"
+// TRACING:: wmo_read_grib_from_file_malloc -> read_any -> _read_any -> read_GRIB -> 
+// ERROR: GRIB_UNSUPPORTED_EDITION on line 3950 for the line "return GRIB_UNSUPPORTED_EDITION"
+// on the: switch (edition) switch case. 
     if (*error != GRIB_SUCCESS) {
         if (data)
             grib_context_free(c, data);
@@ -1055,6 +1168,19 @@ const struct grib_keys_hash* grib_keys_hash_get (register const char *str, regis
     }
   return 0;
 }
+
+grib_iterator_class* grib_iterator_class_gaussian;
+grib_iterator_class* grib_iterator_class_gen;
+grib_iterator_class* grib_iterator_class_lambert_conformal;
+grib_iterator_class* grib_iterator_class_latlon;
+grib_iterator_class* grib_iterator_class_regular;
+static const struct table_entry table[] = {
+{ "gaussian", &grib_iterator_class_gaussian, },
+{ "gen", &grib_iterator_class_gen, },
+{ "lambert_conformal", &grib_iterator_class_lambert_conformal, },
+{ "latlon", &grib_iterator_class_latlon, },
+{ "regular", &grib_iterator_class_regular, },
+};
 
 grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret)
 {
@@ -2261,6 +2387,7 @@ char* grib_context_full_defs_path(grib_context* c, const char* basename)
 
     GRIB_MUTEX_LOCK(&mutex_c);
     /* Store missing files so we don't check for them again and again */
+    grib_string_list grib_file_not_found;
     grib_trie_insert(c->def_files, basename, &grib_file_not_found);
     /*grib_context_log(c,GRIB_LOG_ERROR,"Def file \"%s\" not found",basename);*/
     GRIB_MUTEX_UNLOCK(&mutex_c);
@@ -2965,7 +3092,7 @@ static int default_feof(const grib_context* c, void* stream)
     return feof((FILE*)stream);
 }
 
-static void default_free(const grib_context* c, void* p)
+void default_free(const grib_context* c, void* p)
 {
     free(p);
 }
@@ -3063,6 +3190,7 @@ static void init(grib_action_class* c)
 static void init_class_gac (grib_action_class* c) {
 
 }
+
 static void dump_gac (grib_action* act, FILE*f, int lvl) {
 
 }
@@ -3216,9 +3344,11 @@ static int parse(grib_context* gc, const char* filename)
 
     gc = gc ? gc : grib_context_get_default();
 
-    grib_yyin  = NULL;
+    // grib_yyin  = NULL;
+    FILE* grib_yyin = NULL;
     top        = 0;
-    parse_file = 0;
+    // parse_file = 0;
+    const char* parse_file = 0;
     // grib_parser_include(filename);
     // if (!grib_yyin) {
     //     /* Could not read from file */
@@ -3230,7 +3360,7 @@ static int parse(grib_context* gc, const char* filename)
     //       in grib_yacc.c
     // err        = grib_yyparse();
     err = 0;
-    parse_file = 0;
+    //  parse_file = 0;
 
     if (err)
         grib_context_log(gc, GRIB_LOG_ERROR, "Parsing error: %s, file: %s\n",
