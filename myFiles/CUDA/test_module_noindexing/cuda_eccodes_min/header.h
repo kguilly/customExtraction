@@ -7,6 +7,15 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <string.h>
+#include <stdarg.h>
+#include <errno.h>
+// #include <direct.h>
+// #include <io.h>
+#include <limits.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <inttypes.h>
 
 
 #define ACCESSORS_ARRAY_SIZE 5000

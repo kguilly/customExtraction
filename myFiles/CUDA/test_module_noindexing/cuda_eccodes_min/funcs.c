@@ -1,12 +1,11 @@
 #include "header.h"
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <stdarg.h>
-#include <errno.h>
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <unistd.h>
+// #include <sys/types.h>
+
 
 int codes_access(const char* name, int mode)
 {
@@ -3726,7 +3725,6 @@ static int read_GRIB(reader* r)
         return err;
 
     edition = tmp[i++];
-
     switch (edition) {
         case 1:
             if (r->headers_only) {
@@ -3952,6 +3950,7 @@ static int read_GRIB(reader* r)
             break;
     }
 
+    // TODO: this error is getting hit
     /* Assert(i <= buf->length); */
     err = read_the_rest(r, length, tmp, i, 1);
     if (err)
