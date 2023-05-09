@@ -46,6 +46,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define ECC_PATH_DELIMITER_STR ":"
 #define ECC_PATH_MAXLEN 8192
 #define ecc_snprintf snprintf 
+#define GRIB 0x47524942
 #define GRIB_7777_NOT_FOUND -5
 #define GRIB_ARRAY_TOO_SMALL -6
 #define GRIB_BUFFER_TOO_SMALL -3

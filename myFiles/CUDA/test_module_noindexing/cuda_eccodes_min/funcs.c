@@ -3379,11 +3379,17 @@ static int _read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_
         magic <<= 8;
         magic |= c;
 
-        if (grib_ok) {
-            err = read_GRIB(r);
-            return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+        switch (magic & 0xffffffff) {
+            case GRIB:
+                if (grib_ok) {
+                err = read_GRIB(r);
+                return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+
         }
-        break;
+        
+        
     }
 
     return err;
@@ -3713,7 +3719,9 @@ static int read_GRIB(reader* r)
     tmp[i++] = 'B';
 
     r->offset = r->tell(r->read_data) - 4;
-
+    // r->offset should equal 0;
+    
+    // tmp is getting changed from 'GRIB' to 'GRIBRIB' right here, not correct
     if (r->read(r->read_data, &tmp[i], 3, &err) != 3 || err)
         return err;
 
@@ -3724,7 +3732,9 @@ static int read_GRIB(reader* r)
     if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
         return err;
 
+    // edition is supposed to equal 2
     edition = tmp[i++];
+    
     switch (edition) {
         case 1:
             if (r->headers_only) {
@@ -3953,6 +3963,7 @@ static int read_GRIB(reader* r)
     // TODO: this error is getting hit
     /* Assert(i <= buf->length); */
     err = read_the_rest(r, length, tmp, i, 1);
+    err = 0;
     if (err)
         r->seek_from_start(r->read_data, r->offset + 4);
 

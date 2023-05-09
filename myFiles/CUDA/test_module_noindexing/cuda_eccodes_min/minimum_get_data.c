@@ -27,6 +27,10 @@ int main(){
         fprintf(stderr, "Error: unable to open input file %s\n", filename);
         return 1;
     }
+    if (fseek(in, 0, SEEK_SET) != 0) {
+        perror("Error seeking file");
+        return 1;
+    }
 
     /* create new handle from a message in a file */
     grib_handle* h = grib_handle_new_from_file(0, in, &err);
