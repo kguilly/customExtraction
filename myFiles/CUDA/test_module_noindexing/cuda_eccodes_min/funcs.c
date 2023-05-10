@@ -900,6 +900,7 @@ static grib_handle* grib_handle_new_from_file_multi(grib_context* c, FILE* f, in
 
     if (!gm->message) {
         gts_header_offset = grib_context_tell(c, f);
+        // TODO: data is returning nothing, when it should return something
         data              = wmo_read_grib_from_file_malloc(f, 0, &olen, &offset, error);
         end_msg_offset    = grib_context_tell(c, f);
 
@@ -1060,11 +1061,6 @@ static grib_handle* grib_handle_new_from_file_no_multi(grib_context* c, FILE* f,
     data              = wmo_read_grib_from_file_malloc(f, headers_only, &olen, &offset, error);
     end_msg_offset    = grib_context_tell(c, f);
 
-// TODO: error hit here, likely caused by one of the above three functions,
-//       probably "wmo_read_grib_from_file_malloc"
-// TRACING:: wmo_read_grib_from_file_malloc -> read_any -> _read_any -> read_GRIB -> 
-// ERROR: GRIB_UNSUPPORTED_EDITION on line 3950 for the line "return GRIB_UNSUPPORTED_EDITION"
-// on the: switch (edition) switch case. 
     if (*error != GRIB_SUCCESS) {
         if (data)
             grib_context_free(c, data);
@@ -3378,12 +3374,13 @@ static int _read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_
     while (r->read(r->read_data, &c, 1, &err) == 1 && err == 0) {
         magic <<= 8;
         magic |= c;
-
-        if (grib_ok) {
-            err = read_GRIB(r);
-            return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+        switch (magic & 0xffffffff) {
+            if (grib_ok) {
+                err = read_GRIB(r);
+                return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+            }
+            break;
         }
-        break;
     }
 
     return err;
@@ -3950,8 +3947,6 @@ static int read_GRIB(reader* r)
             break;
     }
 
-    // TODO: this error is getting hit
-    /* Assert(i <= buf->length); */
     err = read_the_rest(r, length, tmp, i, 1);
     if (err)
         r->seek_from_start(r->read_data, r->offset + 4);
