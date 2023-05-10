@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <pthread.h>
 
 
 #define ACCESSORS_ARRAY_SIZE 5000
@@ -71,7 +72,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_LOG_PERROR (1 << 10)
 #define GRIB_LOG_WARNING 1
 #define GRIB_MESSAGE_TOO_LARGE -47
-#define GRIB_MUTEX_INIT_ONCE(a, b)
+#define GRIB_MUTEX_INIT_ONCE(a, b) 
 #define GRIB_MUTEX_LOCK(a)
 #define GRIB_MUTEX_UNLOCK(a)
 #define GRIB_MY_BUFFER 0
@@ -93,6 +94,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define MAX_ACCESSOR_NAMES 20
 #define MAX_ACCESSOR_ATTRIBUTES 20
 #define MAX_HASH_VALUE 32422
+#define MAXINCLUDE 10
 #define MAX_NAMESPACE_LEN 64
 #define MAX_NUM_CONCEPTS 2000
 #define MAX_NUM_HASH_ARRAY 2000
@@ -102,6 +104,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define MAX_WORD_LENGTH 74
 #define MIN_WORD_LENGTH 1
 #define NUMBER(x) (sizeof(x) / sizeof(x[0]))
+#define PTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE_NP
 #define STR_EQ(a, b) (strcmp((a), (b)) == 0)
 #define STRING_VALUE_LEN 100
 #define TOTAL_KEYWORDS 2432
@@ -125,6 +128,7 @@ typedef struct bufr_descriptors_array bufr_descriptors_array;
 typedef struct bufr_tableb_override bufr_tableb_override;
 typedef struct codes_condition codes_condition;
 typedef struct code_table_entry code_table_entry;
+typedef struct context context;
 typedef struct grib_accessors_list grib_accessors_list;
 typedef struct grib_accessor grib_accessor;
 typedef struct grib_accessor_bufr_data_array grib_accessor_bufr_data_array;
@@ -328,6 +332,14 @@ struct code_table_entry
     char* abbreviation;
     char* title;
     char* units;
+};
+
+struct context
+{
+    char* name;
+    FILE* file;
+    char* io_buffer;
+    int line;
 };
 
 struct grib_accessors_list
@@ -10776,6 +10788,7 @@ int _grib_get_size(const grib_handle* h, grib_accessor* a, size_t* size);
 int grib_get_size(const grib_handle* ch, const char* name, size_t* size);
 void* grib_oarray_get(grib_oarray* v, int i);
 int grib_pack_long(grib_accessor* a, const long* v, size_t* len);
+void grib_parser_include(const char* included_fname);
 static void grib_push_action_file(grib_action_file* af, grib_action_file_list* afl);
 int grib_unpack_double(grib_accessor* a, double* v, size_t* len);
 int grib_unpack_long(grib_accessor*, long*, size_t*);
@@ -10794,6 +10807,7 @@ char* grib_split_name_attribute(grib_context* c, const char* name, char* attribu
 static void* allocate_buffer(void* data, size_t* length, int* err);
 static int matching(grib_accessor* a, const char* name, const char* name_space);
 static void init(grib_action_class* c);
+static void init_pthread();
 static int read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok);
 static void rebuild_hash_keys(grib_handle* h, grib_section* s);
 static void search_from_accessors_list(grib_accessors_list* al, const grib_accessors_list* end, const char* name, grib_accessors_list* result);
