@@ -900,7 +900,6 @@ static grib_handle* grib_handle_new_from_file_multi(grib_context* c, FILE* f, in
 
     if (!gm->message) {
         gts_header_offset = grib_context_tell(c, f);
-        // TODO: data is returning nothing, when it should return something
         data              = wmo_read_grib_from_file_malloc(f, 0, &olen, &offset, error);
         end_msg_offset    = grib_context_tell(c, f);
 
@@ -1059,6 +1058,9 @@ static grib_handle* grib_handle_new_from_file_no_multi(grib_context* c, FILE* f,
 
     gts_header_offset = grib_context_tell(c, f);
     data              = wmo_read_grib_from_file_malloc(f, headers_only, &olen, &offset, error);
+    // TODO: 
+    // end_msg offset returns 503402, when it should return 0
+    // p end_msg_offset = 0
     end_msg_offset    = grib_context_tell(c, f);
 
     if (*error != GRIB_SUCCESS) {
@@ -3374,12 +3376,54 @@ static int _read_any(reader* r, int grib_ok, int bufr_ok, int hdf5_ok, int wrap_
     while (r->read(r->read_data, &c, 1, &err) == 1 && err == 0) {
         magic <<= 8;
         magic |= c;
+
         switch (magic & 0xffffffff) {
-            if (grib_ok) {
-                err = read_GRIB(r);
-                return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
-            }
-            break;
+            case GRIB:
+                if (grib_ok) {
+                    err = read_GRIB(r);
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+
+            case BUFR:
+                if (bufr_ok) {
+                    err = read_BUFR(r);
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+
+            case HDF5:
+                if (hdf5_ok) {
+                    err = read_HDF5(r);
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+
+            case WRAP:
+                if (wrap_ok) {
+                    err = read_WRAP(r);
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+
+            case BUDG:
+                if (grib_ok) {
+                    err = read_PSEUDO(r, "BUDG");
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+            case DIAG:
+                if (grib_ok) {
+                    err = read_PSEUDO(r, "DIAG");
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
+            case TIDE:
+                if (grib_ok) {
+                    err = read_PSEUDO(r, "TIDE");
+                    return err == GRIB_END_OF_FILE ? GRIB_PREMATURE_END_OF_FILE : err; /* Premature EOF */
+                }
+                break;
         }
     }
 
@@ -3677,6 +3721,428 @@ static void* _wmo_read_any_from_file_malloc(FILE* f, int* err, size_t* size, off
     *offset = r.offset;
 
     return u.buffer;
+}
+
+static int read_HDF5_offset(reader* r, int length, unsigned long* v, unsigned char* tmp, int* i)
+{
+    unsigned char buf[8];
+    int j, k;
+    int err = 0;
+
+
+    if ((r->read(r->read_data, buf, length, &err) != length) || err) {
+        return err;
+    }
+
+    k = *i;
+    for (j = 0; j < length; j++) {
+        tmp[k++] = buf[j];
+    }
+    *i = k;
+
+    *v = 0;
+    for (j = length - 1; j >= 0; j--) {
+        *v <<= 8;
+        *v |= buf[j];
+    }
+
+    return 0;
+}
+
+static int read_HDF5(reader* r)
+{
+    /* 
+     * See: http://www.hdfgroup.org/HDF5/doc/H5.format.html#Superblock
+     */
+    unsigned char tmp[49]; /* Should be enough */
+    unsigned char buf[4];
+
+    unsigned char version_of_superblock, size_of_offsets, size_of_lengths, consistency_flags;
+    unsigned long base_address, superblock_extension_address, end_of_file_address;
+
+    int i           = 0, j;
+    int err         = 0;
+    grib_context* c = grib_context_get_default();
+
+    tmp[i++] = 137;
+    tmp[i++] = 'H';
+    tmp[i++] = 'D';
+    tmp[i++] = 'F';
+
+    if ((r->read(r->read_data, buf, 4, &err) != 4) || err) {
+        return err;
+    }
+
+    if (!(buf[0] == '\r' && buf[1] == '\n' && buf[2] == 26 && buf[3] == '\n')) {
+        /* Invalid magic, we should not use grib_context_log without a context */
+        grib_context_log(c, GRIB_LOG_ERROR, "read_HDF5: invalid signature");
+        return GRIB_INVALID_MESSAGE;
+    }
+
+    for (j = 0; j < 4; j++) {
+        tmp[i++] = buf[j];
+    }
+
+    if ((r->read(r->read_data, &version_of_superblock, 1, &err) != 1) || err) {
+        return err;
+    }
+
+    tmp[i++] = version_of_superblock;
+
+    if (version_of_superblock == 2 || version_of_superblock == 3) {
+        if ((r->read(r->read_data, &size_of_offsets, 1, &err) != 1) || err) {
+            return err;
+        }
+
+        tmp[i++] = size_of_offsets;
+
+        if (size_of_offsets > 8) {
+            grib_context_log(c, GRIB_LOG_ERROR, "read_HDF5: invalid size_of_offsets: %ld, only <= 8 is supported", (long)size_of_offsets);
+            return GRIB_NOT_IMPLEMENTED;
+        }
+
+        if ((r->read(r->read_data, &size_of_lengths, 1, &err) != 1) || err) {
+            return err;
+        }
+
+        tmp[i++] = size_of_lengths;
+
+        if ((r->read(r->read_data, &consistency_flags, 1, &err) != 1) || err) {
+            return err;
+        }
+
+        tmp[i++] = consistency_flags;
+
+        err = read_HDF5_offset(r, size_of_offsets, &base_address, tmp, &i);
+        if (err) {
+            return err;
+        }
+
+        err = read_HDF5_offset(r, size_of_offsets, &superblock_extension_address, tmp, &i);
+        if (err) {
+            return err;
+        }
+
+        err = read_HDF5_offset(r, size_of_offsets, &end_of_file_address, tmp, &i);
+        if (err) {
+            return err;
+        }
+    }
+    else if (version_of_superblock == 0 || version_of_superblock == 1) {
+        char skip[4];
+        unsigned long file_free_space_info;
+        unsigned char version_of_file_free_space, version_of_root_group_symbol_table, version_number_shared_header, ch;
+
+        if ((r->read(r->read_data, &version_of_file_free_space, 1, &err) != 1) || err)
+            return err;
+        tmp[i++] = version_of_file_free_space;
+
+        if ((r->read(r->read_data, &version_of_root_group_symbol_table, 1, &err) != 1) || err)
+            return err;
+        tmp[i++] = version_of_root_group_symbol_table;
+
+        if ((r->read(r->read_data, &ch, 1, &err) != 1) || err)
+            return err; /* reserved */
+        tmp[i++] = ch;
+
+        if ((r->read(r->read_data, &version_number_shared_header, 1, &err) != 1) || err)
+            return err;
+        tmp[i++] = version_number_shared_header;
+
+        if ((r->read(r->read_data, &size_of_offsets, 1, &err) != 1) || err)
+            return err;
+        tmp[i++] = size_of_offsets;
+        if (size_of_offsets > 8) {
+            grib_context_log(c, GRIB_LOG_ERROR, "read_HDF5: invalid size_of_offsets: %ld, only <= 8 is supported", (long)size_of_offsets);
+            return GRIB_NOT_IMPLEMENTED;
+        }
+
+        if ((r->read(r->read_data, &size_of_lengths, 1, &err) != 1) || err)
+            return err;
+        tmp[i++] = size_of_lengths;
+
+        if ((r->read(r->read_data, &ch, 1, &err) != 1) || err)
+            return err; /*reserved*/
+        tmp[i++] = ch;
+
+        if ((r->read(r->read_data, &skip, 4, &err) != 4) || err)
+            return err; /* Group Leaf/Internal Node K: 4 bytes */
+        tmp[i++] = skip[0];
+        tmp[i++] = skip[1];
+        tmp[i++] = skip[2];
+        tmp[i++] = skip[3];
+
+        if ((r->read(r->read_data, &skip, 4, &err) != 4) || err)
+            return err; /* consistency_flags: 4 bytes */
+        tmp[i++] = skip[0];
+        tmp[i++] = skip[1];
+        tmp[i++] = skip[2];
+        tmp[i++] = skip[3];
+
+        if (version_of_superblock == 1) {
+            /* Indexed storage internal node K and reserved: only in version 1 of superblock */
+            if ((r->read(r->read_data, &skip, 4, &err) != 4) || err)
+                return err;
+            tmp[i++] = skip[0];
+            tmp[i++] = skip[1];
+            tmp[i++] = skip[2];
+            tmp[i++] = skip[3];
+        }
+
+        err = read_HDF5_offset(r, size_of_offsets, &base_address, tmp, &i);
+        if (err)
+            return err;
+
+        err = read_HDF5_offset(r, size_of_offsets, &file_free_space_info, tmp, &i);
+        if (err)
+            return err;
+
+        err = read_HDF5_offset(r, size_of_offsets, &end_of_file_address, tmp, &i);
+        if (err)
+            return err;
+    }
+    else {
+        grib_context_log(c, GRIB_LOG_ERROR, "read_HDF5: invalid version of superblock: %ld", (long)version_of_superblock);
+        return GRIB_NOT_IMPLEMENTED;
+    }
+
+    Assert(i <= sizeof(tmp));
+    return read_the_rest(r, end_of_file_address, tmp, i, 0);
+}
+
+static int read_WRAP(reader* r)
+{
+    /*
+     * See: http://www.hdfgroup.org/HDF5/doc/H5.format.html#Superblock
+     */
+    unsigned char tmp[36]; /* Should be enough */
+    unsigned char buf[8];
+
+    unsigned long long length = 0;
+
+    int i   = 0, j;
+    int err = 0;
+
+    tmp[i++] = 'W';
+    tmp[i++] = 'R';
+    tmp[i++] = 'A';
+    tmp[i++] = 'P';
+
+    if ((r->read(r->read_data, buf, 8, &err) != 8) || err) {
+        printf("error\n");
+        return err;
+    }
+
+    for (j = 0; j < 8; j++) {
+        length <<= 8;
+        length |= buf[j];
+        tmp[i++] = buf[j];
+    }
+
+    Assert(i <= sizeof(tmp));
+    return read_the_rest(r, length, tmp, i, 1);
+}
+
+static int read_BUFR(reader* r)
+{
+    /* unsigned char tmp[65536];*/ /* Should be enough */
+    size_t length      = 0;
+    long edition       = 0;
+    int err            = 0;
+    int i              = 0, j;
+    size_t buflen      = 2048;
+    unsigned char* tmp = NULL;
+    grib_context* c    = NULL;
+    grib_buffer* buf   = NULL;
+
+    /*TODO proper context*/
+    c   = grib_context_get_default();
+    tmp = (unsigned char*)malloc(buflen);
+    if (!tmp)
+        return GRIB_OUT_OF_MEMORY;
+    buf           = grib_new_buffer(c, tmp, buflen);
+    buf->property = GRIB_MY_BUFFER;
+    r->offset     = r->tell(r->read_data) - 4;
+
+    tmp[i++] = 'B';
+    tmp[i++] = 'U';
+    tmp[i++] = 'F';
+    tmp[i++] = 'R';
+
+    for (j = 0; j < 3; j++) {
+        if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+            return err;
+
+        length <<= 8;
+        length |= tmp[i];
+        i++;
+    }
+
+    if (length == 0) {
+        grib_buffer_delete(c, buf);
+        return GRIB_INVALID_MESSAGE;
+    }
+
+    /* Edition number */
+    if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+        return err;
+
+    edition = tmp[i++];
+
+    /* Assert(edition != 1); */
+
+    switch (edition) {
+        case 0:
+        case 1: {
+            int n;
+            size_t sec1len = 0;
+            size_t sec2len = 0;
+            size_t sec3len = 0;
+            size_t sec4len = 0;
+            unsigned long flags;
+
+            sec1len = length;
+
+            /* table version */
+            if (r->read(r->read_data, &tmp[i++], 1, &err) != 1 || err)
+                return err;
+            /* center */
+            if (r->read(r->read_data, &tmp[i++], 1, &err) != 1 || err)
+                return err;
+            /* update */
+            if (r->read(r->read_data, &tmp[i++], 1, &err) != 1 || err)
+                return err;
+            /* flags */
+            if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+                return err;
+            flags = tmp[i++];
+
+
+            GROW_BUF_IF_REQUIRED(sec1len + 4 + 3);
+
+            /* Read section 1. 3 = length, 5 = table,center,process,flags */
+
+            n = sec1len - 8; /* Just a guess */
+            if ((r->read(r->read_data, tmp + i, n, &err) != n) || err)
+                return err;
+
+            i += n;
+
+            if (flags & (1 << 7)) {
+                /* Section 2 */
+                for (j = 0; j < 3; j++) {
+                    if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+                        return err;
+
+                    sec2len <<= 8;
+                    sec2len |= tmp[i];
+                    i++;
+                }
+
+                GROW_BUF_IF_REQUIRED(sec1len + sec2len + 4 + 3);
+
+                /* Read section 2 */
+                if ((r->read(r->read_data, tmp + i, sec2len - 3, &err) != sec2len - 3) || err)
+                    return err;
+                i += sec2len - 3;
+            }
+
+
+            /* Section 3 */
+            for (j = 0; j < 3; j++) {
+                if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+                    return err;
+
+                sec3len <<= 8;
+                sec3len |= tmp[i];
+                i++;
+            }
+
+            GROW_BUF_IF_REQUIRED(sec1len + sec2len + sec3len + 4 + 3);
+
+            /* Read section 3 */
+            if ((r->read(r->read_data, tmp + i, sec3len - 3, &err) != sec3len - 3) || err)
+                return err;
+            i += sec3len - 3;
+
+            for (j = 0; j < 3; j++) {
+                if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+                    return err;
+
+                sec4len <<= 8;
+                sec4len |= tmp[i];
+                i++;
+            }
+
+            /* fprintf(stderr," sec1len=%d sec2len=%d sec3len=%d sec4len=%d\n",sec1len, sec2len,sec3len,sec4len); */
+            length = 4 + sec1len + sec2len + sec3len + sec4len + 4;
+            /* fprintf(stderr,"length = %d i = %d\n",length,i); */
+        } break;
+        case 2:
+        case 3:
+        case 4:
+            break;
+        default:
+            r->seek_from_start(r->read_data, r->offset + 4);
+            grib_buffer_delete(c, buf);
+            return GRIB_UNSUPPORTED_EDITION;
+    }
+
+    /* Assert(i <= sizeof(tmp)); */
+    err = read_the_rest(r, length, tmp, i, 1);
+    if (err)
+        r->seek_from_start(r->read_data, r->offset + 4);
+
+    grib_buffer_delete(c, buf);
+
+    return err;
+}
+
+static int read_PSEUDO(reader* r, const char* type)
+{
+    unsigned char tmp[32]; /* Should be enough */
+    size_t sec1len = 0;
+    size_t sec4len = 0;
+    int err        = 0;
+    int i = 0, j = 0;
+
+    Assert(strlen(type) == 4);
+    for (j = 0; j < 4; j++) {
+        tmp[i] = type[i];
+        i++;
+    }
+
+    for (j = 0; j < 3; j++) {
+        if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+            return err;
+
+        sec1len <<= 8;
+        sec1len |= tmp[i];
+        i++;
+    }
+
+    /* fprintf(stderr,"%s sec1len=%d i=%d\n",type,sec1len,i); */
+    CHECK_TMP_SIZE(sec1len + 4 + 3);
+
+    /* Read sectoin1 */
+    if ((r->read(r->read_data, tmp + i, sec1len - 3, &err) != sec1len - 3) || err)
+        return err;
+
+    i += sec1len - 3;
+
+    for (j = 0; j < 3; j++) {
+        if (r->read(r->read_data, &tmp[i], 1, &err) != 1 || err)
+            return err;
+
+        sec4len <<= 8;
+        sec4len |= tmp[i];
+        i++;
+    }
+
+    /* fprintf(stderr,"%s sec4len=%d i=%d l=%d\n",type,sec4len,i,4+sec1len+sec4len+4); */
+
+    Assert(i <= sizeof(tmp));
+    return read_the_rest(r, 4 + sec1len + sec4len + 4, tmp, i, 1);
 }
 
 static int read_GRIB(reader* r)

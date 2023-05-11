@@ -25,10 +25,23 @@
     } while (0)
 #define BIT_MASK(x) \
 (((x) == max_nbits) ? (unsigned long)-1UL : (1UL << (x)) - 1)
-#define DebugAssert(a) Assert(a)
+#define BUFR 0x42554652
+#define BUDG 0x42554447
+#define CHECK_TMP_SIZE(a)                                                                                    \
+    if (sizeof(tmp) < (a)) {                                                                                 \
+        fprintf(stderr, "%s:%d sizeof(tmp)<%s %d<%d\n", __FILE__, __LINE__, #a, (int)sizeof(tmp), (int)(a)); \
+        return GRIB_INTERNAL_ARRAY_TOO_SMALL;                                                                \
+    }
 
 #ifdef DEBUG
-#define DebugAssert(a)
+#define DebugAssert(a) Assert(a)
+#define DebugAssertAccess(array, index, size)                                                                             \
+    do {                                                                                                                  \
+        if (!((index) >= 0 && (index) < (size))) {                                                                        \
+            printf("ARRAY ACCESS ERROR: array=%s idx=%ld size=%ld @ %s +%d \n", #array, index, size, __FILE__, __LINE__); \
+            abort();                                                                                                      \
+        }                                                                                                                 \
+    } while (0)
 static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 
 #define DebugCheckBounds(index, value)                                                                  \
@@ -40,8 +53,12 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
     } while (0)
 #else
 #define DebugCheckBounds(index, value)
+#define DebugAssert(a)
+#define DebugAssertAccess(array, index, size)
 #endif
+
 #define DEFAULT_FILE_POOL_MAX_OPENED_FILES 0
+#define DIAG 0x44494147
 #define ECC_PATH_DELIMITER_CHAR ';'
 #define ECC_PATH_DELIMITER_STR ":"
 #define ECC_PATH_MAXLEN 8192
@@ -54,13 +71,16 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
         grib_grow_buffer(c, buf, desired_length); \
         tmp = buf->data;                          \
     }
+#define GRIB 0x47524942
 #define GRIB_DECODING_ERROR -13
 #define GRIB_END_OF_FILE -1
 #define GRIB_FILE_NOT_FOUND -7
 #define GRIB_GEOCALCULUS_PROBLEM -16
 #define GRIB_INLINE
+#define GRIB_INTERNAL_ARRAY_TOO_SMALL -46
 #define GRIB_INTERNAL_ERROR -2
 #define GRIB_INVALID_ARGUMENT -19
+#define GRIB_INVALID_MESSAGE -12
 #define GRIB_INVALID_SECTION_NUMBER -21
 #define GRIB_IO_PROBLEM -11
 #define GRIB_LOG_DEBUG 4
@@ -88,6 +108,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_USER_BUFFER 1
 #define GRIB_WRONG_LENGTH -23
 #define GRIB_WRONG_GRID -42
+#define HDF5 0x89484446
 #define ITRIE_SIZE 40
 #define MAX_ACCESSOR_NAMES 20
 #define MAX_ACCESSOR_ATTRIBUTES 20
@@ -103,9 +124,11 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define NUMBER(x) (sizeof(x) / sizeof(x[0]))
 #define STR_EQ(a, b) (strcmp((a), (b)) == 0)
 #define STRING_VALUE_LEN 100
+#define TIDE 0x54494445
 #define TOTAL_KEYWORDS 2432
 #define TRIE_SIZE 39
 #define UINT3(a, b, c) (size_t)((a << 16) + (b << 8) + c);
+#define WRAP 0x57524150
 
 /* structs & enums */
 typedef enum ProductKind
@@ -10810,6 +10833,11 @@ static void* _wmo_read_any_from_file_malloc(FILE* f, int* err, size_t* size, off
                                             int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok, int headers_only);
 
 static int read_GRIB(reader* r);
+static int read_HDF5_offset(reader* r, int length, unsigned long* v, unsigned char* tmp, int* i);
+static int read_HDF5(reader*);
+static int read_BUFR(reader*);
+static int read_WRAP(reader* r);
+static int read_PSEUDO(reader* r, const char* type);
 static int read_the_rest(reader* r, size_t message_length, unsigned char* tmp, int already_read, int check7777);
 
 
