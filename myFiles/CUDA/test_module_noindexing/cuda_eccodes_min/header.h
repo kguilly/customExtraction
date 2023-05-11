@@ -18,6 +18,8 @@
 #include <inttypes.h>
 
 
+
+
 #define ACCESSORS_ARRAY_SIZE 5000
 #define Assert(a) \
     do {                                                          \
@@ -82,6 +84,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_INVALID_ARGUMENT -19
 #define GRIB_INVALID_MESSAGE -12
 #define GRIB_INVALID_SECTION_NUMBER -21
+#define GRIB_INVALID_TYPE -24
 #define GRIB_IO_PROBLEM -11
 #define GRIB_LOG_DEBUG 4
 #define GRIB_LOG_ERROR 2
@@ -113,6 +116,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define MAX_ACCESSOR_NAMES 20
 #define MAX_ACCESSOR_ATTRIBUTES 20
 #define MAX_HASH_VALUE 32422
+#define MAXINCLUDE 10
 #define MAX_NAMESPACE_LEN 64
 #define MAX_NUM_CONCEPTS 2000
 #define MAX_NUM_HASH_ARRAY 2000
@@ -147,6 +151,7 @@ typedef struct bufr_descriptors_array bufr_descriptors_array;
 typedef struct bufr_tableb_override bufr_tableb_override;
 typedef struct codes_condition codes_condition;
 typedef struct code_table_entry code_table_entry;
+typedef struct context context;
 typedef struct grib_accessors_list grib_accessors_list;
 typedef struct grib_accessor grib_accessor;
 typedef struct grib_accessor_bufr_data_array grib_accessor_bufr_data_array;
@@ -160,6 +165,7 @@ typedef struct grib_action_noop grib_action_noop;
 typedef struct grib_arguments grib_arguments;
 typedef struct grib_block_of_accessors grib_block_of_accessors;
 typedef struct grib_buffer grib_buffer;
+typedef struct grib_case grib_case;
 typedef struct grib_codetable grib_codetable;
 typedef struct grib_codetable grib_codetable;
 typedef struct grib_concept_condition grib_concept_condition;
@@ -175,6 +181,8 @@ typedef struct grib_handle grib_handle;
 typedef struct grib_hash_array_value grib_hash_array_value;
 typedef struct grib_keys_hash grib_keys_hash;
 typedef struct grib_oarray grib_oarray;
+typedef struct grib_rule grib_rule;
+typedef struct grib_rule_entry grib_rule_entry;
 typedef struct grib_iarray grib_iarray;
 typedef struct grib_iterator grib_iterator;
 typedef struct grib_iterator_class grib_iterator_class;
@@ -196,6 +204,8 @@ typedef struct grib_viarray grib_viarray;
 typedef struct grib_virtual_value grib_virtual_value;
 typedef struct reader reader;
 typedef struct table_entry table_entry;
+
+
 
 /* funnction pointer typedefs */
 typedef int (*action_create_accessors_handle_proc)(grib_section*, grib_action*, grib_loader*);
@@ -350,6 +360,14 @@ struct code_table_entry
     char* abbreviation;
     char* title;
     char* units;
+};
+
+struct context 
+{
+    char* name;
+    FILE* file;
+    char* io_buffer;
+    int line;
 };
 
 struct grib_accessors_list
@@ -587,6 +605,13 @@ struct grib_buffer
     size_t ulength;      /** < length used of the buffer            */
     size_t ulength_bits; /** < length used of the buffer in bits  */
     unsigned char* data; /** < the data byte array                  */
+};
+
+struct grib_case
+{
+    grib_arguments* values;
+    grib_action* action;
+    grib_case* next;
 };
 
 struct grib_codetable
@@ -900,6 +925,20 @@ struct grib_oarray
     size_t n;    /* used size */
     size_t incsize;
     grib_context* context;
+};
+
+struct grib_rule
+{
+    grib_rule* next;
+    grib_expression* condition;
+    grib_rule_entry* entries;
+};
+
+struct grib_rule_entry
+{
+    grib_rule_entry* next;
+    char* name;
+    grib_expression* value;
 };
 
 struct grib_sarray
@@ -3741,7 +3780,6 @@ const int mapping[] = {
 // { "regular", &grib_iterator_class_regular, },
 // };
 
-static int top = 0;
 static const struct grib_keys_hash wordlist[] = {
     {""}, {""}, {""},
     {"n",1334},
@@ -10822,12 +10860,12 @@ static void search_from_accessors_list(grib_accessors_list* al, const grib_acces
 static void search_accessors_list_by_condition(grib_accessors_list* al, const char* name, codes_condition* condition, grib_accessors_list* result);
 static int init_iterator(grib_iterator_class* c, grib_iterator* i, grib_handle* h, grib_arguments* args);
 static int parse(grib_context* gc, const char* filename);
+void grib_parser_include(const char* included_fname);
 size_t stdio_read(void* data, void* buf, size_t len, int* err);
 int stdio_seek_from_start(void* data, off_t len);
 int stdio_seek(void* data, off_t len);
 off_t stdio_tell(void* data);
-static unsigned int
-hash_keys (register const char *str, register size_t len);
+static unsigned int hash_keys (register const char *str, register size_t len);
 void* wmo_read_grib_from_file_malloc(FILE* f, int headers_only, size_t* size, off_t* offset, int* err);
 static void* _wmo_read_any_from_file_malloc(FILE* f, int* err, size_t* size, off_t* offset,
                                             int grib_ok, int bufr_ok, int hdf5_ok, int wrap_ok, int headers_only);
@@ -10840,6 +10878,472 @@ static int read_WRAP(reader* r);
 static int read_PSEUDO(reader* r, const char* type);
 static int read_the_rest(reader* r, size_t message_length, unsigned char* tmp, int already_read, int check7777);
 
+int grib_yyerror(const char* msg);
+FILE* codes_fopen(const char* name, const char* mode);
 
+/*
+copied over from grib_yacc.h
+*/
 
+/* Debug traces.  */
+#ifndef YYDEBUG
+# define YYDEBUG 0
 #endif
+#if YYDEBUG
+extern int grib_yydebug;
+#endif
+
+/* Token type.  */
+#ifndef YYTOKENTYPE
+# define YYTOKENTYPE
+
+  enum grib_yytokentype
+  {
+    LOWERCASE = 258,
+    IF = 259,
+    IF_TRANSIENT = 260,
+    ELSE = 261,
+    END = 262,
+    CLOSE = 263,
+    UNSIGNED = 264,
+    TEMPLATE = 265,
+    TEMPLATE_NOFAIL = 266,
+    TRIGGER = 267,
+    ASCII = 268,
+    GROUP = 269,
+    NON_ALPHA = 270,
+    KSEC1EXPVER = 271,
+    LABEL = 272,
+    LIST = 273,
+    IS_IN_LIST = 274,
+    IS_IN_DICT = 275,
+    IS_INTEGER = 276,
+    TO_INTEGER = 277,
+    TO_STRING = 278,
+    SEX2DEC = 279,
+    WHILE = 280,
+    IBMFLOAT = 281,
+    SIGNED = 282,
+    UINT8 = 283,
+    INT8 = 284,
+    UINT16 = 285,
+    INT16 = 286,
+    UINT16_LITTLE_ENDIAN = 287,
+    INT16_LITTLE_ENDIAN = 288,
+    UINT32 = 289,
+    INT32 = 290,
+    UINT32_LITTLE_ENDIAN = 291,
+    INT32_LITTLE_ENDIAN = 292,
+    UINT64 = 293,
+    INT64 = 294,
+    UINT64_LITTLE_ENDIAN = 295,
+    INT64_LITTLE_ENDIAN = 296,
+    BLOB = 297,
+    BYTE = 298,
+    CODETABLE = 299,
+    SMART_TABLE = 300,
+    DICTIONARY = 301,
+    COMPLEX_CODETABLE = 302,
+    LOOKUP = 303,
+    ALIAS = 304,
+    UNALIAS = 305,
+    META = 306,
+    POS = 307,
+    INTCONST = 308,
+    TRANS = 309,
+    FLAGBIT = 310,
+    CONCEPT = 311,
+    GETENV = 312,
+    HASH_ARRAY = 313,
+    CONCEPT_NOFAIL = 314,
+    NIL = 315,
+    DUMMY = 316,
+    MODIFY = 317,
+    READ_ONLY = 318,
+    STRING_TYPE = 319,
+    LONG_TYPE = 320,
+    DOUBLE_TYPE = 321,
+    NO_COPY = 322,
+    DUMP = 323,
+    JSON = 324,
+    XML = 325,
+    NO_FAIL = 326,
+    EDITION_SPECIFIC = 327,
+    OVERRIDE = 328,
+    HIDDEN = 329,
+    CAN_BE_MISSING = 330,
+    MISSING = 331,
+    CONSTRAINT = 332,
+    COPY_OK = 333,
+    WHEN = 334,
+    SET = 335,
+    SET_NOFAIL = 336,
+    WRITE = 337,
+    APPEND = 338,
+    PRINT = 339,
+    EXPORT = 340,
+    REMOVE = 341,
+    RENAME = 342,
+    SKIP = 343,
+    PAD = 344,
+    SECTION_PADDING = 345,
+    MESSAGE = 346,
+    MESSAGE_COPY = 347,
+    PADTO = 348,
+    PADTOEVEN = 349,
+    PADTOMULTIPLE = 350,
+    G1_HALF_BYTE = 351,
+    G1_MESSAGE_LENGTH = 352,
+    G1_SECTION4_LENGTH = 353,
+    SECTION_LENGTH = 354,
+    LENGTH = 355,
+    FLAG = 356,
+    ITERATOR = 357,
+    NEAREST = 358,
+    BOX = 359,
+    KSEC = 360,
+    ASSERT = 361,
+    SUBSTR = 362,
+    CASE = 363,
+    SWITCH = 364,
+    DEFAULT = 365,
+    EQ = 366,
+    NE = 367,
+    GE = 368,
+    LE = 369,
+    LT = 370,
+    GT = 371,
+    BIT = 372,
+    BITOFF = 373,
+    AND = 374,
+    OR = 375,
+    NOT = 376,
+    IS = 377,
+    IDENT = 378,
+    STRING = 379,
+    INTEGER = 380,
+    FLOAT = 381
+  };
+#endif
+/* Tokens.  */
+#define LOWERCASE 258
+#define IF 259
+#define IF_TRANSIENT 260
+#define ELSE 261
+#define END 262
+#define CLOSE 263
+#define UNSIGNED 264
+#define TEMPLATE 265
+#define TEMPLATE_NOFAIL 266
+#define TRIGGER 267
+#define ASCII 268
+#define GROUP 269
+#define NON_ALPHA 270
+#define KSEC1EXPVER 271
+#define LABEL 272
+#define LIST 273
+#define IS_IN_LIST 274
+#define IS_IN_DICT 275
+#define IS_INTEGER 276
+#define TO_INTEGER 277
+#define TO_STRING 278
+#define SEX2DEC 279
+#define WHILE 280
+#define IBMFLOAT 281
+#define SIGNED 282
+#define UINT8 283
+#define INT8 284
+#define UINT16 285
+#define INT16 286
+#define UINT16_LITTLE_ENDIAN 287
+#define INT16_LITTLE_ENDIAN 288
+#define UINT32 289
+#define INT32 290
+#define UINT32_LITTLE_ENDIAN 291
+#define INT32_LITTLE_ENDIAN 292
+#define UINT64 293
+#define INT64 294
+#define UINT64_LITTLE_ENDIAN 295
+#define INT64_LITTLE_ENDIAN 296
+#define BLOB 297
+#define BYTE 298
+#define CODETABLE 299
+#define SMART_TABLE 300
+#define DICTIONARY 301
+#define COMPLEX_CODETABLE 302
+#define LOOKUP 303
+#define ALIAS 304
+#define UNALIAS 305
+#define META 306
+#define POS 307
+#define INTCONST 308
+#define TRANS 309
+#define FLAGBIT 310
+#define CONCEPT 311
+#define GETENV 312
+#define HASH_ARRAY 313
+#define CONCEPT_NOFAIL 314
+#define NIL 315
+#define DUMMY 316
+#define MODIFY 317
+#define READ_ONLY 318
+#define STRING_TYPE 319
+#define LONG_TYPE 320
+#define DOUBLE_TYPE 321
+#define NO_COPY 322
+#define DUMP 323
+#define JSON 324
+#define XML 325
+#define NO_FAIL 326
+#define EDITION_SPECIFIC 327
+#define OVERRIDE 328
+#define HIDDEN 329
+#define CAN_BE_MISSING 330
+#define MISSING 331
+#define CONSTRAINT 332
+#define COPY_OK 333
+#define WHEN 334
+#define SET 335
+#define SET_NOFAIL 336
+#define WRITE 337
+#define APPEND 338
+#define PRINT 339
+#define EXPORT 340
+#define REMOVE 341
+#define RENAME 342
+#define SKIP 343
+#define PAD 344
+#define SECTION_PADDING 345
+#define MESSAGE 346
+#define MESSAGE_COPY 347
+#define PADTO 348
+#define PADTOEVEN 349
+#define PADTOMULTIPLE 350
+#define G1_HALF_BYTE 351
+#define G1_MESSAGE_LENGTH 352
+#define G1_SECTION4_LENGTH 353
+#define SECTION_LENGTH 354
+#define LENGTH 355
+#define FLAG 356
+#define ITERATOR 357
+#define NEAREST 358
+#define BOX 359
+#define KSEC 360
+#define ASSERT 361
+#define SUBSTR 362
+#define CASE 363
+#define SWITCH 364
+#define DEFAULT 365
+#define EQ 366
+#define NE 367
+#define GE 368
+#define LE 369
+#define LT 370
+#define GT 371
+#define BIT 372
+#define BITOFF 373
+#define AND 374
+#define OR 375
+#define NOT 376
+#define IS 377
+#define IDENT 378
+#define STRING 379
+#define INTEGER 380
+#define FLOAT 381
+
+/* Value type.  */
+#if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
+union YYSTYPE
+{
+#line 39 "griby.y"
+
+    char                    *str;
+    long                    lval;
+    double                  dval;
+    grib_darray             *dvalue;
+    grib_sarray             *svalue;
+    grib_iarray             *ivalue;
+    grib_action             *act;
+    grib_arguments          *explist;
+    grib_expression         *exp;
+    grib_concept_condition  *concept_condition;
+    grib_concept_value      *concept_value;
+    grib_hash_array_value      *hash_array_value;
+	grib_case               *case_value;
+  grib_rule               *rules;
+  grib_rule_entry         *rule_entry;
+
+#line 327 "y.tab.h"
+
+};
+typedef union YYSTYPE YYSTYPE;
+# define YYSTYPE_IS_TRIVIAL 1
+# define YYSTYPE_IS_DECLARED 1
+#endif
+
+
+extern YYSTYPE grib_yylval;
+
+int grib_yyparse (void);
+
+/* objects the grib_yacc uses */
+typedef struct grib_expression_logical_or{
+  grib_expression base;
+    /* Members defined in logical_or */
+    grib_expression *left;
+    grib_expression *right;
+} grib_expression_logical_or;
+
+typedef struct grib_expression_logical_and{
+  grib_expression base;
+    /* Members defined in logical_and */
+    grib_expression *left;
+    grib_expression *right;
+} grib_expression_logical_and;
+
+typedef struct grib_expression_unop{
+  grib_expression base;
+    /* Members defined in unop */
+    grib_expression *exp;
+    grib_unop_long_proc  long_func;
+    grib_unop_double_proc  double_func;
+} grib_expression_unop;
+
+typedef struct grib_expression_string_compare{
+  grib_expression base;
+    /* Members defined in string_compare */
+    grib_expression *left;
+    grib_expression *right;
+} grib_expression_string_compare;
+
+typedef struct grib_expression_length{
+  grib_expression base;
+    /* Members defined in length */
+    char *name;
+    size_t start;
+    size_t length;
+} grib_expression_length;
+
+typedef struct grib_expression_is_in_list{
+  grib_expression base;
+    /* Members defined in is_in_list */
+    const char *name;
+    const char *list;
+} grib_expression_is_in_list;
+
+typedef struct grib_expression_is_in_dict{
+  grib_expression base;
+    /* Members defined in is_in_dict */
+    const char *key;
+    const char *dictionary;
+} grib_expression_is_in_dict;
+
+typedef struct grib_expression_is_integer{
+  grib_expression base;
+    /* Members defined in is_integer */
+    char *name;
+    size_t start;
+    size_t length;
+} grib_expression_is_integer;
+
+typedef struct grib_expression_binop{
+  grib_expression base;
+    /* Members defined in binop */
+    grib_expression *left;
+    grib_expression *right;
+    grib_binop_long_proc    long_func;
+    grib_binop_double_proc  double_func;
+    grib_binop_string_proc  string_func;
+} grib_expression_binop;
+
+
+/* function pointers from grib_yacc.c */
+typedef long (*grib_unop_long_proc)(long);
+typedef double (*grib_unop_double_proc)(double);
+
+
+
+
+/* function headers for grib_yacc.c*/
+long grib_op_not(long a);
+double grib_op_ne_d(double a, double b);
+long grib_op_ne(long a, long b);
+long grib_op_le(long a, long b);
+double grib_op_le_d(double a, double b);
+long grib_op_ge(long a, long b);
+double grib_op_ge_d(double a, double b);
+long grib_op_lt(long a, long b);
+double grib_op_lt_d(double a, double b);
+long grib_op_eq(long a, long b);
+double grib_op_eq_d(double a, double b);
+long grib_op_gt(long a, long b);
+double grib_op_gt_d(double a, double b);
+long grib_op_sub(long a, long b);
+double grib_op_sub_d(double a, double b);
+long grib_op_add(long a, long b);
+double grib_op_add_d(double a, double b);
+
+grib_rule* grib_new_rule(grib_context* c, grib_expression* condition, grib_rule_entry* entries);
+grib_rule_entry* grib_new_rule_entry(grib_context* c, const char* name, grib_expression* expression);
+
+grib_expression* new_logical_or_expression(grib_context* c, grib_expression* left, grib_expression* right);
+static void init_class_log_or(grib_expression_class*);
+
+static void destroy_log_or(grib_context*,grib_expression* e);
+
+static void print_log_or(grib_context*,grib_expression*,grib_handle*);
+static void add_dependency_log_or(grib_expression* e, grib_accessor* observer);
+
+static int native_type_log_or(grib_expression*,grib_handle*);
+
+static int evaluate_long_log_or(grib_expression*,grib_handle*,long*);
+static int evaluate_double_log_or(grib_expression*,grib_handle*,double*);
+
+grib_expression* new_unop_expression(grib_context* c,
+                                     grib_unop_long_proc long_func,
+                                     grib_unop_double_proc double_func,
+                                     grib_expression* exp);
+static void init_class_unop (grib_expression_class*);
+
+static void destroy_unop(grib_context*,grib_expression* e);
+
+static void print_unop(grib_context*,grib_expression*,grib_handle*);
+static void add_dependency_unop(grib_expression* e, grib_accessor* observer);
+
+static int native_type_unop(grib_expression*,grib_handle*);
+
+static int evaluate_long_unop(grib_expression*,grib_handle*,long*);
+static int evaluate_double_unop(grib_expression*,grib_handle*,double*);
+
+
+grib_expression* new_logical_and_expression(grib_context* c, grib_expression* left, grib_expression* right);
+static void init_class_logand(grib_expression_class* c);
+static int evaluate_long_logand(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_logand(grib_expression* g, grib_handle* h, double* dres);
+static void print_logand(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_logand(grib_context* c, grib_expression* g);
+static void add_dependency_logand(grib_expression* g, grib_accessor* observer);
+
+grib_expression* new_string_compare_expression(grib_context* c,
+                                               grib_expression* left, grib_expression* right);
+static void init_class_strcmp(grib_expression_class* c);
+static int evaluate_long_strcmp(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_strcmp(grib_expression* g, grib_handle* h, double* dres);
+static void print_strcmp(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_strcmp(grib_context* c, grib_expression* g);
+static void add_dependency_strcmp(grib_expression* g, grib_accessor* observer);
+static int native_type_strcmp(grib_expression* g, grib_handle* h);
+
+grib_expression* new_binop_expression(grib_context* c,
+                                      grib_binop_long_proc long_func,
+                                      grib_binop_double_proc double_func,
+                                      grib_expression* left, grib_expression* right);
+grib_expression* new_is_integer_expression(grib_context* c, const char* name, int start, int length);
+grib_expression* new_is_in_dict_expression(grib_context* c, const char* name, const char* list);
+grib_expression* new_is_in_list_expression(grib_context* c, const char* name, const char* list);
+grib_expression* new_length_expression(grib_context* c, const char* name);
+
+
+
+
+#endif /* HEADER_H */
