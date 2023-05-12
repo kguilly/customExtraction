@@ -78,6 +78,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_END_OF_FILE -1
 #define GRIB_FILE_NOT_FOUND -7
 #define GRIB_GEOCALCULUS_PROBLEM -16
+#define GRIB_HASH_ARRAY_TYPE_INTEGER 1
 #define GRIB_INLINE
 #define GRIB_INTERNAL_ARRAY_TOO_SMALL -46
 #define GRIB_INTERNAL_ERROR -2
@@ -93,6 +94,7 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_LOG_PERROR (1 << 10)
 #define GRIB_LOG_WARNING 1
 #define GRIB_MESSAGE_TOO_LARGE -47
+#define GRIB_MISSING_LONG 2147483647
 #define GRIB_MUTEX_INIT_ONCE(a, b)
 #define GRIB_MUTEX_LOCK(a)
 #define GRIB_MUTEX_UNLOCK(a)
@@ -104,8 +106,10 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_PREMATURE_END_OF_FILE -45
 #define GRIB_REAL_MODE8 8
 #define GRIB_SUCCESS 0
+#define GRIB_SWITCH_NO_MATCH -49
 #define GRIB_TYPE_DOUBLE 2
 #define GRIB_TYPE_LONG 1
+#define GRIB_TYPE_STRING 3  
 #define GRIB_TYPE_UNDEFINED 0
 #define GRIB_UNSUPPORTED_EDITION -64
 #define GRIB_USER_BUFFER 1
@@ -11150,6 +11154,8 @@ extern int grib_yydebug;
 #define STRING 379
 #define INTEGER 380
 #define FLOAT 381
+typedef const char* string;
+
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
@@ -11256,15 +11262,80 @@ typedef struct grib_expression_binop{
     grib_binop_string_proc  string_func;
 } grib_expression_binop;
 
+typedef struct grib_expression_functor{
+  grib_expression base;
+    /* Members defined in functor */
+    char *name;
+    grib_arguments *args;
+} grib_expression_functor;
+
+typedef struct grib_expression_true{
+  grib_expression base;
+    /* Members defined in true */
+} grib_expression_true;
+
+typedef struct grib_expression_double{
+  grib_expression base;
+    /* Members defined in double */
+    double value;
+} grib_expression_double;
+
+typedef struct grib_expression_long{
+  grib_expression base;
+    /* Members defined in long */
+    long value;
+} grib_expression_long;
+
+typedef struct grib_expression_string{
+  grib_expression base;
+    /* Members defined in string */
+    char* value;
+} grib_expression_string;
+
+typedef struct grib_expression_sub_string{
+  grib_expression base;
+    /* Members defined in sub_string */
+    char* value;
+} grib_expression_sub_string;
+
+typedef struct grib_expression_accessor{
+  grib_expression base;
+    /* Members defined in accessor */
+    char *name;
+    long start;
+    size_t length;
+} grib_expression_accessor;
+
+typedef struct grib_action_switch {
+    grib_action          act;  
+    /* Members defined in section */
+    /* Members defined in switch */
+    grib_arguments* args;
+    grib_case *Case;
+    grib_action *Default;
+} grib_action_switch;
 
 /* function pointers from grib_yacc.c */
 typedef long (*grib_unop_long_proc)(long);
 typedef double (*grib_unop_double_proc)(double);
+typedef long (*grib_binop_long_proc)(long, long);
+typedef double (*grib_binop_double_proc)(double, double);
+typedef int (*grib_binop_string_proc)(char*, char*);
 
 
 
 
 /* function headers for grib_yacc.c*/
+long grib_op_neg(long a);
+double grib_op_neg_d(double a);
+long grib_op_pow(long a, long b);
+double grib_op_mul_d(double a, double b);
+long grib_op_mul(long a, long b);
+long grib_op_div(long a, long b);
+double grib_op_div_d(double a, double b);
+long grib_op_modulo(long a, long b);
+long grib_op_bit(long a, long b);
+long grib_op_bitoff(long a, long b);
 long grib_op_not(long a);
 double grib_op_ne_d(double a, double b);
 long grib_op_ne(long a, long b);
@@ -11283,19 +11354,89 @@ double grib_op_sub_d(double a, double b);
 long grib_op_add(long a, long b);
 double grib_op_add_d(double a, double b);
 
+grib_hash_array_value* grib_integer_hash_array_value_new(grib_context* c, const char* name, grib_iarray* array);
+grib_concept_condition* grib_concept_condition_new(grib_context* c, const char* name, grib_expression* expression, grib_iarray* iarray);
+grib_concept_value* grib_concept_value_new(grib_context* c, const char* name, grib_concept_condition* conditions);
+
+
+grib_action* grib_action_create_switch(grib_context* context, grib_arguments* args,
+                                       grib_case* Case, grib_action* Default);
+static void init_class_switch(grib_action_class* c);
+static int execute_switch(grib_action* act, grib_handle* h);
+static void destroy_switch(grib_context* context, grib_action* act);
+static void xref_switch(grib_action* d, FILE* f, const char* path);
+
+grib_expression* new_accessor_expression(grib_context* c, const char* name, long start, size_t length);
+static void init_class_acc(grib_expression_class* c);
+static const char* get_name_acc(grib_expression* g);
+static int evaluate_long_acc(grib_expression* g, grib_handle* h, long* result);
+static int evaluate_double_acc(grib_expression* g, grib_handle* h, double* result);
+static string evaluate_string_acc(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_acc(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_acc(grib_context* c, grib_expression* g);
+static void add_dependency_acc(grib_expression* g, grib_accessor* observer);
+static int native_type_acc(grib_expression* g, grib_handle* h);
+
+grib_expression* new_sub_string_expression(grib_context* c, const char* value, size_t start, size_t length);
+static void init_class_substr(grib_expression_class* c);
+static const char* evaluate_string_substr(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_substr(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_substr(grib_context* c, grib_expression* g);
+static void add_dependency_substr(grib_expression* g, grib_accessor* observer);
+static int native_type_substr(grib_expression* g, grib_handle* h);
+
+grib_expression* new_string_expression(grib_context* c, const char* value);
+static void init_class_string(grib_expression_class* c);
+static const char* evaluate_string_string(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_string(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_string(grib_context* c, grib_expression* g);
+static void add_dependency_string(grib_expression* g, grib_accessor* observer);
+static int native_type_string(grib_expression* g, grib_handle* h);
+
+grib_expression* new_long_expression(grib_context* c, long value);
+static void init_class_long(grib_expression_class* c);
+static int evaluate_long_long(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_long(grib_expression* g, grib_handle* h, double* dres);
+static void print_long(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_long(grib_context* c, grib_expression* g);
+static void add_dependency_long(grib_expression* g, grib_accessor* observer);
+static int native_type_long(grib_expression* g, grib_handle* h);
+
+grib_expression* new_double_expression(grib_context* c, double value);
+static void init_class_double(grib_expression_class* c);
+static int evaluate_long_double(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_double(grib_expression* g, grib_handle* h, double* dres);
+static void print_double(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_double(grib_context* c, grib_expression* g);
+static void add_dependency_double(grib_expression* g, grib_accessor* observer);
+static int native_type_double(grib_expression* g, grib_handle* h);
+
+grib_expression* new_true_expression(grib_context* c);
+static void init_class_true(grib_expression_class* c);
+static int evaluate_long_true(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_true(grib_expression* g, grib_handle* h, double* dres);
+static void print_true(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_true(grib_context* c, grib_expression* g);
+static void add_dependency_true(grib_expression* g, grib_accessor* observer);
+static int native_type_true(grib_expression* g, grib_handle* h);
+
+grib_expression* new_func_expression(grib_context* c, const char* name, grib_arguments* args);
+static void init_class_functor(grib_expression_class* c);
+static int evaluate_long_functor(grib_expression* g, grib_handle* h, long* lres);
+static void print_functor(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_functor(grib_context* c, grib_expression* g);
+static void add_dependency_functor(grib_expression* g, grib_accessor* observer);
+static int native_type_functor(grib_expression* g, grib_handle* h);
+
 grib_rule* grib_new_rule(grib_context* c, grib_expression* condition, grib_rule_entry* entries);
 grib_rule_entry* grib_new_rule_entry(grib_context* c, const char* name, grib_expression* expression);
 
 grib_expression* new_logical_or_expression(grib_context* c, grib_expression* left, grib_expression* right);
 static void init_class_log_or(grib_expression_class*);
-
 static void destroy_log_or(grib_context*,grib_expression* e);
-
 static void print_log_or(grib_context*,grib_expression*,grib_handle*);
 static void add_dependency_log_or(grib_expression* e, grib_accessor* observer);
-
 static int native_type_log_or(grib_expression*,grib_handle*);
-
 static int evaluate_long_log_or(grib_expression*,grib_handle*,long*);
 static int evaluate_double_log_or(grib_expression*,grib_handle*,double*);
 
@@ -11318,6 +11459,7 @@ static int evaluate_double_unop(grib_expression*,grib_handle*,double*);
 
 grib_expression* new_logical_and_expression(grib_context* c, grib_expression* left, grib_expression* right);
 static void init_class_logand(grib_expression_class* c);
+static int native_type(grib_expression* g, grib_handle* h);
 static int evaluate_long_logand(grib_expression* g, grib_handle* h, long* lres);
 static int evaluate_double_logand(grib_expression* g, grib_handle* h, double* dres);
 static void print_logand(grib_context* c, grib_expression* g, grib_handle* f);
@@ -11338,11 +11480,59 @@ grib_expression* new_binop_expression(grib_context* c,
                                       grib_binop_long_proc long_func,
                                       grib_binop_double_proc double_func,
                                       grib_expression* left, grib_expression* right);
-grib_expression* new_is_integer_expression(grib_context* c, const char* name, int start, int length);
-grib_expression* new_is_in_dict_expression(grib_context* c, const char* name, const char* list);
-grib_expression* new_is_in_list_expression(grib_context* c, const char* name, const char* list);
-grib_expression* new_length_expression(grib_context* c, const char* name);
+static void init_class_binhop(grib_expression_class* c);
+static int evaluate_long_binhop(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_binhop(grib_expression* g, grib_handle* h, double* dres);
+static void print_binhop(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_binhop(grib_context* c, grib_expression* g);
+static void add_dependency_binhop(grib_expression* g, grib_accessor* observer);
+static int native_type_binhop(grib_expression* g, grib_handle* h);
 
+grib_expression* new_is_integer_expression(grib_context* c, const char* name, int start, int length);
+static void init_class_int(grib_expression_class* c);
+static const char* get_name_int(grib_expression* g);
+static int evaluate_long_int(grib_expression* g, grib_handle* h, long* result);
+static int evaluate_double_int(grib_expression* g, grib_handle* h, double* result);
+
+static string evaluate_string_int(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_int(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_int(grib_context* c, grib_expression* g);
+static void add_dependency_int(grib_expression* g, grib_accessor* observer);
+static int native_type_int(grib_expression* g, grib_handle* h);
+
+grib_expression* new_is_in_dict_expression(grib_context* c, const char* name, const char* list);
+static void init_class_dict(grib_expression_class* c);
+static grib_trie* load_dictionary_dict(grib_context* c, grib_expression* e, int* err);
+static const char* get_name_dict(grib_expression* g);
+static int evaluate_long_dict(grib_expression* g, grib_handle* h, long* result);
+static int evaluate_double_dict(grib_expression* g, grib_handle* h, double* result);
+static string evaluate_string_dict(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_dict(grib_context* c, grib_expression* g, grib_handle* f);
+static int native_type_dict(grib_expression* g, grib_handle* h);
+static void add_dependency_dict(grib_expression* g, grib_accessor* observer);
+
+grib_expression* new_is_in_list_expression(grib_context* c, const char* name, const char* list);
+static void init_class_list(grib_expression_class* c);
+static grib_trie* load_list_list(grib_context* c, grib_expression* e, int* err);
+static const char* get_name_list(grib_expression* g);
+static int evaluate_long_list(grib_expression* g, grib_handle* h, long* result);
+static int evaluate_double_list(grib_expression* g, grib_handle* h, double* result);
+static string evaluate_string_list(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_list(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_list(grib_context* c, grib_expression* g);
+static void add_dependency_list(grib_expression* g, grib_accessor* observer);
+static int native_type_list(grib_expression* g, grib_handle* h);
+
+grib_expression* new_length_expression(grib_context* c, const char* name);
+static void init_class_length(grib_expression_class* c);
+static const char* get_name_length(grib_expression* g);
+static int evaluate_long_length(grib_expression* g, grib_handle* h, long* result);
+static int evaluate_double_length(grib_expression* g, grib_handle* h, double* result);
+static string evaluate_string_length(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err);
+static void print_length(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_length(grib_context* c, grib_expression* g);
+static void add_dependency_length(grib_expression* g, grib_accessor* observer);
+static int native_type_length(grib_expression* g, grib_handle* h);
 
 
 

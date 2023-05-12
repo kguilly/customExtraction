@@ -4596,11 +4596,6 @@ FILE* codes_fopen(const char* name, const char* mode)
     return fopen(name, mode);
 }
 
-// int codes_access_2(const char* name, int mode)
-// {
-//     return access(name, mode);
-// }
-
 #endif
 
 int grib_yyerror(const char* msg)
@@ -4614,6 +4609,56 @@ int grib_yyerror(const char* msg)
     return 1;
 }
 
+long grib_op_neg(long a)
+{
+    return -a;
+}
+
+double grib_op_neg_d(double a)
+{
+    return -a;
+}
+
+long grib_op_pow(long a, long b)
+{
+    /* Note: This is actually 'a' to the power 'b' */
+    return grib_power(b, a);
+}
+
+double grib_op_mul_d(double a, double b)
+{
+    return a * b;
+}
+
+long grib_op_mul(long a, long b)
+{
+    return a * b;
+}
+
+long grib_op_div(long a, long b)
+{
+    return a / b;
+}
+
+double grib_op_div_d(double a, double b)
+{
+    return a / b;
+}
+
+long grib_op_modulo(long a, long b)
+{
+    return a % b;
+}
+
+long grib_op_bit(long a, long b)
+{
+    return a & (1 << b);
+}
+
+long grib_op_bitoff(long a, long b)
+{
+    return !grib_op_bit(a, b);
+}
 
 long grib_op_not(long a)
 {
@@ -4700,7 +4745,797 @@ double grib_op_add_d(double a, double b)
     return a + b;
 }
 
+grib_hash_array_value* grib_integer_hash_array_value_new(grib_context* c, const char* name, grib_iarray* array)
+{
+    grib_hash_array_value* v = (grib_hash_array_value*)grib_context_malloc_clear_persistent(c, sizeof(grib_hash_array_value));
+
+    v->name   = grib_context_strdup_persistent(c, name);
+    v->type   = GRIB_HASH_ARRAY_TYPE_INTEGER;
+    v->iarray = array;
+    return v;
+}
+grib_concept_condition* grib_concept_condition_new(grib_context* c, const char* name, grib_expression* expression, grib_iarray* iarray)
+{
+    grib_concept_condition* v = (grib_concept_condition*)grib_context_malloc_clear_persistent(c, sizeof(grib_concept_condition));
+    v->name                   = grib_context_strdup_persistent(c, name);
+    v->expression             = expression;
+    v->iarray                 = iarray;
+    return v;
+}
+grib_concept_value* grib_concept_value_new(grib_context* c, const char* name, grib_concept_condition* conditions)
+{
+    grib_concept_value* v = (grib_concept_value*)grib_context_malloc_clear_persistent(c, sizeof(grib_concept_value));
+    v->name               = grib_context_strdup_persistent(c, name);
+    v->conditions         = conditions;
+    return v;
+}
+
+
 /* These are the subfunctions that grib_yacc.c uses */
+extern grib_action_class* grib_action_class_section;
+static grib_action_class _grib_action_class_switch = {
+    &grib_action_class_section,                              /* super                     */
+    "action_class_switch",                              /* name                      */
+    sizeof(grib_action_switch),            /* size                      */
+    0,                                   /* inited */
+    &init_class_switch,                         /* init_class */
+    0,                               /* init                      */
+    &destroy_switch,                            /* destroy */
+
+    0,                               /* dump                      */
+    &xref_switch,                               /* xref                      */
+
+    0,             /* create_accessor*/
+
+    0,                            /* notify_change */
+    0,                            /* reparse */
+    &execute_switch,                            /* execute */
+};
+
+grib_action_class* grib_action_class_switch = &_grib_action_class_switch;
+grib_action* grib_action_create_switch(grib_context* context, grib_arguments* args,
+                                       grib_case* Case, grib_action* Default)
+{
+    char name[1024];
+    grib_action_switch* a;
+    grib_action_class* c = grib_action_class_switch;
+    grib_action* act     = (grib_action*)grib_context_malloc_clear_persistent(context, c->size);
+    act->op              = grib_context_strdup_persistent(context, "section");
+
+    act->cclass  = c;
+    a            = (grib_action_switch*)act;
+    act->context = context;
+
+    a->args    = args;
+    a->Case    = Case;
+    a->Default = Default;
+
+    sprintf(name, "_switch%p", (void*)a);
+
+    act->name = grib_context_strdup_persistent(context, name);
+
+    return act;
+}
+static void init_class_switch(grib_action_class* c)
+{
+    c->dump_gac    =    (*(c->super))->dump_gac;
+    c->create_accessor    =    (*(c->super))->create_accessor;
+    c->notify_change    =    (*(c->super))->notify_change;
+    c->reparse    =    (*(c->super))->reparse;
+}
+static int execute_switch(grib_action* act, grib_handle* h)
+{
+    grib_action_switch* a = (grib_action_switch*)act;
+    grib_case* c          = a->Case;
+    grib_action* next     = a->Default;
+    grib_arguments* args  = a->args;
+    grib_arguments* values;
+    grib_expression* e;
+    grib_expression* value;
+    int ret     = 0;
+    long lres   = 0;
+    double dres = 0;
+    long lval   = 0;
+    double dval = 0;
+    int type    = 0;
+    int ok      = 0;
+    const char* cval;
+    const char* cres;
+    char buf[80];
+    char tmp[80];
+    size_t len  = sizeof(buf);
+    size_t size = sizeof(tmp);
+    int err     = 0;
+
+    Assert(args);
+
+    while (c) {
+        e      = args->expression;
+        values = c->values;
+        value  = values->expression;
+        ok     = 0;
+        while (e && value) {
+            if (!strcmp(value->cclass->name, "true"))
+                ok = 1;
+            else {
+                type = grib_expression_native_type(h, value);
+
+                switch (type) {
+                    case GRIB_TYPE_LONG:
+                        ok = (grib_expression_evaluate_long(h, value, &lres) == GRIB_SUCCESS) &&
+                             (grib_expression_evaluate_long(h, e, &lval) == GRIB_SUCCESS) &&
+                             (lval == lres);
+                        break;
+
+                    case GRIB_TYPE_DOUBLE:
+                        ok = (grib_expression_evaluate_double(h, value, &dres) == GRIB_SUCCESS) &&
+                             (grib_expression_evaluate_double(h, e, &dval) == GRIB_SUCCESS) &&
+                             (dval == dres);
+                        break;
+
+                    case GRIB_TYPE_STRING:
+                        len  = sizeof(buf);
+                        size = sizeof(tmp);
+                        ok   = ((cres = grib_expression_evaluate_string(h, e, buf, &len, &err)) != NULL) &&
+                             (err == 0) && ((cval = grib_expression_evaluate_string(h, value, tmp, &size, &err)) != NULL) &&
+                             (err == 0) && ((strcmp(buf, cval) == 0) || (strcmp(cval, "*") == 0));
+                        break;
+
+                    default:
+                        /* TODO: */
+                        break;
+                }
+            }
+            if (!ok)
+                break;
+
+            args = args->next;
+            if (args)
+                e = args->expression;
+            else
+                e = NULL;
+
+            values = values->next;
+            if (values)
+                value = values->expression;
+            else
+                value = NULL;
+        }
+
+        if (ok) {
+            next = c->action;
+            break;
+        }
+
+        c = c->next;
+    }
+
+    if (!next)
+        return GRIB_SWITCH_NO_MATCH;
+
+    while (next) {
+        ret = grib_action_execute(next, h);
+        if (ret != GRIB_SUCCESS)
+            return ret;
+        next = next->next;
+    }
+
+    return GRIB_SUCCESS;
+}
+static void destroy_switch(grib_context* context, grib_action* act)
+{
+    grib_action_switch* a = (grib_action_switch*)act;
+    grib_case* t          = a->Case;
+
+    while (t) {
+        grib_case* nt = t->next;
+        grib_action_delete(context, t->action);
+        grib_arguments_free(context, t->values);
+        grib_context_free(context, t);
+        t = nt;
+    }
+
+    grib_action_delete(context, a->Default);
+
+    grib_context_free_persistent(context, act->name);
+    grib_context_free_persistent(context, act->op);
+}
+static void xref_switch(grib_action* d, FILE* f, const char* path)
+{
+}
+
+static grib_expression_class _grib_expression_class_accessor = {
+    0,                    /* super                     */
+    "accessor",                    /* name                      */
+    sizeof(grib_expression_accessor),/* size of instance          */
+    0,                           /* inited */
+    &init_class_acc,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_acc,                  /* destructor                */
+    &print_acc,                 
+    &add_dependency_acc,       
+
+	&native_type_acc,
+	&get_name_acc,
+
+	&evaluate_long_acc,
+	&evaluate_double_acc,
+	&evaluate_string_acc,
+};
+grib_expression_class* grib_expression_class_accessor = &_grib_expression_class_accessor;
+grib_expression* new_accessor_expression(grib_context* c, const char* name, long start, size_t length)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_accessor));
+    e->base.cclass              = grib_expression_class_accessor;
+    e->name                     = grib_context_strdup_persistent(c, name);
+    e->start                    = start;
+    e->length                   = length;
+    return (grib_expression*)e;
+}
+static void init_class_acc(grib_expression_class* c)
+{
+}
+
+static const char* get_name_acc(grib_expression* g)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    return e->name;
+}
+
+static int evaluate_long_acc(grib_expression* g, grib_handle* h, long* result)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    return grib_get_long_internal(h, e->name, result);
+}
+
+static int evaluate_double_acc(grib_expression* g, grib_handle* h, double* result)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    return grib_get_double_internal(h, e->name, result);
+}
+
+static string evaluate_string_acc(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    char mybuf[1024]            = {0,};
+    long start = e->start;
+    if (e->length > sizeof(mybuf)) {
+        *err = GRIB_INVALID_ARGUMENT;
+        return NULL;
+    }
+
+    Assert(buf);
+    if ((*err = grib_get_string_internal(h, e->name, mybuf, size)) != GRIB_SUCCESS)
+        return NULL;
+
+    if (e->start < 0)
+        start += *size;
+
+    if (e->length != 0) {
+        if (start >= 0)
+            memcpy(buf, mybuf + start, e->length);
+        buf[e->length] = 0;
+    }
+    else {
+        memcpy(buf, mybuf, *size);
+        if (*size == 1024)
+            *size = *size - 1; /* ECC-336 */
+        buf[*size] = 0;
+    }
+    return buf;
+}
+
+static void print_acc(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    printf("access('%s", e->name);
+    if (f) {
+        long s = 0;
+        grib_get_long(f, e->name, &s);
+        printf("=%ld", s);
+    }
+    printf("')");
+}
+
+static void destroy_acc(grib_context* c, grib_expression* g)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    grib_context_free_persistent(c, e->name);
+}
+
+static void add_dependency_acc(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    grib_accessor* observed     = grib_find_accessor(grib_handle_of_accessor(observer), e->name);
+
+    if (!observed) {
+        /* grib_context_log(observer->context, GRIB_LOG_ERROR, */
+        /* "Error in accessor_add_dependency: cannot find [%s]", e->name); */
+        /* Assert(observed); */
+        return;
+    }
+
+    grib_dependency_add(observer, observed);
+}
+
+static int native_type_acc(grib_expression* g, grib_handle* h)
+{
+    grib_expression_accessor* e = (grib_expression_accessor*)g;
+    int type                    = 0;
+    int err;
+    if ((err = grib_get_native_type(h, e->name, &type)) != GRIB_SUCCESS)
+        grib_context_log(h->context, GRIB_LOG_ERROR,
+                         "Error in native_type %s : %s", e->name, grib_get_error_message(err));
+    return type;
+}
+
+
+static grib_expression_class _grib_expression_class_sub_string = {
+    0,                    /* super                     */
+    "sub_string",                    /* name                      */
+    sizeof(grib_expression_sub_string),/* size of instance          */
+    0,                           /* inited */
+    &init_class_substr,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_substr,                  /* destructor                */
+    &print_substr,                 
+    &add_dependency_substr,       
+
+	&native_type_substr,
+	0,
+
+	0,
+	0,
+	&evaluate_string_substr,
+};
+grib_expression_class* grib_expression_class_sub_string = &_grib_expression_class_sub_string;
+grib_expression* new_sub_string_expression(grib_context* c, const char* value, size_t start, size_t length)
+{
+    char v[1024] = {0,};
+    grib_expression_sub_string* e = (grib_expression_sub_string*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_sub_string));
+    const size_t slen             = strlen(value);
+    /* if (start<0) start+=strlen(value);  */
+
+    if (length == 0) {
+        grib_context_log(c, GRIB_LOG_ERROR, "Invalid substring: length must be > 0");
+        grib_context_free_persistent(c, e);
+        return NULL;
+    }
+    if (start > slen) { /* to catch a -ve number passed to start */
+        grib_context_log(c, GRIB_LOG_ERROR, "Invalid substring: start=%lu", start);
+        grib_context_free_persistent(c, e);
+        return NULL;
+    }
+    if (start + length > slen) {
+        grib_context_log(c, GRIB_LOG_ERROR, "Invalid substring: start(=%lu)+length(=%lu) > length('%s'))", start, length, value);
+        grib_context_free_persistent(c, e);
+        return NULL;
+    }
+
+    memcpy(v, value + start, length);
+    e->base.cclass = grib_expression_class_sub_string;
+    e->value       = grib_context_strdup_persistent(c, v);
+    return (grib_expression*)e;
+}
+static void init_class_substr(grib_expression_class* c)
+{
+}
+
+static const char* evaluate_string_substr(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    grib_expression_sub_string* e = (grib_expression_sub_string*)g;
+    *err                          = 0;
+    return e->value;
+}
+
+static void print_substr(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_sub_string* e = (grib_expression_sub_string*)g;
+    printf("string('%s')", e->value);
+}
+
+static void destroy_substr(grib_context* c, grib_expression* g)
+{
+    grib_expression_sub_string* e = (grib_expression_sub_string*)g;
+    grib_context_free_persistent(c, e->value);
+}
+
+static void add_dependency_substr(grib_expression* g, grib_accessor* observer)
+{
+    /* grib_expression_sub_string* e = (grib_expression_sub_string*)g; */
+}
+
+static int native_type_substr(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_STRING;
+}
+
+static grib_expression_class _grib_expression_class_string = {
+    0,                    /* super                     */
+    "string",                    /* name                      */
+    sizeof(grib_expression_string),/* size of instance          */
+    0,                           /* inited */
+    &init_class_string,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_string,                  /* destructor                */
+    &print_string,                 
+    &add_dependency_string,       
+
+	&native_type_string,
+	0,
+
+	0,
+	0,
+	&evaluate_string_string,
+};
+grib_expression_class* grib_expression_class_string = &_grib_expression_class_string;
+grib_expression* new_string_expression(grib_context* c, const char* value)
+{
+    grib_expression_string* e = (grib_expression_string*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_string));
+    e->base.cclass            = grib_expression_class_string;
+    e->value                  = grib_context_strdup_persistent(c, value);
+    return (grib_expression*)e;
+}
+
+static void init_class_string(grib_expression_class* c)
+{
+}
+
+static const char* evaluate_string_string(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    grib_expression_string* e = (grib_expression_string*)g;
+    *err                      = 0;
+    return e->value;
+}
+
+static void print_string(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_string* e = (grib_expression_string*)g;
+    printf("string('%s')", e->value);
+}
+
+static void destroy_string(grib_context* c, grib_expression* g)
+{
+    grib_expression_string* e = (grib_expression_string*)g;
+    grib_context_free_persistent(c, e->value);
+}
+
+static void add_dependency_string(grib_expression* g, grib_accessor* observer)
+{
+    /* grib_expression_string* e = (grib_expression_string*)g; */
+}
+
+static int native_type_string(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_STRING;
+}
+
+
+static grib_expression_class _grib_expression_class_long = {
+    0,                    /* super                     */
+    "long",                    /* name                      */
+    sizeof(grib_expression_long),/* size of instance          */
+    0,                           /* inited */
+    &init_class_long,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_long,                  /* destructor                */
+    &print_long,                 
+    &add_dependency_long,       
+
+	&native_type_long,
+	0,
+
+	&evaluate_long_long,
+	&evaluate_double_long,
+	0,
+};
+grib_expression_class* grib_expression_class_long = &_grib_expression_class_long;
+grib_expression* new_long_expression(grib_context* c, long value)
+{
+    grib_expression_long* e = (grib_expression_long*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_long));
+    e->base.cclass          = grib_expression_class_long;
+    e->value                = value;
+    return (grib_expression*)e;
+}
+static void init_class_long(grib_expression_class* c)
+{
+}
+
+static int evaluate_long_long(grib_expression* g, grib_handle* h, long* lres)
+{
+    grib_expression_long* e = (grib_expression_long*)g;
+    *lres                   = e->value;
+    return GRIB_SUCCESS;
+}
+
+static int evaluate_double_long(grib_expression* g, grib_handle* h, double* dres)
+{
+    grib_expression_long* e = (grib_expression_long*)g;
+    *dres                   = e->value;
+    return GRIB_SUCCESS;
+}
+
+static void print_long(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_long* e = (grib_expression_long*)g;
+    printf("long(%ld)", e->value);
+}
+
+static void destroy_long(grib_context* c, grib_expression* g)
+{
+    /* grib_expression_long* e = (grib_expression_long*)g; */
+}
+
+static void add_dependency_long(grib_expression* g, grib_accessor* observer)
+{
+    /* grib_expression_long* e = (grib_expression_long*)g; */
+}
+
+static int native_type_long(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
+
+static grib_expression_class _grib_expression_class_double = {
+    0,                    /* super                     */
+    "double",                    /* name                      */
+    sizeof(grib_expression_double),/* size of instance          */
+    0,                           /* inited */
+    &init_class_double,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_double,                  /* destructor                */
+    &print_double,                 
+    &add_dependency_double,       
+
+	&native_type_double,
+	0,
+
+	&evaluate_long_double,
+	&evaluate_double_double,
+	0,
+};
+
+grib_expression_class* grib_expression_class_double = &_grib_expression_class_double;
+grib_expression* new_double_expression(grib_context* c, double value)
+{
+    grib_expression_double* e = (grib_expression_double*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_double));
+    e->base.cclass            = grib_expression_class_double;
+    e->value                  = value;
+    return (grib_expression*)e;
+}
+static void init_class_double(grib_expression_class* c)
+{
+}
+
+static int evaluate_long_double(grib_expression* g, grib_handle* h, long* lres)
+{
+    grib_expression_double* e = (grib_expression_double*)g;
+    *lres                     = e->value;
+    return GRIB_SUCCESS;
+}
+
+static int evaluate_double_double(grib_expression* g, grib_handle* h, double* dres)
+{
+    grib_expression_double* e = (grib_expression_double*)g;
+    *dres                     = e->value;
+    return GRIB_SUCCESS;
+}
+
+static void print_double(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_double* e = (grib_expression_double*)g;
+    printf("double(%g)", e->value);
+}
+
+static void destroy_double(grib_context* c, grib_expression* g)
+{
+    /* grib_expression_double* e = (grib_expression_double*)g; */
+}
+
+static void add_dependency_double(grib_expression* g, grib_accessor* observer)
+{
+    /* grib_expression_double* e = (grib_expression_double*)g; */
+}
+
+static int native_type_double(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_DOUBLE;
+}
+
+
+static grib_expression_class _grib_expression_class_true = {
+    0,                    /* super                     */
+    "true",                    /* name                      */
+    sizeof(grib_expression_true),/* size of instance          */
+    0,                           /* inited */
+    &init_class_true,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_true,                  /* destructor                */
+    &print_true,                 
+    &add_dependency_true,       
+
+	&native_type_true,
+	0,
+
+	&evaluate_long_true,
+	&evaluate_double_true,
+	0,
+};
+grib_expression_class* grib_expression_class_true = &_grib_expression_class_true;
+grib_expression* new_true_expression(grib_context* c)
+{
+    grib_expression_true* e = (grib_expression_true*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_true));
+    e->base.cclass          = grib_expression_class_true;
+    return (grib_expression*)e;
+}
+static void init_class_true(grib_expression_class* c)
+{
+}
+
+static int evaluate_long_true(grib_expression* g, grib_handle* h, long* lres)
+{
+    *lres = 1;
+    return GRIB_SUCCESS;
+}
+
+static int evaluate_double_true(grib_expression* g, grib_handle* h, double* dres)
+{
+    *dres = 1;
+    return GRIB_SUCCESS;
+}
+
+static void print_true(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    printf("true(");
+    printf(")");
+}
+
+static void destroy_true(grib_context* c, grib_expression* g)
+{
+}
+
+static void add_dependency_true(grib_expression* g, grib_accessor* observer)
+{
+}
+
+static int native_type_true(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
+static grib_expression_class _grib_expression_class_functor = {
+    0,                    /* super                     */
+    "functor",                    /* name                      */
+    sizeof(grib_expression_functor),/* size of instance          */
+    0,                           /* inited */
+    &init_class_functor,                 /* init_class */
+    0,                     /* constructor               */
+    &destroy_functor,                  /* destructor                */
+    &print_functor,                 
+    &add_dependency_functor,       
+
+	&native_type_functor,
+	0,
+
+	&evaluate_long_functor,
+	0,
+	0,
+};
+
+grib_expression_class* grib_expression_class_functor = &_grib_expression_class_functor;
+
+grib_expression* new_func_expression(grib_context* c, const char* name, grib_arguments* args)
+{
+    grib_expression_functor* e = (grib_expression_functor*)grib_context_malloc_clear_persistent(c, sizeof(grib_expression_functor));
+    e->base.cclass             = grib_expression_class_functor;
+    e->name                    = grib_context_strdup_persistent(c, name);
+    e->args                    = args;
+    return (grib_expression*)e;
+}
+
+static void init_class_functor(grib_expression_class* c)
+{
+}
+/* END_CLASS_IMP */
+
+static int evaluate_long_functor(grib_expression* g, grib_handle* h, long* lres)
+{
+    grib_expression_functor* e = (grib_expression_functor*)g;
+
+    /*
+    TODO: needs OO code here
+     */
+    if (strcmp(e->name, "lookup") == 0) {
+        return GRIB_SUCCESS;
+    }
+
+    if (strcmp(e->name, "new") == 0) {
+        *lres = h->loader != NULL;
+        return GRIB_SUCCESS;
+    }
+
+    if (strcmp(e->name, "missing") == 0) {
+        const char* p = grib_arguments_get_name(h, e->args, 0);
+        if (p) {
+            long val = 0;
+            int err  = 0;
+            if (h->product_kind == PRODUCT_BUFR) {
+                int ismiss = grib_is_missing(h, p, &err);
+                if (err) return err;
+                *lres = ismiss;
+                return GRIB_SUCCESS;
+            }
+            err = grib_get_long_internal(h, p, &val);
+            if (err) return err;
+            /* Note: This does not cope with keys like typeOfSecondFixedSurface
+             * which are codetable entries with values like 255: this value is
+             * not classed as 'missing'!
+             * (See ECC-594)
+             */
+            *lres = (val == GRIB_MISSING_LONG);
+            return GRIB_SUCCESS;
+        }
+        else {
+            /* No arguments means return the actual integer missing value */
+            *lres = GRIB_MISSING_LONG;
+        }
+        return GRIB_SUCCESS;
+    }
+
+    if (strcmp(e->name, "defined") == 0) {
+        const char* p = grib_arguments_get_name(h, e->args, 0);
+
+        if (p) {
+            grib_accessor* a = grib_find_accessor(h, p);
+            *lres            = a != NULL ? 1 : 0;
+            return GRIB_SUCCESS;
+        }
+        *lres = 0;
+        return GRIB_SUCCESS;
+    }
+
+    if (strcmp(e->name, "changed") == 0) {
+        *lres = 1;
+        return GRIB_SUCCESS;
+    }
+
+    if (strcmp(e->name, "gribex_mode_on") == 0) {
+        *lres = h->context->gribex_mode_on ? 1 : 0;
+        return GRIB_SUCCESS;
+    }
+
+    return GRIB_NOT_IMPLEMENTED;
+}
+
+static void print_functor(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_functor* e = (grib_expression_functor*)g;
+    printf("%s(", e->name);
+    /*grib_expression_print(c,e->args,f);*/
+    printf(")");
+}
+
+static void destroy_functor(grib_context* c, grib_expression* g)
+{
+    grib_expression_functor* e = (grib_expression_functor*)g;
+    grib_context_free_persistent(c, e->name);
+    grib_arguments_free(c, e->args);
+}
+
+static void add_dependency_functor(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_functor* e = (grib_expression_functor*)g;
+    if (strcmp(e->name, "defined"))
+        grib_dependency_observe_arguments(observer, e->args);
+}
+
+static int native_type_functor(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
+
 grib_rule* grib_new_rule(grib_context* c, grib_expression* condition, grib_rule_entry* entries)
 {
     grib_rule* r = (grib_rule*)grib_context_malloc_clear_persistent(c, sizeof(grib_rule));
@@ -4960,7 +5795,11 @@ grib_expression* new_logical_and_expression(grib_context* c, grib_expression* le
 static void init_class_logand(grib_expression_class* c)
 {
 }
-/* END_CLASS_IMP */
+
+static int native_type_logand(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
 
 static int evaluate_long_logand(grib_expression* g, grib_handle* h, long* lres)
 {
@@ -5157,23 +5996,21 @@ static grib_expression_class _grib_expression_class_binop = {
     "binop",                    /* name                      */
     sizeof(grib_expression_binop),/* size of instance          */
     0,                           /* inited */
-    &init_class,                 /* init_class */
+    &init_class_binop,                 /* init_class */
     0,                     /* constructor               */
-    &destroy,                  /* destructor                */
-    &print,                 
-    &add_dependency,       
+    &destroy_binop,                  /* destructor                */
+    &print_binop,                 
+    &add_dependency_binop,       
 
-	&native_type,
+	&native_type_binop,
 	0,
 
-	&evaluate_long,
-	&evaluate_double,
+	&evaluate_long_binop,
+	&evaluate_double_binop,
 	0,
 };
 
 grib_expression_class* grib_expression_class_binop = &_grib_expression_class_binop;
-
-
 
 grib_expression* new_binop_expression(grib_context* c,
                                       grib_binop_long_proc long_func,
@@ -5189,23 +6026,92 @@ grib_expression* new_binop_expression(grib_context* c,
     return (grib_expression*)e;
 }
 
+static void init_class_binop(grib_expression_class* c)
+{
+}
+
+static int evaluate_long_binop(grib_expression* g, grib_handle* h, long* lres)
+{
+    int ret = 0;
+    char b1[1024];
+    size_t l1 = sizeof(b1);
+    char b2[1024];
+    size_t l2 = sizeof(b2);
+    const char* v1 = NULL;
+    const char* v2 = NULL;
+
+    grib_expression_string_compare* e = (grib_expression_string_compare*)g;
+
+    v1 = grib_expression_evaluate_string(h, e->left, b1, &l1, &ret);
+    if (!v1 || ret) {
+        *lres = 0;
+        return ret;
+    }
+
+    v2 = grib_expression_evaluate_string(h, e->right, b2, &l2, &ret);
+    if (!v2 || ret) {
+        *lres = 0;
+        return ret;
+    }
+
+    *lres = (grib_inline_strcmp(v1, v2) == 0);
+    return GRIB_SUCCESS;
+}
+
+static int evaluate_double_binop(grib_expression* g, grib_handle* h, double* dres)
+{
+    long n;
+    int ret = evaluate_long(g, h, &n);
+    *dres   = n;
+    return ret;
+}
+
+static void print_binop(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_string_compare* e = (grib_expression_string_compare*)g;
+    printf("string_compare(");
+    grib_expression_print(c, e->left, f);
+    printf(",");
+    grib_expression_print(c, e->right, f);
+    printf(")");
+}
+
+static void destroy_binop(grib_context* c, grib_expression* g)
+{
+    grib_expression_string_compare* e = (grib_expression_string_compare*)g;
+    grib_expression_free(c, e->left);
+    grib_expression_free(c, e->right);
+}
+
+static void add_dependency_binop(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_string_compare* e = (grib_expression_string_compare*)g;
+    grib_dependency_observe_expression(observer, e->left);
+    grib_dependency_observe_expression(observer, e->right);
+}
+
+static int native_type_binop(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
 static grib_expression_class _grib_expression_class_is_integer = {
     0,                    /* super                     */
     "is_integer",                    /* name                      */
     sizeof(grib_expression_is_integer),/* size of instance          */
     0,                           /* inited */
-    &init_class,                 /* init_class */
+    &init_class_int,                 /* init_class */
     0,                     /* constructor               */
-    &destroy,                  /* destructor                */
-    &print,                 
-    &add_dependency,       
+    &destroy_int,                  /* destructor                */
+    &print_int,                 
+    &add_dependency_int,       
 
-	&native_type,
-	&get_name,
+	&native_type_int,
+	&get_name_int,
 
-	&evaluate_long,
-	&evaluate_double,
-	&evaluate_string,
+	&evaluate_long_int,
+	&evaluate_double_int,
+	&evaluate_string_int,
 };
 
 grib_expression_class* grib_expression_class_is_integer = &_grib_expression_class_is_integer;
@@ -5220,23 +6126,129 @@ grib_expression* new_is_integer_expression(grib_context* c, const char* name, in
     return (grib_expression*)e;
 }
 
+static void init_class_int(grib_expression_class* c)
+{
+}
+
+static const char* get_name_int(grib_expression* g)
+{
+    grib_expression_is_integer* e = (grib_expression_is_integer*)g;
+    return e->name;
+}
+
+static int evaluate_long_int(grib_expression* g, grib_handle* h, long* result)
+{
+    grib_expression_is_integer* e = (grib_expression_is_integer*)g;
+    int err                       = 0;
+    char mybuf[1024]              = {0,};
+    size_t size = 1024;
+    char* p     = 0;
+    long val    = 0;
+    char* start = 0;
+
+    if ((err = grib_get_string_internal(h, e->name, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    start = mybuf + e->start;
+
+    if (e->length > 0)
+        start[e->length] = 0;
+
+    val = strtol(start, &p, 10);
+
+    if (*p != 0)
+        *result = 0;
+    else
+        *result = 1;
+
+    (void)val;
+    return err;
+}
+
+static int evaluate_double_int(grib_expression* g, grib_handle* h, double* result)
+{
+    int err      = 0;
+    long lresult = 0;
+
+    err     = evaluate_long(g, h, &lresult);
+    *result = lresult;
+    return err;
+}
+
+static string evaluate_string_int(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    long lresult   = 0;
+    double dresult = 0.0;
+
+    switch (grib_expression_native_type(h, g)) {
+        case GRIB_TYPE_LONG:
+            *err = evaluate_long(g, h, &lresult);
+            sprintf(buf, "%ld", lresult);
+            break;
+        case GRIB_TYPE_DOUBLE:
+            *err = evaluate_double(g, h, &dresult);
+            sprintf(buf, "%g", dresult);
+            break;
+    }
+    return buf;
+}
+
+static void print_int(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_is_integer* e = (grib_expression_is_integer*)g;
+    printf("access('%s", e->name);
+    if (f) {
+        long s = 0;
+        grib_get_long(f, e->name, &s);
+        printf("=%ld", s);
+    }
+    printf("')");
+}
+
+static void destroy_int(grib_context* c, grib_expression* g)
+{
+    grib_expression_is_integer* e = (grib_expression_is_integer*)g;
+    grib_context_free_persistent(c, e->name);
+}
+
+static void add_dependency_int(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_is_integer* e = (grib_expression_is_integer*)g;
+    grib_accessor* observed       = grib_find_accessor(grib_handle_of_accessor(observer), e->name);
+
+    if (!observed) {
+        /* grib_context_log(observer->context, GRIB_LOG_ERROR, */
+        /* "Error in accessor_add_dependency: cannot find [%s]", e->name); */
+        /* Assert(observed); */
+        return;
+    }
+
+    grib_dependency_add(observer, observed);
+}
+
+static int native_type_int(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
+
 static grib_expression_class _grib_expression_class_is_in_dict = {
     0,                    /* super                     */
     "is_in_dict",                    /* name                      */
     sizeof(grib_expression_is_in_dict),/* size of instance          */
     0,                           /* inited */
-    &init_class,                 /* init_class */
+    &init_class_dict,                 /* init_class */
     0,                     /* constructor               */
     0,                  /* destructor                */
-    &print,                 
-    &add_dependency,       
+    &print_dict,                 
+    &add_dependency_dict,       
 
-	&native_type,
-	&get_name,
+	&native_type_dict,
+	&get_name_dict,
 
-	&evaluate_long,
-	&evaluate_double,
-	&evaluate_string,
+	&evaluate_long_dict,
+	&evaluate_double_dict,
+	&evaluate_string_dict,
 };
 
 grib_expression_class* grib_expression_class_is_in_dict = &_grib_expression_class_is_in_dict;
@@ -5250,23 +6262,188 @@ grib_expression* new_is_in_dict_expression(grib_context* c, const char* name, co
     return (grib_expression*)e;
 }
 
+static void init_class_dict(grib_expression_class* c)
+{
+}
+
+static grib_trie* load_dictionary_dict(grib_context* c, grib_expression* e, int* err)
+{
+    grib_expression_is_in_dict* self = (grib_expression_is_in_dict*)e;
+
+    char* filename  = NULL;
+    char line[1024] = {0,};
+    char key[1024] = {0,};
+    char* list            = 0;
+    grib_trie* dictionary = NULL;
+    FILE* f               = NULL;
+    int i                 = 0;
+
+    *err = GRIB_SUCCESS;
+
+    filename = grib_context_full_defs_path(c, self->dictionary);
+    if (!filename) {
+        grib_context_log(c, GRIB_LOG_ERROR, "unable to find def file %s", self->dictionary);
+        *err = GRIB_FILE_NOT_FOUND;
+        return NULL;
+    }
+    else {
+        grib_context_log(c, GRIB_LOG_DEBUG, "is_in_dict: found def file %s", filename);
+    }
+    dictionary = (grib_trie*)grib_trie_get(c->lists, filename);
+    if (dictionary) {
+        grib_context_log(c, GRIB_LOG_DEBUG, "using dictionary %s from cache", self->dictionary);
+        return dictionary;
+    }
+    else {
+        grib_context_log(c, GRIB_LOG_DEBUG, "using dictionary %s from file %s", self->dictionary, filename);
+    }
+
+    f = codes_fopen(filename, "r");
+    if (!f) {
+        *err = GRIB_IO_PROBLEM;
+        return NULL;
+    }
+
+    dictionary = grib_trie_new(c);
+
+    while (fgets(line, sizeof(line) - 1, f)) {
+        i = 0;
+        while (line[i] != '|' && line[i] != 0) {
+            key[i] = line[i];
+            i++;
+        }
+        key[i] = 0;
+        list   = (char*)grib_context_malloc_clear(c, strlen(line) + 1);
+        memcpy(list, line, strlen(line));
+        grib_trie_insert(dictionary, key, list);
+    }
+
+    grib_trie_insert(c->lists, filename, dictionary);
+
+    fclose(f);
+
+    return dictionary;
+}
+
+static const char* get_name_dict(grib_expression* g)
+{
+    grib_expression_is_in_dict* e = (grib_expression_is_in_dict*)g;
+    return e->key;
+}
+
+static int evaluate_long_dict(grib_expression* g, grib_handle* h, long* result)
+{
+    grib_expression_is_in_dict* e = (grib_expression_is_in_dict*)g;
+    int err                       = 0;
+    char mybuf[1024]              = {0,};
+    size_t size = 1024;
+
+    grib_trie* dict = load_dictionary(h->context, g, &err);
+
+    if ((err = grib_get_string_internal(h, e->key, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    if (grib_trie_get(dict, mybuf))
+        *result = 1;
+    else
+        *result = 0;
+
+    return err;
+}
+
+static int evaluate_double_dict(grib_expression* g, grib_handle* h, double* result)
+{
+    grib_expression_is_in_dict* e = (grib_expression_is_in_dict*)g;
+    int err                       = 0;
+    char mybuf[1024]              = {0,};
+    size_t size = 1024;
+
+    grib_trie* list = load_dictionary(h->context, g, &err);
+
+    if ((err = grib_get_string_internal(h, e->key, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    if (grib_trie_get(list, mybuf))
+        *result = 1;
+    else
+        *result = 0;
+
+    return err;
+}
+
+static string evaluate_string_dict(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    grib_expression_is_in_dict* e = (grib_expression_is_in_dict*)g;
+    char mybuf[1024]              = {0,};
+    size_t sizebuf = 1024;
+    long result;
+
+    grib_trie* list = load_dictionary(h->context, g, err);
+
+    if ((*err = grib_get_string_internal(h, e->key, mybuf, &sizebuf)) != GRIB_SUCCESS)
+        return NULL;
+
+    if (grib_trie_get(list, mybuf))
+        result = 1;
+    else
+        result = 0;
+
+    sprintf(buf, "%ld", result);
+    *size = strlen(buf);
+    return buf;
+}
+
+static void print_dict(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_is_in_dict* e = (grib_expression_is_in_dict*)g;
+    printf("access('%s", e->key);
+    if (f) {
+        long s = 0;
+        grib_get_long(f, e->key, &s);
+        printf("=%ld", s);
+    }
+    printf("')");
+}
+
+static int native_type_dict(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
+static void add_dependency_dict(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_is_in_dict* e = (grib_expression_is_in_dict*)g;
+    grib_accessor* observed       = grib_find_accessor(grib_handle_of_accessor(observer), e->key);
+
+    if (!observed) {
+        /* grib_context_log(observer->context, GRIB_LOG_ERROR, */
+        /* "Error in accessor_add_dependency: cannot find [%s]", e->name); */
+        /* Assert(observed); */
+        return;
+    }
+
+    grib_dependency_add(observer, observed);
+}
+
+
+
 static grib_expression_class _grib_expression_class_is_in_list = {
     0,                    /* super                     */
     "is_in_list",                    /* name                      */
     sizeof(grib_expression_is_in_list),/* size of instance          */
     0,                           /* inited */
-    &init_class,                 /* init_class */
+    &init_class_list,                 /* init_class */
     0,                     /* constructor               */
-    &destroy,                  /* destructor                */
-    &print,                 
-    &add_dependency,       
+    &destroy_list,                  /* destructor                */
+    &print_list,                 
+    &add_dependency_list,       
 
-	&native_type,
-	&get_name,
+	&native_type_list,
+	&get_name_list,
 
-	&evaluate_long,
-	&evaluate_double,
-	&evaluate_string,
+	&evaluate_long_list,
+	&evaluate_double_list,
+	&evaluate_string_list,
 };
 
 grib_expression_class* grib_expression_class_is_in_list = &_grib_expression_class_is_in_list;
@@ -5280,23 +6457,194 @@ grib_expression* new_is_in_list_expression(grib_context* c, const char* name, co
     return (grib_expression*)e;
 }
 
+static void init_class_list(grib_expression_class* c)
+{
+}
+
+static grib_trie* load_list_list(grib_context* c, grib_expression* e, int* err)
+{
+    grib_expression_is_in_list* self = (grib_expression_is_in_list*)e;
+
+    char* filename  = NULL;
+    char line[1024] = {0,};
+    grib_trie* list = NULL;
+    FILE* f         = NULL;
+
+    *err = GRIB_SUCCESS;
+
+    filename = grib_context_full_defs_path(c, self->list);
+    if (!filename) {
+        grib_context_log(c, GRIB_LOG_ERROR, "unable to find def file %s", self->list);
+        *err = GRIB_FILE_NOT_FOUND;
+        return NULL;
+    }
+    else {
+        grib_context_log(c, GRIB_LOG_DEBUG, "is_in_list: found def file %s", filename);
+    }
+    list = (grib_trie*)grib_trie_get(c->lists, filename);
+    if (list) {
+        grib_context_log(c, GRIB_LOG_DEBUG, "using list %s from cache", self->list);
+        return list;
+    }
+    else {
+        grib_context_log(c, GRIB_LOG_DEBUG, "using list %s from file %s", self->list, filename);
+    }
+
+    f = codes_fopen(filename, "r");
+    if (!f) {
+        *err = GRIB_IO_PROBLEM;
+        return NULL;
+    }
+
+    list = grib_trie_new(c);
+
+    while (fgets(line, sizeof(line) - 1, f)) {
+        unsigned char* p = (unsigned char*)line;
+        while (*p != 0) {
+            if (*p < 33) {
+                *p = 0;
+                break;
+            }
+            p++;
+        }
+        grib_trie_insert(list, line, line);
+    }
+
+    grib_trie_insert(c->lists, filename, list);
+
+    fclose(f);
+
+    return list;
+}
+
+static const char* get_name_list(grib_expression* g)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    return e->name;
+}
+
+static int evaluate_long_list(grib_expression* g, grib_handle* h, long* result)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    int err                       = 0;
+    char mybuf[1024]              = {0,};
+    size_t size = 1024;
+
+    grib_trie* list = load_list(h->context, g, &err);
+
+    if ((err = grib_get_string_internal(h, e->name, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    if (grib_trie_get(list, mybuf))
+        *result = 1;
+    else
+        *result = 0;
+
+    return err;
+}
+
+static int evaluate_double_list(grib_expression* g, grib_handle* h, double* result)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    int err                       = 0;
+    char mybuf[1024]              = {0,};
+    size_t size = 1024;
+
+    grib_trie* list = load_list(h->context, g, &err);
+
+    if ((err = grib_get_string_internal(h, e->name, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    if (grib_trie_get(list, mybuf))
+        *result = 1;
+    else
+        *result = 0;
+
+    return err;
+}
+
+static string evaluate_string_list(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    char mybuf[1024]              = {0,};
+    size_t sizebuf = 1024;
+    long result;
+
+    grib_trie* list = load_list(h->context, g, err);
+
+    if ((*err = grib_get_string_internal(h, e->name, mybuf, &sizebuf)) != GRIB_SUCCESS)
+        return NULL;
+
+    if (grib_trie_get(list, mybuf))
+        result = 1;
+    else
+        result = 0;
+
+    sprintf(buf, "%ld", result);
+    *size = strlen(buf);
+    return buf;
+}
+
+static void print_list(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    printf("access('%s", e->name);
+    if (f) {
+        long s = 0;
+        grib_get_long(f, e->name, &s);
+        printf("=%ld", s);
+    }
+    printf("')");
+}
+
+static void destroy_list(grib_context* c, grib_expression* g)
+{
+}
+
+static void add_dependency_list(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    grib_accessor* observed       = grib_find_accessor(grib_handle_of_accessor(observer), e->name);
+
+    if (!observed) {
+        /* grib_context_log(observer->context, GRIB_LOG_ERROR, */
+        /* "Error in accessor_add_dependency: cannot find [%s]", e->name); */
+        /* Assert(observed); */
+        return;
+    }
+
+    grib_dependency_add(observer, observed);
+}
+
+static int native_type_list(grib_expression* g, grib_handle* h)
+{
+    grib_expression_is_in_list* e = (grib_expression_is_in_list*)g;
+    int type                      = 0;
+    int err;
+    if ((err = grib_get_native_type(h, e->name, &type)) != GRIB_SUCCESS)
+        grib_context_log(h->context, GRIB_LOG_ERROR,
+                         "Error in native_type %s : %s", e->name, grib_get_error_message(err));
+    return type;
+}
+
+
 static grib_expression_class _grib_expression_class_length = {
     0,                    /* super                     */
     "length",                    /* name                      */
     sizeof(grib_expression_length),/* size of instance          */
     0,                           /* inited */
-    &init_class,                 /* init_class */
+    &init_class_length,                 /* init_class */
     0,                     /* constructor               */
-    &destroy,                  /* destructor                */
-    &print,                 
-    &add_dependency,       
+    &destroy_length,                  /* destructor                */
+    &print_length,                 
+    &add_dependency_length,       
 
-	&native_type,
-	&get_name,
+	&native_type_length,
+	&get_name_length,
 
-	&evaluate_long,
-	&evaluate_double,
-	&evaluate_string,
+	&evaluate_long_length,
+	&evaluate_double_length,
+	&evaluate_string_length,
 };
 
 grib_expression_class* grib_expression_class_length = &_grib_expression_class_length;
@@ -5308,3 +6656,90 @@ grib_expression* new_length_expression(grib_context* c, const char* name)
     e->name                   = grib_context_strdup_persistent(c, name);
     return (grib_expression*)e;
 }
+
+static void init_class_length(grib_expression_class* c)
+{
+}
+
+static const char* get_name_length(grib_expression* g)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    return e->name;
+}
+
+static int evaluate_long_length(grib_expression* g, grib_handle* h, long* result)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    int err                   = 0;
+    char mybuf[1024]          = {0,};
+    size_t size = 1024;
+    if ((err = grib_get_string_internal(h, e->name, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    *result = strlen(mybuf);
+    return err;
+}
+
+static int evaluate_double_length(grib_expression* g, grib_handle* h, double* result)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    char mybuf[1024]          = {0,};
+    size_t size = 1024;
+    int err     = 0;
+    if ((err = grib_get_string_internal(h, e->name, mybuf, &size)) != GRIB_SUCCESS)
+        return err;
+
+    *result = strlen(mybuf);
+    return err;
+}
+
+static string evaluate_string_length(grib_expression* g, grib_handle* h, char* buf, size_t* size, int* err)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    char mybuf[1024]          = {0,};
+    Assert(buf);
+    if ((*err = grib_get_string_internal(h, e->name, mybuf, size)) != GRIB_SUCCESS)
+        return NULL;
+
+    sprintf(buf, "%ld", (long)strlen(mybuf));
+    return buf;
+}
+
+static void print_length(grib_context* c, grib_expression* g, grib_handle* f)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    printf("access('%s", e->name);
+    if (f) {
+        long s = 0;
+        grib_get_long(f, e->name, &s);
+        printf("=%ld", s);
+    }
+    printf("')");
+}
+
+static void destroy_length(grib_context* c, grib_expression* g)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    grib_context_free_persistent(c, e->name);
+}
+
+static void add_dependency_length(grib_expression* g, grib_accessor* observer)
+{
+    grib_expression_length* e = (grib_expression_length*)g;
+    grib_accessor* observed   = grib_find_accessor(grib_handle_of_accessor(observer), e->name);
+
+    if (!observed) {
+        /* grib_context_log(observer->context, GRIB_LOG_ERROR, */
+        /* "Error in accessor_add_dependency: cannot find [%s]", e->name); */
+        /* Assert(observed); */
+        return;
+    }
+
+    grib_dependency_add(observer, observed);
+}
+
+static int native_type_length(grib_expression* g, grib_handle* h)
+{
+    return GRIB_TYPE_LONG;
+}
+
