@@ -43,12 +43,12 @@ static int reset              (grib_iterator* i);
 static long has_next          (grib_iterator* i);
 
 
-typedef struct grib_iterator_gen{
-  grib_iterator it;
-    /* Members defined in gen */
-    long carg;
-    const char* missingValue;
-} grib_iterator_gen;
+// typedef struct grib_iterator_gen{
+//   grib_iterator it;
+//     /* Members defined in gen */
+//     long carg;
+//     const char* missingValue;
+// } grib_iterator_gen;
 
 
 static grib_iterator_class _grib_iterator_class_gen = {

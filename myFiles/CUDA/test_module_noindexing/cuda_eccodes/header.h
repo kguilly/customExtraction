@@ -16,7 +16,8 @@
 #include <dirent.h>
 #include <unistd.h>
 #include <inttypes.h>
-
+#include <math.h>
+// #include "accessor_class/grib_accessor_class.h"
 
 
 
@@ -74,10 +75,27 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
         tmp = buf->data;                          \
     }
 #define GRIB 0x47524942
+#define GRIB_ACCESSOR_FLAG_CAN_BE_MISSING (1 << 4)
+#define GRIB_ACCESSOR_FLAG_CONSTRAINT (1 << 6)
+#define GRIB_ACCESSOR_FLAG_COPY_OK (1 << 9)
+#define GRIB_ACCESSOR_FLAG_DOUBLE_TYPE (1 << 16)
+#define GRIB_ACCESSOR_FLAG_DUMP (1 << 2)
+#define GRIB_ACCESSOR_FLAG_EDITION_SPECIFIC (1 << 3)
+#define GRIB_ACCESSOR_FLAG_HIDDEN (1 << 5)
+#define GRIB_ACCESSOR_FLAG_LONG_TYPE (1 << 15)
+#define GRIB_ACCESSOR_FLAG_LOWERCASE (1 << 17)
+#define GRIB_ACCESSOR_FLAG_NO_COPY (1 << 8)
+#define GRIB_ACCESSOR_FLAG_NO_FAIL (1 << 12)
+#define GRIB_ACCESSOR_FLAG_READ_ONLY (1 << 1)
+#define GRIB_ACCESSOR_FLAG_STRING_TYPE (1 << 14)
+#define GRIB_ACCESSOR_FLAG_TRANSIENT (1 << 13)
+#define GRIB_ASSERTION_FAILURE 13
+#define GRIB_CONCEPT_NO_MATCH -36
 #define GRIB_DECODING_ERROR -13
 #define GRIB_END_OF_FILE -1
 #define GRIB_FILE_NOT_FOUND -7
 #define GRIB_GEOCALCULUS_PROBLEM -16
+#define GRIB_HASH_ARRAY_TYPE_DOUBLE 2
 #define GRIB_HASH_ARRAY_TYPE_INTEGER 1
 #define GRIB_INLINE
 #define GRIB_INTERNAL_ARRAY_TOO_SMALL -46
@@ -181,6 +199,8 @@ typedef struct grib_dumper grib_dumper;
 typedef struct grib_dumper_class grib_dumper_class;
 typedef struct grib_expression grib_expression;
 typedef struct grib_expression_class grib_expression_class;
+typedef struct grib_file grib_file;
+typedef struct grib_file_pool grib_file_pool;
 typedef struct grib_handle grib_handle;
 typedef struct grib_hash_array_value grib_hash_array_value;
 typedef struct grib_keys_hash grib_keys_hash;
@@ -792,6 +812,28 @@ struct grib_expression_class
     expression_evaluate_long_proc evaluate_long;
     expression_evaluate_double_proc evaluate_double;
     expression_evaluate_string_proc evaluate_string;
+};
+
+struct grib_file
+{
+    grib_context* context;
+    char* name;
+    FILE* handle;
+    char* mode;
+    char* buffer;
+    long refcount;
+    grib_file* next;
+    short id;
+};
+
+struct grib_file_pool
+{
+    grib_context* context;
+    grib_file* first;
+    grib_file* current;
+    size_t size;
+    int number_of_opened_files;
+    int max_opened_files;
 };
 
 struct grib_handle
@@ -11154,6 +11196,8 @@ extern int grib_yydebug;
 #define STRING 379
 #define INTEGER 380
 #define FLOAT 381
+#define DEG2RAD 0.01745329251994329576  /* pi over 180 */
+#define RAD2DEG 57.29577951308232087684 /* 180 over pi */
 typedef const char* string;
 
 
@@ -11191,6 +11235,13 @@ typedef union YYSTYPE YYSTYPE;
 extern YYSTYPE grib_yylval;
 
 int grib_yyparse (void);
+
+/* function pointers from grib_yacc.c */
+typedef long (*grib_unop_long_proc)(long);
+typedef double (*grib_unop_double_proc)(double);
+typedef long (*grib_binop_long_proc)(long, long);
+typedef double (*grib_binop_double_proc)(double, double);
+typedef int (*grib_binop_string_proc)(char*, char*);
 
 /* objects the grib_yacc uses */
 typedef struct grib_expression_logical_or{
@@ -11315,14 +11366,203 @@ typedef struct grib_action_switch {
     grib_action *Default;
 } grib_action_switch;
 
-/* function pointers from grib_yacc.c */
-typedef long (*grib_unop_long_proc)(long);
-typedef double (*grib_unop_double_proc)(double);
-typedef long (*grib_binop_long_proc)(long, long);
-typedef double (*grib_binop_double_proc)(double, double);
-typedef int (*grib_binop_string_proc)(char*, char*);
+typedef struct grib_action_hash_array {
+    grib_action          act;  
+    /* Members defined in gen */
+    long            len;
+    grib_arguments* params;
+    /* Members defined in hash_array */
+    grib_hash_array_value* hash_array;
+    char* basename;
+    char* masterDir;
+    char* localDir;
+    char* ecmfDir;
+    int nofail;
+} grib_action_hash_array;
 
+typedef struct grib_action_concept {
+    grib_action          act;  
+    /* Members defined in gen */
+    long            len;
+    grib_arguments* params;
+    /* Members defined in concept */
+    grib_concept_value* concept;
+    char* basename;
+    char* masterDir;
+    char* localDir;
+    int nofail;
+} grib_action_concept;
 
+typedef struct grib_action_trigger {
+    grib_action          act;  
+    /* Members defined in section */
+    /* Members defined in trigger */
+    grib_arguments* trigger_on;
+    grib_action     *block;
+} grib_action_trigger;
+
+typedef struct grib_action_while {
+    grib_action          act;  
+    /* Members defined in section */
+    /* Members defined in while */
+    grib_expression *expression;
+    grib_action     *block_while;
+} grib_action_while;
+
+typedef struct grib_action_list {
+    grib_action          act;  
+    /* Members defined in section */
+    /* Members defined in list */
+    grib_expression *expression;
+    grib_action     *block_list;
+} grib_action_list;
+
+typedef struct grib_action_set {
+    grib_action          act;  
+    /* Members defined in set */
+    grib_expression *expression;
+    char *name;
+    int nofail;
+} grib_action_set;
+
+typedef struct grib_action_when {
+    grib_action          act;  
+    /* Members defined in when */
+    grib_expression *expression;
+    grib_action     *block_true;
+    grib_action     *block_false;
+    int loop;
+} grib_action_when;
+
+typedef struct grib_action_if {
+    grib_action          act;  
+    /* Members defined in section */
+    /* Members defined in if */
+    grib_expression *expression;
+    grib_action     *block_true;
+    grib_action     *block_false;
+    int transient;
+} grib_action_if;
+
+typedef struct grib_action_print {
+    grib_action          act;  
+    /* Members defined in print */
+    char *name;
+    char *outname;
+} grib_action_print;
+
+typedef struct grib_action_write {
+    grib_action          act;  
+    /* Members defined in write */
+    char *name;
+    int append;
+    int padtomultiple;
+} grib_action_write;
+
+typedef struct grib_action_close {
+    grib_action          act;  
+    /* Members defined in close */
+    char *filename;
+} grib_action_close;
+
+typedef struct grib_action_set_sarray {
+    grib_action          act;  
+    /* Members defined in set_sarray */
+    grib_sarray *sarray;
+    char *name;
+} grib_action_set_sarray;
+
+typedef struct grib_action_set_darray {
+    grib_action          act;  
+    /* Members defined in set_darray */
+    grib_darray *darray;
+    char *name;
+} grib_action_set_darray;
+
+typedef struct grib_action_set_missing {
+    grib_action          act;  
+    /* Members defined in set_missing */
+    char *name;
+} grib_action_set_missing;
+
+typedef struct grib_action_modify {
+    grib_action          act;  
+    /* Members defined in modify */
+    long flags;
+    char *name;
+} grib_action_modify;
+
+typedef struct grib_action_assert {
+    grib_action          act;  
+    /* Members defined in assert */
+    grib_expression *expression;
+} grib_action_assert;
+
+typedef struct grib_action_rename {
+    grib_action          act;  
+    /* Members defined in rename */
+    char* the_old;
+    char* the_new;
+} grib_action_rename;
+
+typedef struct grib_action_remove {
+    grib_action          act;  
+    /* Members defined in remove */
+    grib_arguments* args;
+} grib_action_remove;
+
+typedef struct grib_action_put {
+    grib_action          act;  
+    /* Members defined in put */
+    grib_arguments* args;
+} grib_action_put;
+
+typedef struct grib_action_meta {
+    grib_action          act;  
+    /* Members defined in gen */
+    long            len;
+    grib_arguments* params;
+    /* Members defined in meta */
+} grib_action_meta;
+
+typedef struct grib_action_alias {
+    grib_action          act;  
+    /* Members defined in alias */
+    char* target;
+} grib_action_alias;
+
+typedef struct grib_action_gen {
+    grib_action          act;  
+    /* Members defined in gen */
+    long            len;
+    grib_arguments* params;
+} grib_action_gen;
+
+typedef struct grib_action_template {
+    grib_action          act;  
+    /* Members defined in section */
+    /* Members defined in template */
+    int nofail;
+    char*           arg;
+} grib_action_template;
+
+typedef struct grib_action_transient_darray {
+    grib_action          act;  
+    /* Members defined in gen */
+    long            len;
+    grib_arguments* params;
+    /* Members defined in transient_darray */
+    grib_darray *darray;
+    char *name;
+} grib_action_transient_darray;
+
+typedef struct grib_action_variable {
+    grib_action          act;  
+    /* Members defined in gen */
+    long            len;
+    grib_arguments* params;
+    /* Members defined in variable */
+} grib_action_variable;
 
 
 /* function headers for grib_yacc.c*/
@@ -11354,10 +11594,270 @@ double grib_op_sub_d(double a, double b);
 long grib_op_add(long a, long b);
 double grib_op_add_d(double a, double b);
 
+
 grib_hash_array_value* grib_integer_hash_array_value_new(grib_context* c, const char* name, grib_iarray* array);
 grib_concept_condition* grib_concept_condition_new(grib_context* c, const char* name, grib_expression* expression, grib_iarray* iarray);
 grib_concept_value* grib_concept_value_new(grib_context* c, const char* name, grib_concept_condition* conditions);
+grib_case* grib_case_new(grib_context* c, grib_arguments* values, grib_action* action);
+grib_arguments* grib_arguments_new(grib_context* c, grib_expression* g, grib_arguments* n);
+grib_iarray* grib_iarray_push(grib_iarray* v, long val);
+grib_sarray* grib_sarray_push(grib_context* c, grib_sarray* v, char* val);
+grib_darray* grib_darray_push(grib_context* c, grib_darray* v, double val);
 
+int grib_is_missing(const grib_handle* h, const char* name, int* err);
+int grib_get_double_internal(grib_handle* h, const char* name, double* val);
+void unrotate(const double inlat, const double inlon,
+              const double angleOfRot, const double southPoleLat, const double southPoleLon,
+              double* outlat, double* outlon);
+int transform_iterator_data(grib_context* context, double* data, long iScansNegatively, long jScansPositively,
+                            long jPointsAreConsecutive, long alternativeRowScanning, size_t numPoints, long nx, long ny);
+int grib_is_earth_oblate(grib_handle* h);
+double normalise_longitude_in_degrees(double lon);
+void grib_dependency_add(grib_accessor* observer, grib_accessor* observed);
+int grib_get_string_internal(grib_handle* h, const char* name, char* val, size_t* length);
+int grib_get_native_type(const grib_handle* h, const char* name, int* type);
+int grib_expression_native_type(grib_handle* h, grib_expression* g);
+void grib_dependency_observe_expression(grib_accessor* observer, grib_expression* e);
+void grib_expression_add_dependency(grib_expression* e, grib_accessor* observer);
+void grib_expression_free(grib_context* ctx, grib_expression* g);
+void grib_expression_print(grib_context* ctx, grib_expression* g, grib_handle* f);
+const char* grib_expression_evaluate_string(grib_handle* h, grib_expression* g, char* buf, size_t* size, int* err);
+int grib_expression_evaluate_double(grib_handle* h, grib_expression* g, double* result);
+int grib_expression_evaluate_long(grib_handle* h, grib_expression* g, long* result);
+void grib_dependency_observe_arguments(grib_accessor* observer, grib_arguments* a);
+void grib_arguments_free(grib_context* c, grib_arguments* g);
+int grib_action_execute(grib_action* a, grib_handle* h);
+void* grib_trie_insert_no_replace(grib_trie* t, const char* key, void* data);
+int grib_itrie_get_id(grib_itrie* t, const char* key);
+int grib_recompose_name(grib_handle* h, grib_accessor* observer, const char* uname, char* fname, int fail);
+void grib_hash_array_value_delete(grib_context* c, grib_hash_array_value* v);
+void grib_trie_delete(grib_trie* t);
+void grib_context_print(const grib_context* c, void* descriptor, const char* fmt, ...);
+int grib_get_double(const grib_handle* h, const char* name, double* val);
+void grib_concept_value_delete(grib_context* c, grib_concept_value* v);
+void grib_trie_delete_container(grib_trie* t);
+void grib_push_accessor(grib_accessor* a, grib_block_of_accessors* l);
+
+
+grib_accessor_classes_hash (register const char *str, register size_t len);
+grib_accessor* grib_accessor_factory(grib_section* p, grib_action* creator,
+                                     const long len, grib_arguments* params);
+grib_concept_value* grib_parse_concept_file(grib_context* gc, const char* filename);
+grib_hash_array_value* grib_parse_hash_array_file(grib_context* gc, const char* filename);
+
+grib_action* grib_action_create_variable(grib_context* context, const char* name, const char* op, const long len, grib_arguments* params, grib_arguments* default_value, int flags, const char* name_space);
+static void init_class_var(grib_action_class* c);
+static int execute_var(grib_action* a, grib_handle* h);
+
+grib_action* grib_action_create_transient_darray(grib_context* context, const char* name, grib_darray* darray, int flags);
+static void init_class_transient_darray(grib_action_class* c);
+static int execute_transient_darray(grib_action* act, grib_handle* h);
+static void dump_transient_darray(grib_action* act, FILE* f, int lvl);
+static void destroy_transient_darray(grib_context* context, grib_action* act);
+static void xref_transient_darray(grib_action* d, FILE* f, const char* path);
+
+grib_action* grib_action_create_template(grib_context* context, int nofail, const char* name, const char* arg1);
+static void init_class_template(grib_action_class* c);
+static void dump_template(grib_action* act, FILE* f, int lvl);
+grib_action* get_empty_template(grib_context* c, int* err);
+static int create_accessor_template(grib_section* p, grib_action* act, grib_loader* h);
+static grib_action* reparse_template(grib_action* a, grib_accessor* acc, int* doit);
+static void destroy_template(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_gen(grib_context* context, const char* name, const char* op, const long len,
+                                    grib_arguments* params, grib_arguments* default_value, int flags, const char* name_space, const char* set);
+static void init_class_gen(grib_action_class* c);
+static void dump_gen(grib_action* act, FILE* f, int lvl);
+static void xref_gen(grib_action* act, FILE* f, const char* path);
+static int create_accessor_gen(grib_section* p, grib_action* act, grib_loader* loader);
+static int notify_change_gen(grib_action* act, grib_accessor* notified, grib_accessor* changed);
+static void destroy_gen(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_alias(grib_context* context, const char* name, const char* arg1, const char* name_space, int flags);
+static void init_class_alias(grib_action_class* c);
+GRIB_INLINE static int grib_inline_strcmp(const char* a, const char* b);
+static int same(const char* a, const char* b);
+static int create_accessor_alias(grib_section* p, grib_action* act, grib_loader* h);
+static void dump_alias(grib_action* act, FILE* f, int lvl);
+static void xref_alias(grib_action* act, FILE* f, const char* path);
+static void destroy_alias(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_meta(grib_context* context, const char* name, const char* op,
+                                     grib_arguments* params, grib_arguments* default_value, unsigned long flags, const char* name_space);
+static void init_class_meta(grib_action_class* c);
+static void dump_meta(grib_action* act, FILE* f, int lvl);
+static int execute_meta(grib_action* act, grib_handle* h);
+
+grib_action* grib_action_create_put(grib_context* context, const char* name, grib_arguments* args);
+static void init_class_put(grib_action_class* c);
+static int create_accessor_put(grib_section* p, grib_action* act, grib_loader* h);
+static void dump_put(grib_action* act, FILE* f, int lvl);
+static void destroy_put(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_remove(grib_context* context, grib_arguments* args);
+static void init_class_remove(grib_action_class* c);
+static void remove_accessor_remove(grib_accessor* a);
+static int create_accessor_remove(grib_section* p, grib_action* act, grib_loader* h);
+static void dump_remove(grib_action* act, FILE* f, int lvl);
+static void destroy_remove(grib_context* context, grib_action* act);
+static void xref_remove(grib_action* d, FILE* f, const char* path);
+
+grib_action* grib_action_create_rename(grib_context* context, char* the_old, char* the_new);
+static void init_class_rename(grib_action_class* c);
+static void rename_accessor(grib_accessor* a, char* name);
+static int create_accessor_rename(grib_section* p, grib_action* act, grib_loader* h);
+static void dump_rename(grib_action* act, FILE* f, int lvl);
+static void destroy_rename(grib_context* context, grib_action* act);
+static void xref_rename(grib_action* d, FILE* f, const char* path);
+
+grib_action* grib_action_create_assert(grib_context* context, grib_expression* expression);
+static void init_class_assert(grib_action_class* c);
+static int create_accessor_assert(grib_section* p, grib_action* act, grib_loader* h);
+static void dump_assert(grib_action* act, FILE* f, int lvl);
+static void destroy_assert(grib_context* context, grib_action* act);
+static int execute_assert(grib_action* a, grib_handle* h);
+static int notify_change_assert(grib_action* a, grib_accessor* observer, grib_accessor* observed);
+
+grib_action* grib_action_create_modify(grib_context* context,
+                                       const char* name,
+                                       long flags);
+static void init_class_modify(grib_action_class* c);
+static void dump_modify(grib_action* act, FILE* f, int lvl);
+static int create_accessor_modify(grib_section* p, grib_action* act, grib_loader* h);
+static void destroy_modify(grib_context* context, grib_action* act);
+static void xref_modify(grib_action* d, FILE* f, const char* path);
+
+
+grib_action* grib_action_create_set_missing(grib_context* context,
+                                            const char* name);
+static void init_class_missing(grib_action_class* c);
+static int execute_missing(grib_action* a, grib_handle* h);
+static void dump_missing(grib_action* act, FILE* f, int lvl);
+static void destroy_missing(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_set_darray(grib_context* context,
+                                           const char* name,
+                                           grib_darray* darray);
+static void init_class_darray(grib_action_class* c);
+static int execute_darray(grib_action* a, grib_handle* h);
+static void dump_darray(grib_action* act, FILE* f, int lvl);
+static void destroy_darray(grib_context* context, grib_action* act);
+static void xref_darray(grib_action* d, FILE* f, const char* path);
+
+grib_action* grib_action_create_set_sarray(grib_context* context,
+                                           const char* name,
+                                           grib_sarray* sarray);
+static void init_class_sarray(grib_action_class* c);
+static int execute_sarray(grib_action* a, grib_handle* h);
+static void dump_sarray(grib_action* act, FILE* f, int lvl);
+static void destroy_sarray(grib_context* context, grib_action* act);
+static void xref_sarray(grib_action* d, FILE* f, const char* path);
+
+grib_action* grib_action_create_close(grib_context* context, char* filename);
+static void init_class_close(grib_action_class* c);
+static int execute_close(grib_action* act, grib_handle* h);
+static void dump_close(grib_action* act, FILE* f, int lvl);
+static void destroy_close(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_write(grib_context* context, const char* name, int append, int padtomultiple);
+static void init_class_write(grib_action_class* c);
+static int execute_write(grib_action* act, grib_handle* h);
+static void dump_write(grib_action* act, FILE* f, int lvl);
+static void destroy_write(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_print(grib_context* context, const char* name, char* outname);
+static void init_class_print(grib_action_class* c);
+static int execute_print(grib_action* act, grib_handle* h);
+static void dump_print(grib_action* act, FILE* f, int lvl);
+static void destroy_print(grib_context* context, grib_action* act);
+
+
+grib_action* grib_action_create_if(grib_context* context,
+                                   grib_expression* expression,
+                                   grib_action* block_true, grib_action* block_false, int transient,
+                                   int lineno, char* file_being_parsed);
+static void init_class_if(grib_action_class* c);
+static int create_accessor_if(grib_section* p, grib_action* act, grib_loader* h);
+static void print_expression_debug_info(grib_context* ctx, grib_expression* exp, grib_handle* h);
+static int execute_if(grib_action* act, grib_handle* h);
+static void dump_if(grib_action* act, FILE* f, int lvl);
+static grib_action* reparse_if(grib_action* a, grib_accessor* acc, int* doit);
+static void destroy_if(grib_context* context, grib_action* act);
+static void xref_if(grib_action* d, FILE* f, const char* path);
+
+
+grib_action* grib_action_create_when(grib_context* context,
+                                     grib_expression* expression,
+                                     grib_action* block_true, grib_action* block_false);
+static void init_class_when(grib_action_class* c);
+static int create_accessor_when(grib_section* p, grib_action* act, grib_loader* h);
+static void dump_when(grib_action* act, FILE* f, int lvl);
+static int notify_change_when(grib_action* a, grib_accessor* observer, grib_accessor* observed);
+static void destroy_when(grib_context* context, grib_action* act);
+static void xref_when(grib_action* d, FILE* f, const char* path);
+
+grib_action* grib_action_create_set(grib_context* context,
+                                    const char* name, grib_expression* expression, int nofail);
+static void init_class_cset(grib_action_class* c);
+static int execute_cset(grib_action* a, grib_handle* h);
+static void dump_cset(grib_action* act, FILE* f, int lvl);
+static void destroy_cset(grib_context* context, grib_action* act);
+static void xref_cset(grib_action* d, FILE* f, const char* path);
+
+
+grib_action* grib_action_create_list(grib_context* context, const char* name, grib_expression* expression, grib_action* block);
+static void init_class_gacl(grib_action_class* c);
+static void dump_gacl(grib_action* act, FILE* f, int lvl);
+static int create_accessor_gacl(grib_section* p, grib_action* act, grib_loader* h);
+static grib_action* reparse_gacl(grib_action* a, grib_accessor* acc, int* doit);
+static void destroy_gacl(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_while(grib_context* context, grib_expression* expression, grib_action* block);
+static void init_class_while(grib_action_class* c);
+static void dump_while(grib_action* act, FILE* f, int lvl);
+static int create_accessor_while(grib_section* p, grib_action* act, grib_loader* h);
+static void destroy_while(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_trigger(grib_context* context, grib_arguments* args, grib_action* block);
+static void init_class_trigger(grib_action_class* c);
+static void dump_trigger(grib_action* act, FILE* f, int lvl);
+static int create_accessor_trigger(grib_section* p, grib_action* act, grib_loader* h);
+static grib_action* reparse_trigger(grib_action* a, grib_accessor* acc, int* doit);
+static void destroy_trigger(grib_context* context, grib_action* act);
+
+grib_action* grib_action_create_concept(grib_context* context,
+                                        const char* name,
+                                        grib_concept_value* concept,
+                                        const char* basename, const char* name_space, const char* defaultkey,
+                                        const char* masterDir, const char* localDir, const char* ecmfDir, int flags, int nofail);
+static void init_class_concept(grib_action_class* c);
+grib_concept_value* action_concept_get_concept(grib_accessor* a);
+int action_concept_get_nofail(grib_accessor* a);
+static void dump_concept(grib_action* act, FILE* f, int lvl);
+static void destroy_concept(grib_context* context, grib_action* act);
+static grib_concept_value* get_concept_impl(grib_handle* h, grib_action_concept* self);
+static grib_concept_value* get_concept(grib_handle* h, grib_action_concept* self);
+static int concept_condition_expression_true(grib_handle* h, grib_concept_condition* c, char* exprVal);
+int get_concept_condition_string(grib_handle* h, const char* key, const char* value, char* result);
+
+
+grib_action* grib_action_create_hash_array(grib_context* context,
+                                           const char* name,
+                                           grib_hash_array_value* hash_array,
+                                           const char* basename, const char* name_space, const char* defaultkey,
+                                           const char* masterDir, const char* localDir, const char* ecmfDir, int flags, int nofail);
+static void init_class_hash(grib_action_class* c);
+static void dump_hash(grib_action* act, FILE* f, int lvl);
+static void destroy_hash(grib_context* context, grib_action* act);
+static grib_hash_array_value* get_hash_array_impl(grib_handle* h, grib_action* a);
+grib_hash_array_value* get_hash_array(grib_handle* h, grib_action* a);
+
+grib_action* grib_action_create_noop(grib_context* context, const char* fname);
+static void init_class_noop(grib_action_class* c);
+static void dump_noop(grib_action* act, FILE* f, int lvl);
+static void destroy_noop(grib_context* context, grib_action* act);
+static void xref_noop(grib_action* d, FILE* f, const char* path);
+static int execute_noop(grib_action* act, grib_handle* h);
 
 grib_action* grib_action_create_switch(grib_context* context, grib_arguments* args,
                                        grib_case* Case, grib_action* Default);
@@ -11459,7 +11959,7 @@ static int evaluate_double_unop(grib_expression*,grib_handle*,double*);
 
 grib_expression* new_logical_and_expression(grib_context* c, grib_expression* left, grib_expression* right);
 static void init_class_logand(grib_expression_class* c);
-static int native_type(grib_expression* g, grib_handle* h);
+static int native_type_logand(grib_expression* g, grib_handle* h);
 static int evaluate_long_logand(grib_expression* g, grib_handle* h, long* lres);
 static int evaluate_double_logand(grib_expression* g, grib_handle* h, double* dres);
 static void print_logand(grib_context* c, grib_expression* g, grib_handle* f);
@@ -11480,13 +11980,13 @@ grib_expression* new_binop_expression(grib_context* c,
                                       grib_binop_long_proc long_func,
                                       grib_binop_double_proc double_func,
                                       grib_expression* left, grib_expression* right);
-static void init_class_binhop(grib_expression_class* c);
-static int evaluate_long_binhop(grib_expression* g, grib_handle* h, long* lres);
-static int evaluate_double_binhop(grib_expression* g, grib_handle* h, double* dres);
-static void print_binhop(grib_context* c, grib_expression* g, grib_handle* f);
-static void destroy_binhop(grib_context* c, grib_expression* g);
-static void add_dependency_binhop(grib_expression* g, grib_accessor* observer);
-static int native_type_binhop(grib_expression* g, grib_handle* h);
+static void init_class_binop(grib_expression_class* c);
+static int evaluate_long_binop(grib_expression* g, grib_handle* h, long* lres);
+static int evaluate_double_binop(grib_expression* g, grib_handle* h, double* dres);
+static void print_binop(grib_context* c, grib_expression* g, grib_handle* f);
+static void destroy_binop(grib_context* c, grib_expression* g);
+static void add_dependency_binop(grib_expression* g, grib_accessor* observer);
+static int native_type_binop(grib_expression* g, grib_handle* h);
 
 grib_expression* new_is_integer_expression(grib_context* c, const char* name, int start, int length);
 static void init_class_int(grib_expression_class* c);
