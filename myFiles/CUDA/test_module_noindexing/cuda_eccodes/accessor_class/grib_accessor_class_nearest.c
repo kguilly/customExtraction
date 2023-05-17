@@ -9,6 +9,7 @@
  */
 
 #include "../header.h"
+#include "grib_accessor_class.h"
 /*
    This is used by make_class.pl
 

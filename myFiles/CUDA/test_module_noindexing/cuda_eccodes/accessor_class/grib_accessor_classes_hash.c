@@ -35,7 +35,6 @@
 #include "grib_accessor_class.h"
 
 #line 6 "accessor_class_list.gperf"
-struct accessor_class_hash { char *name; grib_accessor_class **cclass;};
 
 #define TOTAL_KEYWORDS 220
 #define MIN_WORD_LENGTH 1
@@ -704,8 +703,7 @@ static const struct accessor_class_hash classes[] =
     {"g1forecastmonth", &grib_accessor_class_g1forecastmonth}
   };
 
-static const struct accessor_class_hash *
-grib_accessor_classes_hash (register const char *str, register size_t len)
+static const struct accessor_class_hash * grib_accessor_classes_hash (register const char *str, register size_t len)
 {
     register unsigned int key = grib_accessor_classes_get_id (str, len);
 

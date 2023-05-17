@@ -1,4 +1,7 @@
 #include "header.h"
+#include <float.h>
+// #include "accessor_class/grib_accessor_class.h"
+// #include "iterator_class/grib_iterator_factory.h"
 
 
 // #include <stdio.h>
@@ -2463,17 +2466,6 @@ static void grib_find_same_and_push(grib_accessors_list* al, grib_accessor* a)
     }
 }
 
-static GRIB_INLINE int grib_inline_strcmp(const char* a, const char* b)
-{
-    if (*a != *b)
-        return 1;
-    while ((*a != 0 && *b != 0) && *(a) == *(b)) {
-        a++;
-        b++;
-    }
-    return (*a == 0 && *b == 0) ? 0 : 1;
-}
-
 int grib_hash_keys_get_id(grib_itrie* t, const char* key)
 {
     const struct grib_keys_hash* hash = grib_keys_hash_get(key, strlen(key));
@@ -4705,7 +4697,34 @@ double grib_op_add_d(double a, double b)
 {
     return a + b;
 }
+double grib_power(long s, long n)
+{
+    double divisor = 1.0;
+    if (s == 0)
+        return 1.0;
+    if (s == 1)
+        return n;
+    while (s < 0) {
+        divisor /= n;
+        s++;
+    }
+    while (s > 0) {
+        divisor *= n;
+        s--;
+    }
+    return divisor;
+}
 
+
+static grib_file_pool file_pool = {
+    0,                    /* grib_context* context;*/
+    0,                    /* grib_file* first;*/
+    0,                    /* grib_file* current; */
+    0,                    /* size_t size;*/
+    0,                    /* int number_of_opened_files;*/
+    GRIB_MAX_OPENED_FILES /* int max_opened_files; */
+};
+static short next_id = 0;
 grib_hash_array_value* grib_integer_hash_array_value_new(grib_context* c, const char* name, grib_iarray* array)
 {
     grib_hash_array_value* v = (grib_hash_array_value*)grib_context_malloc_clear_persistent(c, sizeof(grib_hash_array_value));
@@ -5408,6 +5427,1514 @@ void grib_push_accessor(grib_accessor* a, grib_block_of_accessors* l)
         }
     }
 }
+void grib_dump_action_branch(FILE* out, grib_action* a, int decay)
+{
+    while (a) {
+        grib_dump(a, out, decay);
+        a = a->next;
+    }
+}
+int grib_set_expression(grib_handle* h, const char* name, grib_expression* e)
+{
+    grib_accessor* a = grib_find_accessor(h, name);
+    int ret          = GRIB_SUCCESS;
+
+    if (a) {
+        if (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY)
+            return GRIB_READ_ONLY;
+
+        ret = grib_pack_expression(a, e);
+        if (ret == GRIB_SUCCESS) {
+            return grib_dependency_notify_change(a);
+        }
+        return ret;
+    }
+    return GRIB_NOT_FOUND;
+}
+int grib_recompose_print(grib_handle* h, grib_accessor* observer, const char* uname, int fail, FILE* out)
+{
+    grib_accessors_list* al = NULL;
+    char loc[1024];
+    int i           = 0;
+    int ret         = 0;
+    int mode        = -1;
+    char* pp        = NULL;
+    char* format    = NULL;
+    int type        = -1;
+    char* separator = NULL;
+    int l;
+    char buff[10] = {0,};
+    char buff1[1024] = {0,};
+    int maxcolsd = 8;
+    int maxcols;
+    long numcols           = 0;
+    int newline            = 1;
+    const size_t uname_len = strlen(uname);
+
+    maxcols = maxcolsd;
+    loc[0]  = 0;
+    for (i = 0; i < uname_len; i++) {
+        if (mode > -1) {
+            switch (uname[i]) {
+                case ':':
+                    type = grib_type_to_int(uname[i + 1]);
+                    i++;
+                    break;
+                case '\'':
+                    pp = (char*)(uname + i + 1);
+                    while (*pp != '%' && *pp != '!' && *pp != ']' && *pp != ':' && *pp != '\'')
+                        pp++;
+                    l = pp - uname - i;
+                    if (*pp == '\'')
+                        separator = strncpy(buff1, uname + i + 1, l - 1);
+                    i += l;
+                    break;
+                case '%':
+                    pp = (char*)(uname + i + 1);
+                    while (*pp != '%' && *pp != '!' && *pp != ']' && *pp != ':' && *pp != '\'')
+                        pp++;
+                    l      = pp - uname - i;
+                    format = strncpy(buff, uname + i, l);
+                    i += l - 1;
+                    break;
+                case '!':
+                    pp = (char*)uname;
+                    if (string_to_long(uname + i + 1, &numcols) == GRIB_SUCCESS) {
+                        maxcols = (int)numcols;
+                    }
+                    else {
+                        /* Columns specification is invalid integer */
+                        maxcols = maxcolsd;
+                    }
+                    strtol(uname + i + 1, &pp, 10);
+                    while (pp && *pp != '%' && *pp != '!' && *pp != ']' && *pp != ':' && *pp != '\'')
+                        pp++;
+                    i += pp - uname - i - 1;
+                    break;
+                case ']':
+                    loc[mode] = 0;
+                    mode      = -1;
+                    if (al) grib_accessors_list_delete(h->context, al);
+                    al        = grib_find_accessors_list(h, loc); /* This allocates memory */
+                    if (!al) {
+                        if (!fail) {
+                            fprintf(out, "undef");
+                            ret = GRIB_NOT_FOUND;
+                        }
+                        else {
+                            grib_context_log(h->context, GRIB_LOG_WARNING, "grib_recompose_print: Problem to recompose print with : %s, no accessor found", loc);
+                            return GRIB_NOT_FOUND;
+                        }
+                    }
+                    else {
+                        ret = grib_accessors_list_print(h, al, loc, type, format, separator, maxcols, &newline, out);
+
+                        if (ret != GRIB_SUCCESS) {
+                            /* grib_context_log(h->context, GRIB_LOG_ERROR,"grib_recompose_print: Could not recompose print : %s", uname); */
+                            grib_accessors_list_delete(h->context, al);
+                            return ret;
+                        }
+                    }
+                    loc[0] = 0;
+                    break;
+                default:
+                    loc[mode++] = uname[i];
+                    break;
+            }
+        }
+        else if (uname[i] == '[') {
+            mode = 0;
+        }
+        else {
+            fprintf(out, "%c", uname[i]);
+            type = -1;
+        }
+    }
+    if (newline)
+        fprintf(out, "\n");
+
+    grib_accessors_list_delete(h->context, al);
+    return ret;
+}
+void grib_file_close(const char* filename, int force, int* err)
+{
+    grib_file* file       = NULL;
+    grib_context* context = grib_context_get_default();
+
+    /* Performance: keep the files open to avoid opening and closing files when writing the output. */
+    /* So only call fclose() when too many files are open. */
+    /* Also see ECC-411 */
+    int do_close = (file_pool.number_of_opened_files > context->file_pool_max_opened_files);
+    if (force == 1)
+        do_close = 1; /* Can be overridden with the force argument */
+
+    if (do_close) {
+        /*printf("+++++++++++++ closing file %s (n=%d)\n",filename, file_pool.number_of_opened_files);*/
+        GRIB_MUTEX_INIT_ONCE(&once, &init);
+        GRIB_MUTEX_LOCK(&mutex1);
+        file = grib_get_file(filename, err);
+        if (file->handle) {
+            if (fclose(file->handle) != 0) {
+                *err = GRIB_IO_PROBLEM;
+            }
+            if (file->buffer) {
+                free(file->buffer);
+                file->buffer = 0;
+            }
+            file->handle = NULL;
+            file_pool.number_of_opened_files--;
+        }
+        GRIB_MUTEX_UNLOCK(&mutex1);
+    }
+}
+grib_file* grib_file_open(const char* filename, const char* mode, int* err)
+{
+    grib_file *file = 0, *prev = 0;
+    int same_mode = 0;
+    int is_new    = 0;
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+
+    if (!file_pool.context)
+        file_pool.context = grib_context_get_default();
+
+    if (file_pool.current && !grib_inline_strcmp(filename, file_pool.current->name)) {
+        file = file_pool.current;
+    }
+    else {
+        GRIB_MUTEX_LOCK(&mutex1);
+        file = file_pool.first;
+        while (file) {
+            if (!grib_inline_strcmp(filename, file->name))
+                break;
+            prev = file;
+            file = file->next;
+        }
+        if (!file) {
+            is_new = 1;
+            file   = grib_file_new(file_pool.context, filename, err);
+            if (prev)
+                prev->next = file;
+            file_pool.current = file;
+            if (!prev)
+                file_pool.first = file;
+            file_pool.size++;
+        }
+        GRIB_MUTEX_UNLOCK(&mutex1);
+    }
+
+    if (file->mode)
+        same_mode = grib_inline_strcmp(mode, file->mode) ? 0 : 1;
+    if (file->handle && same_mode) {
+        *err = 0;
+        return file;
+    }
+
+    GRIB_MUTEX_LOCK(&mutex1);
+    if (!same_mode && file->handle) {
+        fclose(file->handle);
+    }
+
+    if (!file->handle) {
+        if (!is_new && *mode == 'w') {
+            file->handle = fopen(file->name, "a");
+        }
+        else {
+            file->handle = fopen(file->name, mode);
+        }
+
+        if (!file->handle) {
+            grib_context_log(file->context, GRIB_LOG_PERROR, "grib_file_open: cannot open file %s", file->name);
+            *err = GRIB_IO_PROBLEM;
+            GRIB_MUTEX_UNLOCK(&mutex1);
+            return NULL;
+        }
+        if (file->mode) free(file->mode);
+        file->mode = strdup(mode);
+        if (file_pool.context->io_buffer_size) {
+#ifdef POSIX_MEMALIGN
+            if (posix_memalign((void**)&(file->buffer), sysconf(_SC_PAGESIZE), file_pool.context->io_buffer_size)) {
+                grib_context_log(file->context, GRIB_LOG_FATAL, "posix_memalign unable to allocate io_buffer\n");
+            }
+#else
+            file->buffer = (char*)malloc(file_pool.context->io_buffer_size);
+            if (!file->buffer) {
+                grib_context_log(file->context, GRIB_LOG_FATAL, "Unable to allocate io_buffer\n");
+            }
+#endif
+            setvbuf(file->handle, file->buffer, _IOFBF, file_pool.context->io_buffer_size);
+        }
+
+        file_pool.number_of_opened_files++;
+    }
+
+    GRIB_MUTEX_UNLOCK(&mutex1);
+    return file;
+}
+int grib_get_message(const grib_handle* ch, const void** msg, size_t* size)
+{
+    long totalLength = 0;
+    int ret          = 0;
+    grib_handle* h   = (grib_handle*)ch;
+    *msg             = h->buffer->data;
+    *size            = h->buffer->ulength;
+
+    ret = grib_get_long(h, "totalLength", &totalLength);
+    if (!ret)
+        *size = totalLength;
+
+    if (h->context->gts_header_on && h->gts_header) {
+        char strbuf[10];
+        sprintf(strbuf, "%.8d", (int)(h->buffer->ulength + h->gts_header_len - 6));
+        memcpy(h->gts_header, strbuf, 8);
+    }
+    return 0;
+}
+void grib_file_pool_delete_file(grib_file* file)
+{
+    grib_file* prev = NULL;
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex1);
+
+    if (file == file_pool.first) {
+        file_pool.first   = file->next;
+        file_pool.current = file->next;
+    }
+    else {
+        prev              = file_pool.first;
+        file_pool.current = file_pool.first;
+        while (prev) {
+            if (prev->next == file)
+                break;
+            prev = prev->next;
+        }
+        DebugAssert(prev);
+        if (prev) {
+            prev->next = file->next;
+        }
+    }
+
+    if (file->handle) {
+        file_pool.number_of_opened_files--;
+    }
+    grib_file_delete(file);
+    GRIB_MUTEX_UNLOCK(&mutex1);
+}
+grib_file* grib_get_file(const char* filename, int* err)
+{
+    grib_file* file = NULL;
+
+    if (file_pool.current->name && !grib_inline_strcmp(filename, file_pool.current->name)) {
+        return file_pool.current;
+    }
+
+    file = file_pool.first;
+    while (file) {
+        if (!grib_inline_strcmp(filename, file->name))
+            break;
+        file = file->next;
+    }
+    if (!file)
+        file = grib_file_new(0, filename, err);
+
+    return file;
+}
+void grib_sarray_delete(grib_context* c, grib_sarray* v)
+{
+    if (!v)
+        return;
+    if (!c)
+        c = grib_context_get_default();
+    if (v->v)
+        grib_context_free(c, v->v);
+    grib_context_free(c, v);
+}
+int grib_set_string_array(grib_handle* h, const char* name, const char** val, size_t length)
+{
+    int ret = 0;
+    grib_accessor* a;
+
+    a = grib_find_accessor(h, name);
+
+    if (h->context->debug) {
+        fprintf(stderr, "ECCODES DEBUG grib_set_string_array key=%s %ld values\n", name, (long)length);
+    }
+
+    if (a) {
+        if (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY)
+            return GRIB_READ_ONLY;
+
+        ret = grib_pack_string_array(a, val, &length);
+        if (ret == GRIB_SUCCESS) {
+            return grib_dependency_notify_change(a);
+        }
+        return ret;
+    }
+    return GRIB_NOT_FOUND;
+}
+void grib_darray_delete(grib_context* c, grib_darray* v)
+{
+    if (!v)
+        return;
+    if (!c)
+        c = grib_context_get_default();
+    if (v->v)
+        grib_context_free(c, v->v);
+    grib_context_free(c, v);
+}
+int grib_set_double_array(grib_handle* h, const char* name, const double* val, size_t length)
+{
+    return __grib_set_double_array(h, name, val, length, /*check=*/1);
+}
+int grib_set_missing(grib_handle* h, const char* name)
+{
+    int ret          = 0;
+    grib_accessor* a = NULL;
+
+    a = grib_find_accessor(h, name);
+
+    if (a) {
+        if (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY)
+            return GRIB_READ_ONLY;
+
+        if (a->flags & GRIB_ACCESSOR_FLAG_CAN_BE_MISSING) {
+            if (h->context->debug)
+                fprintf(stderr, "ECCODES DEBUG grib_set_missing %s\n", name);
+
+            ret = grib_pack_missing(a);
+            if (ret == GRIB_SUCCESS)
+                return grib_dependency_notify_change(a);
+        }
+        else
+            ret = GRIB_VALUE_CANNOT_BE_MISSING;
+
+        grib_context_log(h->context, GRIB_LOG_ERROR, "unable to set %s=missing (%s)",
+                         name, grib_get_error_message(ret));
+        return ret;
+    }
+
+    grib_context_log(h->context, GRIB_LOG_ERROR, "unable to find accessor %s", name);
+    return GRIB_NOT_FOUND;
+}
+grib_accessor* grib_find_accessor_fast(grib_handle* h, const char* name)
+{
+    grib_accessor* a = NULL;
+    char* p          = NULL;
+    DebugAssert(name);
+
+    p = strchr((char*)name, '.');
+    if (p) {
+        int i = 0, len = 0;
+        char name_space[MAX_NAMESPACE_LEN];
+        p--;
+        len = p - name + 1;
+
+        for (i = 0; i < len; i++)
+            name_space[i] = *(name + i);
+
+        name_space[len] = '\0';
+
+        a = h->accessors[grib_hash_keys_get_id(h->context->keys, name)];
+        if (a && !matching(a, name, name_space))
+            a = NULL;
+    }
+    else {
+        a = h->accessors[grib_hash_keys_get_id(h->context->keys, name)];
+    }
+
+    if (a == NULL && h->main)
+        a = grib_find_accessor_fast(h->main, name);
+
+    return a;
+}
+int grib_pack_expression(grib_accessor* a, grib_expression* e)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (double) %g",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?(*v):0); */
+    while (c) {
+        if (c->pack_expression) {
+            return c->pack_expression(a, e);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+grib_expression* grib_arguments_get_expression(grib_handle* h, grib_arguments* args, int n)
+{
+    while (args && n-- > 0) {
+        args = args->next;
+    }
+
+    if (!args)
+        return 0;
+
+    return args->expression;
+}
+int grib_pack_double(grib_accessor* a, const double* v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (double) %g",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?(*v):0); */
+    while (c) {
+        if (c->pack_double) {
+            return c->pack_double(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+size_t grib_darray_used_size(grib_darray* v)
+{
+    return v->n;
+}
+long grib_get_next_position_offset(grib_accessor* a)
+{
+    grib_accessor_class* c = NULL;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is checking next (long)",(a->parent->owner)?(a->parent->owner->name):"root", a->name ); */
+    if (a)
+        c = a->cclass;
+
+    while (c) {
+        if (c->next_offset)
+            return c->next_offset(a);
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+void grib_init_accessor(grib_accessor* a, const long len, grib_arguments* args)
+{
+    init_accessor(a->cclass, a, len, args);
+}
+static void init_accessor(grib_accessor_class* c, grib_accessor* a, const long len, grib_arguments* args)
+{
+    if (c) {
+        grib_accessor_class* s = c->super ? *(c->super) : NULL;
+        init_accessor(s, a, len, args);
+        if (c->init)
+            c->init(a, len, args);
+    }
+}
+int grib_dependency_notify_change(grib_accessor* observed)
+{
+    grib_handle* h     = handle_of(observed);
+    grib_dependency* d = h->dependencies;
+    int ret            = GRIB_SUCCESS;
+
+    /*Do a two pass mark&sweep, in case some dependencies are added while we notify*/
+    while (d) {
+        d->run = (d->observed == observed && d->observer != 0);
+        d      = d->next;
+    }
+
+    d = h->dependencies;
+    while (d) {
+        if (d->run) {
+            /*printf("grib_dependency_notify_change %s %s %p\n", observed->name, d->observer ? d->observer->name : "?", (void*)d->observer);*/
+            if (d->observer && (ret = grib_accessor_notify_change(d->observer, observed)) != GRIB_SUCCESS)
+                return ret;
+        }
+        d = d->next;
+    }
+    return ret;
+}
+int grib_pack_missing(grib_accessor* a)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (double) %g",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?(*v):0); */
+    while (c) {
+        if (c->pack_missing) {
+            return c->pack_missing(a);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+int grib_accessor_notify_change(grib_accessor* a, grib_accessor* changed)
+{
+    grib_accessor_class* c = NULL;
+    if (a)
+        c = a->cclass;
+
+    while (c) {
+        if (c->notify_change)
+            return c->notify_change(a, changed);
+        c = c->super ? *(c->super) : NULL;
+    }
+    if (a && a->cclass)
+        printf("notify_change not implemented for %s %s\n", a->cclass->name, a->name);
+    DebugAssert(0);
+    return 0;
+}
+static grib_handle* handle_of(grib_accessor* observed)
+{
+    grib_handle* h = NULL;
+    DebugAssert(observed);
+    /* printf("+++++ %s->parent = %p\n",observed->name,observed->parent); */
+    /* printf("+++++ %s = %p\n",observed->name,observed); */
+    /* printf("+++++       h=%p\n",observed->h); */
+    /* special case for BUFR attributes parentless */
+    if (observed->parent == NULL) {
+        return observed->h;
+    }
+    h = observed->parent->h;
+    while (h->main)
+        h = h->main;
+    return h;
+}
+static int __grib_set_double_array(grib_handle* h, const char* name, const double* val, size_t length, int check)
+{
+    double v = 0;
+    size_t i = 0;
+
+    if (h->context->debug) {
+        print_debug_info__set_double_array(h, "__grib_set_double_array", name, val, length);
+    }
+
+    if (length == 0) {
+        grib_accessor* a = grib_find_accessor(h, name);
+        return grib_pack_double(a, val, &length);
+    }
+
+    /*second order doesn't have a proper representation for constant fields
+      the best is not to do the change of packing type if the field is constant
+     */
+    if (!strcmp(name, "values") || !strcmp(name, "codedValues")) {
+        double missingValue;
+        int ret      = 0;
+        int constant = 0;
+
+        ret = grib_get_double(h, "missingValue", &missingValue);
+        if (ret)
+            missingValue = 9999;
+
+        v        = missingValue;
+        constant = 1;
+        for (i = 0; i < length; i++) {
+            if (val[i] != missingValue) {
+                if (v == missingValue) {
+                    v = val[i];
+                }
+                else if (v != val[i]) {
+                    constant = 0;
+                    break;
+                }
+            }
+        }
+        if (constant) {
+            char packingType[50] = {0,};
+            size_t slen = 50;
+
+            grib_get_string(h, "packingType", packingType, &slen);
+            if (!strcmp(packingType, "grid_second_order") ||
+                !strcmp(packingType, "grid_second_order_no_SPD") ||
+                !strcmp(packingType, "grid_second_order_SPD1") ||
+                !strcmp(packingType, "grid_second_order_SPD2") ||
+                !strcmp(packingType, "grid_second_order_SPD3")) {
+                slen = 11; /*length of 'grid_simple' */
+                if (h->context->debug) {
+                    fprintf(stderr, "ECCODES DEBUG __grib_set_double_array: Cannot use second order packing for constant fields. Using simple packing\n");
+                }
+                ret = grib_set_string(h, "packingType", "grid_simple", &slen);
+                if (ret != GRIB_SUCCESS) {
+                    if (h->context->debug) {
+                        fprintf(stderr, "ECCODES DEBUG __grib_set_double_array: could not switch to simple packing!\n");
+                    }
+                }
+            }
+        }
+    }
+
+    return _grib_set_double_array(h, name, val, length, check);
+}
+static int _grib_set_double_array(grib_handle* h, const char* name,
+                                  const double* val, size_t length, int check)
+{
+    size_t encoded   = 0;
+    grib_accessor* a = grib_find_accessor(h, name);
+    int err          = 0;
+
+    if (!a)
+        return GRIB_NOT_FOUND;
+    if (name[0] == '/' || name[0] == '#') {
+        if (check && (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY))
+            return GRIB_READ_ONLY;
+        err     = grib_pack_double(a, val, &length);
+        encoded = length;
+    }
+    else
+        err = _grib_set_double_array_internal(h, a, val, length, &encoded, check);
+
+    if (err == GRIB_SUCCESS && length > encoded)
+        err = GRIB_ARRAY_TOO_SMALL;
+
+    if (err == GRIB_SUCCESS)
+        return _grib_dependency_notify_change(h, a); /* See ECC-778 */
+
+    return err;
+}
+int _grib_dependency_notify_change(grib_handle* h, grib_accessor* observed)
+{
+    grib_dependency* d = h->dependencies;
+    int ret            = GRIB_SUCCESS;
+
+    /*Do a two pass mark&sweep, in case some dependencies are added while we notify*/
+    while (d) {
+        d->run = (d->observed == observed && d->observer != 0);
+        d      = d->next;
+    }
+
+    d = h->dependencies;
+    while (d) {
+        if (d->run) {
+            /*printf("grib_dependency_notify_change %s %s %p\n",observed->name,d->observer ? d->observer->name : "?", (void*)d->observer);*/
+            if (d->observer && (ret = grib_accessor_notify_change(d->observer, observed)) != GRIB_SUCCESS)
+                return ret;
+        }
+        d = d->next;
+    }
+    return ret;
+}
+static int _grib_set_double_array_internal(grib_handle* h, grib_accessor* a,
+                                           const double* val, size_t buffer_len, size_t* encoded_length, int check)
+{
+    if (a) {
+        int err = _grib_set_double_array_internal(h, a->same, val, buffer_len, encoded_length, check);
+
+        if (check && (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY))
+            return GRIB_READ_ONLY;
+
+        if (err == GRIB_SUCCESS) {
+            size_t len = buffer_len - *encoded_length;
+            if (len) {
+                err = grib_pack_double(a, val + *encoded_length, &len);
+                *encoded_length += len;
+                if (err == GRIB_SUCCESS) {
+                    /* See ECC-778 */
+                    return _grib_dependency_notify_change(h, a);
+                }
+            }
+            else {
+                grib_get_size(h, a->name, encoded_length);
+                err = GRIB_WRONG_ARRAY_SIZE;
+            }
+        }
+
+        return err;
+    }
+    else {
+        return GRIB_SUCCESS;
+    }
+}
+int grib_set_string(grib_handle* h, const char* name, const char* val, size_t* length)
+{
+    int ret          = 0;
+    grib_accessor* a = NULL;
+
+    int processed = process_packingType_change(h, name, val);
+    if (processed)
+        return GRIB_SUCCESS;  /* Dealt with - no further action needed */
+
+    a = grib_find_accessor(h, name);
+
+    if (a) {
+        if (h->context->debug) {
+            if (strcmp(name, a->name)!=0)
+                fprintf(stderr, "ECCODES DEBUG grib_set_string %s=|%s| (a->name=%s)\n", name, val, a->name);
+            else
+                fprintf(stderr, "ECCODES DEBUG grib_set_string %s=|%s|\n", name, val);
+        }
+
+        if (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY)
+            return GRIB_READ_ONLY;
+
+        ret = grib_pack_string(a, val, length);
+        if (ret == GRIB_SUCCESS) {
+            return grib_dependency_notify_change(a);
+        }
+        return ret;
+    }
+    return GRIB_NOT_FOUND;
+}
+int grib_pack_string(grib_accessor* a, const char* v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (string) %s",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?v:"(null)");*/
+    while (c) {
+        if (c->pack_string) {
+            return c->pack_string(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+static int process_packingType_change(grib_handle* h, const char* keyname, const char* keyval)
+{
+    int err = 0;
+    char input_packing_type[100] = {0,};
+    size_t len = sizeof(input_packing_type);
+
+    if (grib_inline_strcmp(keyname, "packingType") == 0) {
+        /* Second order doesn't have a proper representation for constant fields.
+           So best not to do the change of packing type.
+           Use strncmp to catch all flavours of 2nd order packing e.g. grid_second_order_boustrophedonic */
+        if (strncmp(keyval, "grid_second_order", 17) == 0) {
+            long bitsPerValue   = 0;
+            size_t numCodedVals = 0;
+            err = grib_get_long(h, "bitsPerValue", &bitsPerValue);
+            if (!err && bitsPerValue == 0) {
+                /* ECC-1219: packingType conversion from grid_ieee to grid_second_order.
+                 * Normally having a bitsPerValue of 0 means a constant field but this is 
+                 * not so for IEEE packing which can be non-constant but always has bitsPerValue==0! */
+                len = sizeof(input_packing_type);
+                grib_get_string(h, "packingType", input_packing_type, &len);
+                if (strcmp(input_packing_type, "grid_ieee") != 0) {
+                    /* Not IEEE, so bitsPerValue==0 really means constant field */
+                    if (h->context->debug) {
+                        fprintf(stderr, "ECCODES DEBUG grib_set_string packingType: "
+                                "Constant field cannot be encoded in second order. Packing not changed\n");
+                    }
+                    return 1; /* Dealt with - no further action needed */
+                }
+            }
+            /* GRIB-883: check if there are enough coded values */
+            err = grib_get_size(h, "codedValues", &numCodedVals);
+            if (!err && numCodedVals < 3) {
+                if (h->context->debug) {
+                    fprintf(stderr, "ECCODES DEBUG grib_set_string packingType: "
+                            "Not enough coded values for second order. Packing not changed\n");
+                }
+                return 1; /* Dealt with - no further action needed */
+            }
+        }
+
+        /* ECC-1407: Are we changing from IEEE to CCSDS or Simple? */
+        if (strcmp(keyval, "grid_simple")==0 || strcmp(keyval, "grid_ccsds")==0) {
+            grib_get_string(h, "packingType", input_packing_type, &len);
+            if (strcmp(input_packing_type, "grid_ieee") == 0) {
+                const long max_bpv = 32; /* Cannot do any higher */
+                grib_set_long(h, "bitsPerValue", max_bpv);
+                /*
+                long accuracy = 0;
+                err = grib_get_long(h, "accuracy", &accuracy);
+                if (!err) {
+                    grib_set_long(h, "bitsPerValue", accuracy);
+                } */
+            }
+        }
+    }
+    return 0;  /* Further action is needed */
+}
+int grib_set_long(grib_handle* h, const char* name, long val)
+{
+    int ret          = GRIB_SUCCESS;
+    grib_accessor* a = NULL;
+    size_t l         = 1;
+
+    a = grib_find_accessor(h, name);
+
+    if (a) {
+        if (h->context->debug) {
+            if (strcmp(name, a->name)!=0)
+                fprintf(stderr, "ECCODES DEBUG grib_set_long %s=%ld (a->name=%s)\n", name, (long)val, a->name);
+            else
+                fprintf(stderr, "ECCODES DEBUG grib_set_long %s=%ld\n", name, (long)val);
+        }
+
+        if (a->flags & GRIB_ACCESSOR_FLAG_READ_ONLY)
+            return GRIB_READ_ONLY;
+
+        ret = grib_pack_long(a, &val, &l);
+        if (ret == GRIB_SUCCESS)
+            return grib_dependency_notify_change(a);
+
+        return ret;
+    }
+    return GRIB_NOT_FOUND;
+}
+static void print_debug_info__set_double_array(grib_handle* h, const char* func, const char* name, const double* val, size_t length)
+{
+    size_t N = 7, i = 0;
+    double minVal = DBL_MAX, maxVal = -DBL_MAX;
+    Assert( h->context->debug );
+
+    if (length <= N)
+        N = length;
+    fprintf(stderr, "ECCODES DEBUG %s key=%s %lu values (", func, name, (unsigned long)length);
+    for (i = 0; i < N; ++i) {
+        if (i != 0) fprintf(stderr,", ");
+        fprintf(stderr, "%.10g", val[i]);
+    }
+    if (N >= length) fprintf(stderr, ") ");
+    else fprintf(stderr, "...) ");
+    for (i = 0; i < length; ++i) {
+        if (val[i] < minVal) minVal = val[i];
+        if (val[i] > maxVal) maxVal = val[i];
+    }
+    fprintf(stderr, "min=%.10g, max=%.10g\n",minVal,maxVal);
+}
+int grib_pack_string_array(grib_accessor* a, const char** v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (string) %s",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?v:"(null)");*/
+    while (c) {
+        if (c->pack_string_array) {
+            return c->pack_string_array(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+grib_file* grib_file_new(grib_context* c, const char* name, int* err)
+{
+    grib_file* file;
+
+    if (!c)
+        c = grib_context_get_default();
+
+    file = (grib_file*)grib_context_malloc_clear(c, sizeof(grib_file));
+
+    if (!file) {
+        grib_context_log(c, GRIB_LOG_ERROR, "grib_file_new: unable to allocate memory");
+        *err = GRIB_OUT_OF_MEMORY;
+        return NULL;
+    }
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+
+    file->name = strdup(name);
+    file->id   = next_id;
+
+    GRIB_MUTEX_LOCK(&mutex1);
+    next_id++;
+    GRIB_MUTEX_UNLOCK(&mutex1);
+
+    file->mode     = 0;
+    file->handle   = 0;
+    file->refcount = 0;
+    file->context  = c;
+    file->next     = 0;
+    file->buffer   = 0;
+    return file;
+}
+void grib_file_delete(grib_file* file)
+{
+    {
+        if (!file)
+            return;
+    }
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex1);
+    if (file->name)
+        free(file->name);
+    if (file->mode)
+        free(file->mode);
+
+    if (file->buffer) {
+        free(file->buffer);
+    }
+    grib_context_free(file->context, file);
+    /* file = NULL; */
+    GRIB_MUTEX_UNLOCK(&mutex1);
+}
+int grib_accessors_list_print(grib_handle* h, grib_accessors_list* al, const char* name,
+                              int type, const char* format, const char* separator, int maxcols, int* newline, FILE* out)
+{
+    size_t size = 0, len = 0, replen = 0, j = 0;
+    unsigned char* bval      = NULL;
+    double* dval             = 0;
+    long* lval               = 0;
+    char** cvals             = NULL;
+    int ret                  = 0;
+    char* myformat           = NULL;
+    char* myseparator        = NULL;
+    char double_format[]     = "%.12g"; /* default format for printing double keys */
+    char long_format[]       = "%ld";   /* default format for printing integer keys */
+    char default_separator[] = " ";
+    grib_accessor* a         = al->accessor;
+    DebugAssert(a);
+
+    /* Number of columns specified as 0 means print on ONE line i.e. num cols = infinity */
+    if (maxcols == 0)
+        maxcols = INT_MAX;
+
+    if (type == -1)
+        type = grib_accessor_get_native_type(al->accessor);
+    grib_accessors_list_value_count(al, &size);
+    switch (type) {
+        case GRIB_TYPE_STRING:
+            myseparator = separator ? (char*)separator : default_separator;
+            if (size == 1) {
+                char sbuf[1024] = {0,};
+                len = sizeof(sbuf);
+                ret = grib_unpack_string(al->accessor, sbuf, &len);
+                if (grib_is_missing_string(al->accessor, (unsigned char*)sbuf, len)) {
+                    fprintf(out, "%s", "MISSING");
+                }
+                else {
+                    fprintf(out, "%s", sbuf);
+                }
+            }
+            else {
+                int cols = 0;
+                j = 0;
+                cvals    = (char**)grib_context_malloc_clear(h->context, sizeof(char*) * size);
+                grib_accessors_list_unpack_string(al, cvals, &size);
+                for (j = 0; j < size; j++) {
+                    *newline = 1;
+                    fprintf(out, "%s", cvals[j]);
+                    if (j < size - 1)
+                        fprintf(out, "%s", myseparator);
+                    cols++;
+                    if (cols >= maxcols) {
+                        fprintf(out, "\n");
+                        *newline = 1;
+                        cols     = 0;
+                    }
+                    grib_context_free(h->context, cvals[j]);
+                }
+            }
+            grib_context_free(h->context, cvals);
+            break;
+        case GRIB_TYPE_DOUBLE:
+            myformat    = format ? (char*)format : double_format;
+            myseparator = separator ? (char*)separator : default_separator;
+            dval        = (double*)grib_context_malloc_clear(h->context, sizeof(double) * size);
+            ret         = grib_accessors_list_unpack_double(al, dval, &size);
+            if (size == 1)
+                fprintf(out, myformat, dval[0]);
+            else {
+                int cols = 0;
+                j = 0;
+                for (j = 0; j < size; j++) {
+                    *newline = 1;
+                    fprintf(out, myformat, dval[j]);
+                    if (j < size - 1)
+                        fprintf(out, "%s", myseparator);
+                    cols++;
+                    if (cols >= maxcols) {
+                        fprintf(out, "\n");
+                        *newline = 1;
+                        cols     = 0;
+                    }
+                }
+            }
+            grib_context_free(h->context, dval);
+            break;
+        case GRIB_TYPE_LONG:
+            myformat    = format ? (char*)format : long_format;
+            myseparator = separator ? (char*)separator : default_separator;
+            lval        = (long*)grib_context_malloc_clear(h->context, sizeof(long) * size);
+            ret         = grib_accessors_list_unpack_long(al, lval, &size);
+            if (size == 1)
+                fprintf(out, myformat, lval[0]);
+            else {
+                int cols = 0;
+                j = 0;
+                for (j = 0; j < size; j++) {
+                    *newline = 1;
+                    fprintf(out, myformat, lval[j]);
+                    if (j < size - 1)
+                        fprintf(out, "%s", myseparator);
+                    cols++;
+                    if (cols >= maxcols) {
+                        fprintf(out, "\n");
+                        *newline = 1;
+                        cols     = 0;
+                    }
+                }
+            }
+            grib_context_free(h->context, lval);
+            break;
+        case GRIB_TYPE_BYTES:
+            replen = a->length;
+            bval   = (unsigned char*)grib_context_malloc(h->context, replen * sizeof(unsigned char));
+            ret    = grib_unpack_bytes(al->accessor, bval, &replen);
+            for (j = 0; j < replen; j++) {
+                fprintf(out, "%02x", bval[j]);
+            }
+            grib_context_free(h->context, bval);
+            *newline = 1;
+            break;
+        default:
+            grib_context_log(h->context, GRIB_LOG_WARNING,
+                             "grib_accessor_print: Problem printing \"%s\", invalid type %d", a->name, grib_get_type_name(type));
+    }
+    return ret;
+}
+int string_to_long(const char* input, long* output)
+{
+    const int base = 10;
+    char* endptr;
+    long val = 0;
+
+    if (!input)
+        return GRIB_INVALID_ARGUMENT;
+
+    errno = 0;
+    val   = strtol(input, &endptr, base);
+    if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) ||
+        (errno != 0 && val == 0)) {
+        /*perror("strtol");*/
+        return GRIB_INVALID_ARGUMENT;
+    }
+    if (endptr == input) {
+        /*fprintf(stderr, "No digits were found. EXIT_FAILURE\n");*/
+        return GRIB_INVALID_ARGUMENT;
+    }
+    *output = val;
+    return GRIB_SUCCESS;
+}
+int grib_type_to_int(char id)
+{
+    switch (id) {
+        case 'd':
+            return GRIB_TYPE_DOUBLE;
+            break;
+        case 'f':
+            return GRIB_TYPE_DOUBLE;
+            break;
+        case 'l':
+            return GRIB_TYPE_LONG;
+            break;
+        case 'i':
+            return GRIB_TYPE_LONG;
+            break;
+        case 's':
+            return GRIB_TYPE_STRING;
+            break;
+    }
+    return GRIB_TYPE_UNDEFINED;
+}
+void grib_dump(grib_action* a, FILE* f, int l)
+{
+    grib_action_class* c = a->cclass;
+    init(c);
+
+    while (c) {
+        if (c->dump_gac) {
+            c->dump_gac(a, f, l);
+            return;
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+}
+const char* grib_get_type_name(int type)
+{
+    switch (type) {
+        case GRIB_TYPE_LONG:
+            return "long";
+        case GRIB_TYPE_STRING:
+            return "string";
+        case GRIB_TYPE_BYTES:
+            return "bytes";
+        case GRIB_TYPE_DOUBLE:
+            return "double";
+        case GRIB_TYPE_LABEL:
+            return "label";
+        case GRIB_TYPE_SECTION:
+            return "section";
+    }
+    return "unknown";
+}
+int grib_unpack_bytes(grib_accessor* a, unsigned char* v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is unpacking (bytes)",(a->parent->owner)?(a->parent->owner->name):"root", a->name ); */
+    while (c) {
+        if (c->unpack_bytes) {
+            return c->unpack_bytes(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+int grib_accessors_list_unpack_long(grib_accessors_list* al, long* val, size_t* buffer_len)
+{
+    int err             = GRIB_SUCCESS;
+    size_t unpacked_len = 0;
+    size_t len          = 0;
+
+    while (al && err == GRIB_SUCCESS) {
+        len = *buffer_len - unpacked_len;
+        err = grib_unpack_long(al->accessor, val + unpacked_len, &len);
+        unpacked_len += len;
+        al = al->next;
+    }
+
+    *buffer_len = unpacked_len;
+    return err;
+}
+int grib_accessors_list_unpack_string(grib_accessors_list* al, char** val, size_t* buffer_len)
+{
+    int err             = GRIB_SUCCESS;
+    size_t unpacked_len = 0;
+    size_t len          = 0;
+
+    while (al && err == GRIB_SUCCESS) {
+        len = *buffer_len - unpacked_len;
+        err = grib_unpack_string_array(al->accessor, val + unpacked_len, &len);
+        unpacked_len += len;
+        al = al->next;
+    }
+
+    *buffer_len = unpacked_len;
+    return err;
+}
+int grib_is_missing_string(grib_accessor* a, const unsigned char* x, size_t len)
+{
+    /* For a string value to be missing, every character has to be */
+    /* all 1's (i.e. 0xFF) */
+    /* Note: An empty string is also classified as missing */
+    int ret;
+    size_t i = 0;
+
+    if (len == 0)
+        return 1; /* empty string */
+    ret = 1;
+    for (i = 0; i < len; i++) {
+        if (x[i] != 0xFF) {
+            ret = 0;
+            break;
+        }
+    }
+
+    if (!a) return ret;
+
+    ret = ( ((a->flags & GRIB_ACCESSOR_FLAG_CAN_BE_MISSING) && ret == 1) ) ? 1 : 0;
+    return ret;
+}
+int grib_unpack_string_array(grib_accessor* a, char** v, size_t* len)
+{
+    grib_accessor_class* c = a->cclass;
+    while (c) {
+        if (c->unpack_string_array) {
+            return c->unpack_string_array(a, v, len);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+long grib_accessor_get_native_type(grib_accessor* a)
+{
+    grib_accessor_class* c = NULL;
+    if (a)
+        c = a->cclass;
+
+    while (c) {
+        if (c->get_native_type)
+            return c->get_native_type(a);
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+static void link_same_attributes(grib_accessor* a, grib_accessor* b)
+{
+    int i                     = 0;
+    int idx                   = 0;
+    grib_accessor* bAttribute = NULL;
+    if (a == NULL || b == NULL)
+        return;
+    if (!grib_accessor_has_attributes(b))
+        return;
+    while (i < MAX_ACCESSOR_ATTRIBUTES && a->attributes[i]) {
+        bAttribute = _grib_accessor_get_attribute(b, a->attributes[i]->name, &idx);
+        if (bAttribute)
+            a->attributes[i]->same = bAttribute;
+        i++;
+    }
+}
+int grib_accessor_has_attributes(grib_accessor* a)
+{
+    return a->attributes[0] ? 1 : 0;
+}
+void grib_concept_condition_delete(grib_context* c, grib_concept_condition* v)
+{
+    grib_expression_free(c, v->expression);
+    grib_context_free_persistent(c, v->name);
+    grib_context_free_persistent(c, v);
+}
+void grib_iarray_delete(grib_iarray* v)
+{
+    grib_context* c;
+
+    if (!v)
+        return;
+    c = v->context;
+
+    grib_iarray_delete_array(v);
+
+    grib_context_free(c, v);
+}
+void grib_iarray_delete_array(grib_iarray* v)
+{
+    grib_context* c;
+
+    if (!v)
+        return;
+    c = v->context;
+
+    if (v->v) {
+        long* vv = v->v - v->number_of_pop_front;
+        grib_context_free(c, vv);
+    }
+}
+int grib_itrie_insert(grib_itrie* t, const char* key)
+{
+    const char* k    = key;
+    grib_itrie* last = t;
+    int* count;
+
+    if (!t) {
+        Assert(!"grib_itrie_insert: grib_trie==NULL");
+        return -1;
+    }
+
+    GRIB_MUTEX_INIT_ONCE(&once, &init);
+    GRIB_MUTEX_LOCK(&mutex);
+
+    count = t->count;
+
+    while (*k && t) {
+        last = t;
+        t    = t->next[mapping[(int)*k]];
+        if (t)
+            k++;
+    }
+
+    if (*k != 0) {
+        t = last;
+        while (*k) {
+            int j      = mapping[(int)*k++];
+            t->next[j] = grib_itrie_new(t->context, count);
+            t          = t->next[j];
+        }
+    }
+    if (*(t->count) < MAX_NUM_CONCEPTS) {
+        t->id = *(t->count);
+        (*(t->count))++;
+    }
+    else {
+        grib_context_log(t->context, GRIB_LOG_ERROR,
+                         "grib_itrie_insert: too many accessors, increase MAX_NUM_CONCEPTS\n");
+        Assert(*(t->count) < MAX_NUM_CONCEPTS);
+    }
+
+    GRIB_MUTEX_UNLOCK(&mutex);
+
+    /*printf("grib_itrie_get_id: %s -> %d\n",key,t->id);*/
+
+    return t->id;
+}
+static double* pointer_to_data(unsigned int i, unsigned int j,
+                               long iScansNegatively, long jScansPositively,
+                               long jPointsAreConsecutive, long alternativeRowScanning,
+                               unsigned int nx, unsigned int ny, double* data)
+{
+    /* Regular grid */
+    if (nx > 0 && ny > 0) {
+        if (i >= nx || j >= ny)
+            return NULL;
+        j = (jScansPositively) ? j : ny - 1 - j;
+        i = ((alternativeRowScanning) && (j % 2 == 1)) ? nx - 1 - i : i;
+        i = (iScansNegatively) ? nx - 1 - i : i;
+
+        return (jPointsAreConsecutive) ? data + j + i * ny : data + i + nx * j;
+    }
+
+    /* Reduced or other data not on a grid */
+    return NULL;
+}
+int grib_accessor_is_missing(grib_accessor* a, int* err)
+{
+    *err = GRIB_SUCCESS;
+    if (a) {
+        if (a->flags & GRIB_ACCESSOR_FLAG_CAN_BE_MISSING)
+            return grib_is_missing_internal(a);
+        else
+            return 0;
+    }
+    else {
+        *err = GRIB_NOT_FOUND;
+        return 1;
+    }
+}
+int grib_is_missing_internal(grib_accessor* a)
+{
+    grib_accessor_class* c = a->cclass;
+    /*grib_context_log(a->context, GRIB_LOG_DEBUG, "(%s)%s is packing (double) %g",(a->parent->owner)?(a->parent->owner->name):"root", a->name ,v?(*v):0); */
+    while (c) {
+        if (c->is_missing) {
+            return c->is_missing(a);
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    DebugAssert(0);
+    return 0;
+}
+static grib_darray* grib_darray_resize(grib_darray* v)
+{
+    const size_t newsize = v->incsize + v->size;
+    grib_context* c = v->context;
+    if (!c)
+        c = grib_context_get_default();
+
+    v->v    = (double*)grib_context_realloc(c, v->v, newsize * sizeof(double));
+    v->size = newsize;
+    if (!v->v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_darray_resize unable to allocate %ld bytes\n", sizeof(double) * newsize);
+        return NULL;
+    }
+    return v;
+}
+grib_darray* grib_darray_new(grib_context* c, size_t size, size_t incsize)
+{
+    grib_darray* v = NULL;
+    if (!c)
+        c = grib_context_get_default();
+    v = (grib_darray*)grib_context_malloc_clear(c, sizeof(grib_darray));
+    if (!v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_darray_new unable to allocate %ld bytes\n", sizeof(grib_darray));
+        return NULL;
+    }
+    v->size    = size;
+    v->n       = 0;
+    v->incsize = incsize;
+    v->context = c;
+    v->v       = (double*)grib_context_malloc_clear(c, sizeof(double) * size);
+    if (!v->v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_darray_new unable to allocate %ld bytes\n", sizeof(double) * size);
+        return NULL;
+    }
+    return v;
+}
+static grib_sarray* grib_sarray_resize(grib_sarray* v)
+{
+    const size_t newsize = v->incsize + v->size;
+    grib_context* c = v->context;
+    if (!c)
+        c = grib_context_get_default();
+
+    v->v    = (char**)grib_context_realloc(c, v->v, newsize * sizeof(char*));
+    v->size = newsize;
+    if (!v->v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_sarray_resize unable to allocate %ld bytes\n", sizeof(char*) * newsize);
+        return NULL;
+    }
+    return v;
+}
+grib_sarray* grib_sarray_new(grib_context* c, size_t size, size_t incsize)
+{
+    grib_sarray* v = NULL;
+    if (!c)
+        c = grib_context_get_default();
+    v = (grib_sarray*)grib_context_malloc_clear(c, sizeof(grib_sarray));
+    if (!v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_sarray_new unable to allocate %ld bytes\n", sizeof(grib_sarray));
+        return NULL;
+    }
+    v->size    = size;
+    v->n       = 0;
+    v->incsize = incsize;
+    v->context = c;
+    v->v       = (char**)grib_context_malloc_clear(c, sizeof(char*) * size);
+    if (!v->v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_sarray_new unable to allocate %ld bytes\n", sizeof(char*) * size);
+        return NULL;
+    }
+    return v;
+}
+static grib_iarray* grib_iarray_resize_to(grib_iarray* v, size_t newsize)
+{
+    long* newv;
+    size_t i;
+    grib_context* c = v->context;
+
+    if (newsize < v->size)
+        return v;
+
+    if (!c)
+        c = grib_context_get_default();
+
+    newv = (long*)grib_context_malloc_clear(c, newsize * sizeof(long));
+    if (!newv) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_iarray_resize unable to allocate %ld bytes\n", sizeof(long) * newsize);
+        return NULL;
+    }
+
+    for (i = 0; i < v->n; i++)
+        newv[i] = v->v[i];
+
+    v->v -= v->number_of_pop_front;
+    grib_context_free(c, v->v);
+
+    v->v                   = newv;
+    v->size                = newsize;
+    v->number_of_pop_front = 0;
+
+    return v;
+}
+static grib_iarray* grib_iarray_resize(grib_iarray* v)
+{
+    const size_t newsize = v->incsize + v->size;
+    return grib_iarray_resize_to(v, newsize);
+}
+grib_iarray* grib_iarray_new(grib_context* c, size_t size, size_t incsize)
+{
+    grib_iarray* v = NULL;
+
+    if (!c)
+        c = grib_context_get_default();
+
+    v = (grib_iarray*)grib_context_malloc(c, sizeof(grib_iarray));
+    if (!v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_iarray_new unable to allocate %ld bytes\n", sizeof(grib_iarray));
+        return NULL;
+    }
+    v->context             = c;
+    v->size                = size;
+    v->n                   = 0;
+    v->incsize             = incsize;
+    v->v                   = (long*)grib_context_malloc(c, sizeof(long) * size);
+    v->number_of_pop_front = 0;
+    if (!v->v) {
+        grib_context_log(c, GRIB_LOG_ERROR,
+                         "grib_iarray_new unable to allocate %ld bytes\n", sizeof(long) * size);
+        return NULL;
+    }
+    return v;
+}
+void* grib_context_realloc(const grib_context* c, void* p, size_t size)
+{
+    void* q;
+    if (!c)
+        c = grib_context_get_default();
+    q = c->realloc_mem(c, p, size);
+    if (!q) {
+        grib_context_log(c, GRIB_LOG_FATAL, "grib_context_realloc: error allocating %lu bytes", (unsigned long)size);
+        return NULL;
+    }
+    return q;
+}
+
+
+
+
+
 
 
 grib_accessor* grib_accessor_factory(grib_section* p, grib_action* creator,
@@ -5538,158 +7065,8 @@ grib_hash_array_value* grib_parse_hash_array_file(grib_context* gc, const char* 
 }
 
 // extern grib_action_class* grib_action_class_gen;
-grib_action_class* grib_action_class_gen;
+// grib_action_class* grib_action_class_gen;
 grib_action_class* grib_action_class_section;
-
-
-
-/* These are the subfunctions that grib_yacc.c uses */
-static grib_action_class _grib_action_class_variable = {
-    &grib_action_class_gen,                              /* super                     */
-    "action_class_variable",                              /* name                      */
-    sizeof(grib_action_variable),            /* size                      */
-    0,                                   /* inited */
-    &init_class_var,                         /* init_class */
-    0,                               /* init                      */
-    0,                            /* destroy */
-
-    0,                               /* dump                      */
-    0,                               /* xref                      */
-
-    0,             /* create_accessor*/
-
-    0,                            /* notify_change */
-    0,                            /* reparse */
-    &execute_var,                            /* execute */
-};
-grib_action_class* grib_action_class_variable = &_grib_action_class_variable;
-static void init_class_var(grib_action_class* c)
-{
-    c->dump_gac    =    (*(c->super))->dump_gac;
-    c->xref_gac    =    (*(c->super))->xref_gac;
-    c->create_accessor    =    (*(c->super))->create_accessor;
-    c->notify_change    =    (*(c->super))->notify_change;
-    c->reparse    =    (*(c->super))->reparse;
-}
-
-grib_action* grib_action_create_variable(grib_context* context, const char* name, const char* op, const long len, grib_arguments* params, grib_arguments* default_value, int flags, const char* name_space)
-{
-    grib_action_variable* a = NULL;
-    grib_action_class* c    = grib_action_class_variable;
-    grib_action* act        = (grib_action*)grib_context_malloc_clear_persistent(context, c->size);
-    act->next               = NULL;
-    act->name               = grib_context_strdup_persistent(context, name);
-    if (name_space)
-        act->name_space = grib_context_strdup_persistent(context, name_space);
-    act->op            = grib_context_strdup_persistent(context, op);
-    act->cclass        = c;
-    act->context       = context;
-    act->flags         = flags;
-    a                  = (grib_action_variable*)act;
-    a->len             = len;
-    a->params          = params;
-    act->default_value = default_value;
-
-    /* printf("CREATE %s\n",name); */
-
-    return act;
-}
-
-static int execute_var(grib_action* a, grib_handle* h)
-{
-    return grib_create_accessor(h->root, a, NULL);
-}
-
-
-static grib_action_class _grib_action_class_transient_darray = {
-    &grib_action_class_gen,                              /* super                     */
-    "action_class_transient_darray",                              /* name                      */
-    sizeof(grib_action_transient_darray),            /* size                      */
-    0,                                   /* inited */
-    &init_class_transient_darray,                         /* init_class */
-    0,                               /* init                      */
-    &destroy_transient_darray,                            /* destroy */
-
-    &dump_transient_darray,                               /* dump                      */
-    &xref_transient_darray,                               /* xref                      */
-
-    0,             /* create_accessor*/
-
-    0,                            /* notify_change */
-    0,                            /* reparse */
-    &execute_transient_darray,                            /* execute */
-};
-
-grib_action_class* grib_action_class_transient_darray = &_grib_action_class_transient_darray;
-
-static void init_class_transient_darray(grib_action_class* c)
-{
-    c->create_accessor    =    (*(c->super))->create_accessor;
-    c->notify_change    =    (*(c->super))->notify_change;
-    c->reparse    =    (*(c->super))->reparse;
-}
-
-grib_action* grib_action_create_transient_darray(grib_context* context, const char* name, grib_darray* darray, int flags)
-{
-    grib_action_transient_darray* a = NULL;
-    grib_action_class* c            = grib_action_class_transient_darray;
-    grib_action* act                = (grib_action*)grib_context_malloc_clear_persistent(context, c->size);
-    act->op                         = grib_context_strdup_persistent(context, "transient_darray");
-
-    act->cclass  = c;
-    a            = (grib_action_transient_darray*)act;
-    act->context = context;
-    act->flags   = flags;
-
-    a->darray = darray;
-    a->name   = grib_context_strdup_persistent(context, name);
-
-    act->name = grib_context_strdup_persistent(context, name);
-
-    return act;
-}
-
-static int execute_transient_darray(grib_action* act, grib_handle* h)
-{
-    grib_action_transient_darray* self = (grib_action_transient_darray*)act;
-    size_t len                         = grib_darray_used_size(self->darray);
-    grib_accessor* a                   = NULL;
-    grib_section* p                    = h->root;
-
-    a = grib_accessor_factory(p, act, self->len, self->params);
-    if (!a)
-        return GRIB_INTERNAL_ERROR;
-
-    grib_push_accessor(a, p->block);
-
-    if (a->flags & GRIB_ACCESSOR_FLAG_CONSTRAINT)
-        grib_dependency_observe_arguments(a, act->default_value);
-
-    return grib_pack_double(a, self->darray->v, &len);
-}
-
-static void dump_transient_darray(grib_action* act, FILE* f, int lvl)
-{
-    int i                              = 0;
-    grib_action_transient_darray* self = (grib_action_transient_darray*)act;
-    for (i = 0; i < lvl; i++)
-        grib_context_print(act->context, f, "     ");
-    grib_context_print(act->context, f, self->name);
-    printf("\n");
-}
-
-static void destroy_transient_darray(grib_context* context, grib_action* act)
-{
-    grib_action_transient_darray* a = (grib_action_transient_darray*)act;
-
-    grib_context_free_persistent(context, a->name);
-    grib_darray_delete(context, a->darray);
-}
-
-static void xref_transient_darray(grib_action* d, FILE* f, const char* path)
-{
-}
-
 
 static grib_action_class _grib_action_class_template = {
     &grib_action_class_section,                              /* super                     */
@@ -5977,6 +7354,154 @@ static void destroy_gen(grib_context* context, grib_action* act)
     }
 }
 
+/* These are the subfunctions that grib_yacc.c uses */
+static grib_action_class _grib_action_class_variable = {
+    &grib_action_class_gen,                              /* super                     */
+    "action_class_variable",                              /* name                      */
+    sizeof(grib_action_variable),            /* size                      */
+    0,                                   /* inited */
+    &init_class_var,                         /* init_class */
+    0,                               /* init                      */
+    0,                            /* destroy */
+
+    0,                               /* dump                      */
+    0,                               /* xref                      */
+
+    0,             /* create_accessor*/
+
+    0,                            /* notify_change */
+    0,                            /* reparse */
+    &execute_var,                            /* execute */
+};
+grib_action_class* grib_action_class_variable = &_grib_action_class_variable;
+static void init_class_var(grib_action_class* c)
+{
+    c->dump_gac    =    (*(c->super))->dump_gac;
+    c->xref_gac    =    (*(c->super))->xref_gac;
+    c->create_accessor    =    (*(c->super))->create_accessor;
+    c->notify_change    =    (*(c->super))->notify_change;
+    c->reparse    =    (*(c->super))->reparse;
+}
+
+grib_action* grib_action_create_variable(grib_context* context, const char* name, const char* op, const long len, grib_arguments* params, grib_arguments* default_value, int flags, const char* name_space)
+{
+    grib_action_variable* a = NULL;
+    grib_action_class* c    = grib_action_class_variable;
+    grib_action* act        = (grib_action*)grib_context_malloc_clear_persistent(context, c->size);
+    act->next               = NULL;
+    act->name               = grib_context_strdup_persistent(context, name);
+    if (name_space)
+        act->name_space = grib_context_strdup_persistent(context, name_space);
+    act->op            = grib_context_strdup_persistent(context, op);
+    act->cclass        = c;
+    act->context       = context;
+    act->flags         = flags;
+    a                  = (grib_action_variable*)act;
+    a->len             = len;
+    a->params          = params;
+    act->default_value = default_value;
+
+    /* printf("CREATE %s\n",name); */
+
+    return act;
+}
+
+static int execute_var(grib_action* a, grib_handle* h)
+{
+    return grib_create_accessor(h->root, a, NULL);
+}
+
+
+static grib_action_class _grib_action_class_transient_darray = {
+    &grib_action_class_gen,                              /* super                     */
+    "action_class_transient_darray",                              /* name                      */
+    sizeof(grib_action_transient_darray),            /* size                      */
+    0,                                   /* inited */
+    &init_class_transient_darray,                         /* init_class */
+    0,                               /* init                      */
+    &destroy_transient_darray,                            /* destroy */
+
+    &dump_transient_darray,                               /* dump                      */
+    &xref_transient_darray,                               /* xref                      */
+
+    0,             /* create_accessor*/
+
+    0,                            /* notify_change */
+    0,                            /* reparse */
+    &execute_transient_darray,                            /* execute */
+};
+
+grib_action_class* grib_action_class_transient_darray = &_grib_action_class_transient_darray;
+
+static void init_class_transient_darray(grib_action_class* c)
+{
+    c->create_accessor    =    (*(c->super))->create_accessor;
+    c->notify_change    =    (*(c->super))->notify_change;
+    c->reparse    =    (*(c->super))->reparse;
+}
+
+grib_action* grib_action_create_transient_darray(grib_context* context, const char* name, grib_darray* darray, int flags)
+{
+    grib_action_transient_darray* a = NULL;
+    grib_action_class* c            = grib_action_class_transient_darray;
+    grib_action* act                = (grib_action*)grib_context_malloc_clear_persistent(context, c->size);
+    act->op                         = grib_context_strdup_persistent(context, "transient_darray");
+
+    act->cclass  = c;
+    a            = (grib_action_transient_darray*)act;
+    act->context = context;
+    act->flags   = flags;
+
+    a->darray = darray;
+    a->name   = grib_context_strdup_persistent(context, name);
+
+    act->name = grib_context_strdup_persistent(context, name);
+
+    return act;
+}
+
+static int execute_transient_darray(grib_action* act, grib_handle* h)
+{
+    grib_action_transient_darray* self = (grib_action_transient_darray*)act;
+    size_t len                         = grib_darray_used_size(self->darray);
+    grib_accessor* a                   = NULL;
+    grib_section* p                    = h->root;
+
+    a = grib_accessor_factory(p, act, self->len, self->params);
+    if (!a)
+        return GRIB_INTERNAL_ERROR;
+
+    grib_push_accessor(a, p->block);
+
+    if (a->flags & GRIB_ACCESSOR_FLAG_CONSTRAINT)
+        grib_dependency_observe_arguments(a, act->default_value);
+
+    return grib_pack_double(a, self->darray->v, &len);
+}
+
+static void dump_transient_darray(grib_action* act, FILE* f, int lvl)
+{
+    int i                              = 0;
+    grib_action_transient_darray* self = (grib_action_transient_darray*)act;
+    for (i = 0; i < lvl; i++)
+        grib_context_print(act->context, f, "     ");
+    grib_context_print(act->context, f, self->name);
+    printf("\n");
+}
+
+static void destroy_transient_darray(grib_context* context, grib_action* act)
+{
+    grib_action_transient_darray* a = (grib_action_transient_darray*)act;
+
+    grib_context_free_persistent(context, a->name);
+    grib_darray_delete(context, a->darray);
+}
+
+static void xref_transient_darray(grib_action* d, FILE* f, const char* path)
+{
+}
+
+
 static grib_action_class _grib_action_class_alias = {
     0,                              /* super                     */
     "action_class_alias",                              /* name                      */
@@ -6004,7 +7529,7 @@ static void init_class_alias(grib_action_class* c)
 
 /* Note: A fast cut-down version of grib_inline_strcmp which does NOT return -1 */
 /* 0 means input strings are equal and 1 means not equal */
-GRIB_INLINE static int grib_inline_strcmp(const char* a, const char* b)
+static int grib_inline_strcmp(const char* a, const char* b)
 {
     if (*a != *b)
         return 1;
@@ -6405,7 +7930,7 @@ grib_action* grib_action_create_remove(grib_context* context, grib_arguments* ar
     return act;
 }
 
-static void remove_accessor_remove(grib_accessor* a)
+static void remove_accessor(grib_accessor* a)
 {
     grib_section* s = NULL;
     int id;
