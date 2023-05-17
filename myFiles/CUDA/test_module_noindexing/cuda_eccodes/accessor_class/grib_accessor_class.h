@@ -227,9 +227,7 @@ extern grib_accessor_class* grib_accessor_class_variable;
 extern grib_accessor_class* grib_accessor_class_vector;
 extern grib_accessor_class* grib_accessor_class_when;
 
-struct accessor_class_hash { char *name; grib_accessor_class **cclass;};
 
-accessor_class_hash * grib_accessor_classes_hash (register const char *str, register size_t len);
 
 
 #endif /* GRIB_ACCESSOR_CLASS_H */

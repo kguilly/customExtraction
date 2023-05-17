@@ -29,12 +29,12 @@
 #error "gperf generated tables don't work with this execution character set. Please report a bug to <bug-gperf@gnu.org>."
 #endif
 
-#line 1 "accessor_class_list.gperf"
+// #line 1 "accessor_class_list.gperf"
 
 #include "../header.h"
 #include "grib_accessor_class.h"
 
-#line 6 "accessor_class_list.gperf"
+// #line 6 "accessor_class_list.gperf"
 
 #define TOTAL_KEYWORDS 220
 #define MIN_WORD_LENGTH 1

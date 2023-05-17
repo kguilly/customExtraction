@@ -1135,13 +1135,155 @@ grib_iterator_class* grib_iterator_class_gen;
 grib_iterator_class* grib_iterator_class_lambert_conformal;
 grib_iterator_class* grib_iterator_class_latlon;
 grib_iterator_class* grib_iterator_class_regular;
-static const struct table_entry table[] = {
+grib_iterator_class* grib_iterator_class_gaussian_reduced;
+grib_iterator_class* grib_iterator_class_lambert_azimuthal_equal_area;
+grib_iterator_class* grib_iterator_class_latlon_reduced;
+grib_iterator_class* grib_iterator_class_polar_stereographic;
+grib_iterator_class* grib_iterator_class_mercator;
+grib_iterator_class* grib_iterator_class_space_view;
+static const struct iterator_table_entry iterator_table[] = {
 { "gaussian", &grib_iterator_class_gaussian, },
+{ "gaussian_reduced", &grib_iterator_class_gaussian_reduced, },
 { "gen", &grib_iterator_class_gen, },
+{ "lambert_azimuthal_equal_area", &grib_iterator_class_lambert_azimuthal_equal_area, },
 { "lambert_conformal", &grib_iterator_class_lambert_conformal, },
 { "latlon", &grib_iterator_class_latlon, },
+{ "latlon_reduced", &grib_iterator_class_latlon_reduced, },
+{ "mercator", &grib_iterator_class_mercator, },
+{ "polar_stereographic", &grib_iterator_class_polar_stereographic, },
 { "regular", &grib_iterator_class_regular, },
+{ "space_view", &grib_iterator_class_space_view, },
 };
+
+void grib_get_reduced_row(long pl, double lon_first, double lon_last, long* npoints, long* ilon_first, long* ilon_last)
+{
+    long long Ni_globe = pl;
+    Fraction_type west;
+    Fraction_type east;
+    long long the_count;
+    double the_lon1, the_lon2;
+
+    while (lon_last < lon_first)
+        lon_last += 360;
+    west = fraction_construct_from_double(lon_first);
+    east = fraction_construct_from_double(lon_last);
+
+    gaussian_reduced_row(
+        Ni_globe, /*plj*/
+        west,     /*lon_first*/
+        east,     /*lon_last*/
+        &the_count,
+        &the_lon1,
+        &the_lon2);
+    *npoints    = (long)the_count;
+    *ilon_first = (the_lon1 * pl) / 360.0;
+    *ilon_last  = (the_lon2 * pl) / 360.0;
+}
+void grib_get_reduced_row_legacy(long pl, double lon_first, double lon_last, long* npoints, long* ilon_first, long* ilon_last)
+{
+    double range = 0, dlon_first = 0, dlon_last = 0;
+    long irange;
+    range = lon_last - lon_first;
+    if (range < 0) {
+        range += 360;
+        lon_first -= 360;
+    }
+
+    /* computing integer number of points and coordinates without using floating point resolution*/
+    *npoints    = (range * pl) / 360.0 + 1;
+    *ilon_first = (lon_first * pl) / 360.0;
+    *ilon_last  = (lon_last * pl) / 360.0;
+
+    irange = *ilon_last - *ilon_first + 1;
+
+#if EFDEBUG
+    printf("  pl=%ld npoints=%ld range=%.10e ilon_first=%ld ilon_last=%ld irange=%ld\n",
+           pl, *npoints, range, *ilon_first, *ilon_last, irange);
+#endif
+
+    if (irange != *npoints) {
+#if EFDEBUG
+        printf("       ---> (irange=%ld) != (npoints=%ld) ", irange, *npoints);
+#endif
+        if (irange > *npoints) {
+            /* checking if the first point is out of range*/
+            dlon_first = ((*ilon_first) * 360.0) / pl;
+            if (dlon_first < lon_first) {
+                (*ilon_first)++;
+                irange--;
+#if EFDEBUG
+                printf(" dlon_first=%.10e < lon_first=%.10e\n", dlon_first, lon_first);
+#endif
+            }
+
+            /* checking if the last point is out of range*/
+            dlon_last = ((*ilon_last) * 360.0) / pl;
+            if (dlon_last > lon_last) {
+                (*ilon_last)--;
+                irange--;
+#if EFDEBUG
+                printf(" dlon_last=%.10e < lon_last=%.10e\n", dlon_last, lon_last);
+#endif
+            }
+        }
+        else {
+            int ok = 0;
+            /* checking if the point before the first is in the range*/
+            dlon_first = ((*ilon_first - 1) * 360.0) / pl;
+            if (dlon_first > lon_first) {
+                (*ilon_first)--;
+                irange++;
+                ok = 1;
+#if EFDEBUG
+                printf(" dlon_first1=%.10e > lon_first=%.10e\n", dlon_first, lon_first);
+#endif
+            }
+
+            /* checking if the point after the last is in the range*/
+            dlon_last = ((*ilon_last + 1) * 360.0) / pl;
+            if (dlon_last < lon_last) {
+                (*ilon_last)++;
+                irange++;
+                ok = 1;
+#if EFDEBUG
+                printf(" dlon_last1=%.10e > lon_last=%.10e\n", dlon_last, lon_first);
+#endif
+            }
+
+            /* if neither of the two are triggered then npoints is too large */
+            if (!ok) {
+                (*npoints)--;
+#if EFDEBUG
+                printf(" (*npoints)--=%ld\n", *npoints);
+#endif
+            }
+        }
+
+        /*Assert(*npoints==irange);*/
+#if EFDEBUG
+        printf("--  pl=%ld npoints=%ld range=%.10e ilon_first=%ld ilon_last=%ld irange=%ld\n",
+               pl, *npoints, range, *ilon_first, *ilon_last, irange);
+#endif
+    }
+    else {
+        /* checking if the first point is out of range*/
+        dlon_first = ((*ilon_first) * 360.0) / pl;
+        if (dlon_first < lon_first) {
+            (*ilon_first)++;
+            (*ilon_last)++;
+#if EFDEBUG
+            printf("       ---> dlon_first=%.10e < lon_first=%.10e\n", dlon_first, lon_first);
+            printf("--  pl=%ld npoints=%ld range=%.10e ilon_first=%ld ilon_last=%ld irange=%ld\n",
+                   pl, *npoints, range, *ilon_first, *ilon_last, irange);
+#endif
+        }
+    }
+
+    if (*ilon_first < 0)
+        *ilon_first += pl;
+
+    return;
+}
 
 grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret)
 {
@@ -1155,9 +1297,9 @@ grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsig
            I plan to only keep the code associated to lambert conformal. 
 
     */
-    for (i = 0; i < NUMBER(table); i++)
-        if (strcmp(type, table[i].type) == 0) {
-            grib_iterator_class* c = *(table[i].cclass);
+    for (i = 0; i < NUMBER(iterator_table); i++)
+        if (strcmp(type, iterator_table[i].type) == 0) {
+            grib_iterator_class* c = *(iterator_table[i].cclass);
             grib_iterator* it      = (grib_iterator*)grib_context_malloc_clear(h->context, c->size);
             it->cclass             = c;
             it->flags              = flags;
@@ -1166,7 +1308,7 @@ grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsig
             if (*ret == GRIB_SUCCESS)
                 return it;
             grib_context_log(h->context, GRIB_LOG_ERROR, "Geoiterator factory: Error instantiating iterator %s (%s)",
-                             table[i].type, grib_get_error_message(*ret));
+                             iterator_table[i].type, grib_get_error_message(*ret));
             grib_iterator_delete(it);
             return NULL;
         }
@@ -6931,6 +7073,361 @@ void* grib_context_realloc(const grib_context* c, void* p, size_t size)
     return q;
 }
 
+
+grib_nearest_class* grib_nearest_class_gen;
+grib_nearest_class* grib_nearest_class_lambert_azimuthal_equal_area;
+grib_nearest_class* grib_nearest_class_lambert_conformal;
+grib_nearest_class* grib_nearest_class_latlon_reduced;
+grib_nearest_class* grib_nearest_class_mercator;
+grib_nearest_class* grib_nearest_class_polar_stereographic;
+grib_nearest_class* grib_nearest_class_reduced;
+grib_nearest_class* grib_nearest_class_regular;
+grib_nearest_class* grib_nearest_class_sh;
+grib_nearest_class* grib_nearest_class_space_view;
+static const struct nearest_table_entry nearest_table[] = {
+{ "gen", &grib_nearest_class_gen, },
+{ "lambert_azimuthal_equal_area", &grib_nearest_class_lambert_azimuthal_equal_area, },
+{ "lambert_conformal", &grib_nearest_class_lambert_conformal, },
+{ "latlon_reduced", &grib_nearest_class_latlon_reduced, },
+{ "mercator", &grib_nearest_class_mercator, },
+{ "polar_stereographic", &grib_nearest_class_polar_stereographic, },
+{ "reduced", &grib_nearest_class_reduced, },
+{ "regular", &grib_nearest_class_regular, },
+{ "sh", &grib_nearest_class_sh, },
+{ "space_view", &grib_nearest_class_space_view, },
+};
+
+static void gaussian_reduced_row(
+    long long Ni_globe,    /*plj*/
+    const Fraction_type w, /*lon_first*/
+    const Fraction_type e, /*lon_last*/
+    long long* pNi,        /*npoints*/
+    double* pLon1,
+    double* pLon2)
+{
+    Fraction_value_type Nw, Ne;
+    Fraction_type inc, Nw_inc, Ne_inc;
+    inc = fraction_construct(360ll, Ni_globe);
+
+    /* auto Nw = (w / inc).integralPart(); */
+    Nw     = fraction_integralPart(fraction_operator_divide(w, inc));
+    Nw_inc = fraction_operator_multiply_n_Frac(Nw, inc);
+
+    Assert(Ni_globe > 1);
+    /*if (Nw * inc < w) {*/
+    if (fraction_operator_less_than(Nw_inc, w)) {
+        Nw += 1;
+    }
+
+    /*auto Ne = (e / inc).integralPart();*/
+    Ne     = fraction_integralPart(fraction_operator_divide(e, inc));
+    Ne_inc = fraction_operator_multiply_n_Frac(Ne, inc);
+    /* if (Ne * inc > e) */
+    if (fraction_operator_greater_than(Ne_inc, e)) {
+        Ne -= 1;
+    }
+    if (Nw > Ne) {
+        *pNi   = 0;          /* no points on this latitude */
+        *pLon1 = *pLon2 = 0; /* dummy - unused */
+    }
+    else {
+        *pNi = get_min(Ni_globe, Ne - Nw + 1);
+
+        Nw_inc = fraction_operator_multiply_n_Frac(Nw, inc);
+        *pLon1 = fraction_operator_double(Nw_inc);
+        Ne_inc = fraction_operator_multiply_n_Frac(Ne, inc);
+        *pLon2 = fraction_operator_double(Ne_inc);
+    }
+}
+
+void grib_binary_search(const double xx[], size_t n, double x, size_t* ju, size_t* jl)
+{
+    size_t jm     = 0;
+    int ascending = 0;
+    *jl           = 0;
+    *ju           = n;
+    ascending     = (xx[n] >= xx[0]);
+    while (*ju - *jl > 1) {
+        jm = (*ju + *jl) >> 1;
+        if ((x >= xx[jm]) == ascending)
+            *jl = jm;
+        else
+            *ju = jm;
+    }
+}
+
+double geographic_distance_spherical(double radius, double lon1, double lat1, double lon2, double lat2)
+{
+    double rlat1 = RADIAN(lat1);
+    double rlat2 = RADIAN(lat2);
+    double rlon1 = lon1;
+    double rlon2 = lon2;
+    double a;
+
+    if (lat1 == lat2 && lon1 == lon2) {
+        return 0.0; /* the two points are identical */
+    }
+    if (rlon1 >= 360) rlon1 -= 360.0;
+    rlon1 = RADIAN(rlon1);
+    if (rlon2 >= 360) rlon2 -= 360.0;
+    rlon2 = RADIAN(rlon2);
+
+    a = sin(rlat1) * sin(rlat2) + cos(rlat1) * cos(rlat2) * cos(rlon2 - rlon1);
+    /* ECC-1258: sometimes 'a' can be very slightly outside the range [-1,1] */
+    if (a > 1.0) a = 1.0;
+    if (a < -1.0) a = -1.0;
+
+    return radius * acos(a);
+}
+int grib_get_double_element_set_internal(grib_handle* h, const char* name, const size_t* index_array, size_t len, double* val_array)
+{
+    int ret = grib_get_double_element_set(h, name, index_array, len, val_array);
+
+    if (ret != GRIB_SUCCESS)
+        grib_context_log(h->context, GRIB_LOG_ERROR,
+                         "unable to get %s as double element set (%s)",
+                         name, grib_get_error_message(ret));
+
+    return ret;
+}
+int grib_get_double_element_set(const grib_handle* h, const char* name, const size_t* index_array, size_t len, double* val_array)
+{
+    grib_accessor* acc = grib_find_accessor(h, name);
+
+    if (acc) {
+        return grib_unpack_double_element_set(acc, index_array, len, val_array);
+    }
+    return GRIB_NOT_FOUND;
+}
+grib_nearest* grib_nearest_factory(grib_handle* h, grib_arguments* args)
+{
+    int i;
+    int ret    = GRIB_SUCCESS;
+    char* type = (char*)grib_arguments_get_name(h, args, 0);
+
+    for (i = 0; i < NUMBER(nearest_table); i++)
+        if (strcmp(type, nearest_table[i].type) == 0) {
+            grib_nearest_class* c = *(nearest_table[i].cclass);
+            grib_nearest* it      = (grib_nearest*)grib_context_malloc_clear(h->context, c->size);
+            it->cclass            = c;
+            ret                   = grib_nearest_init(it, h, args);
+            if (ret == GRIB_SUCCESS)
+                return it;
+            grib_context_log(h->context, GRIB_LOG_ERROR, "grib_nearest_factory: error %d instantiating nearest %s", ret, nearest_table[i].type);
+            grib_nearest_delete(it);
+            return NULL;
+        }
+
+    grib_context_log(h->context, GRIB_LOG_ERROR, "grib_nearest_factory : Unknown type : %s for nearest", type);
+
+    return NULL;
+}
+void grib_dump_label(grib_dumper* d, grib_accessor* a, const char* comment)
+{
+    grib_dumper_class* c = d->cclass;
+    while (c) {
+        if (c->dump_label) {
+            c->dump_label(d, a, comment);
+            return;
+        }
+        c = c->super ? *(c->super) : NULL;
+    }
+    Assert(0);
+}
+int grib_nearest_delete(grib_nearest* i)
+{
+    grib_nearest_class* c = NULL;
+    if (!i)
+        return GRIB_INVALID_ARGUMENT;
+    c = i->cclass;
+    while (c) {
+        grib_nearest_class* s = c->super ? *(c->super) : NULL;
+        if (c->destroy)
+            c->destroy(i);
+        c = s;
+    }
+    return 0;
+}
+static int init_nearest(grib_nearest_class* c, grib_nearest* i, grib_handle* h, grib_arguments* args)
+{
+    if (c) {
+        int ret               = GRIB_SUCCESS;
+        grib_nearest_class* s = c->super ? *(c->super) : NULL;
+        if (!c->inited) {
+            if (c->init_class)
+                c->init_class(c);
+            c->inited = 1;
+        }
+        if (s)
+            ret = init_nearest(s, i, h, args);
+
+        if (ret != GRIB_SUCCESS)
+            return ret;
+
+        if (c->init)
+            return c->init(i, h, args);
+    }
+    return GRIB_INTERNAL_ERROR;
+}
+int grib_nearest_init(grib_nearest* i, grib_handle* h, grib_arguments* args)
+{
+    return init_nearest(i->cclass, i, h, args);
+}
+
+int grib_nearest_find_generic(
+    grib_nearest* nearest, grib_handle* h,
+    double inlat, double inlon, unsigned long flags,
+
+    const char* values_keyname,
+    const char* Ni_keyname,
+    const char* Nj_keyname,
+    double** out_lats,
+    int* out_lats_count,
+    double** out_lons,
+    int* out_lons_count,
+    double** out_distances,
+
+    double* outlats, double* outlons,
+    double* values, double* distances, int* indexes, size_t* len)
+{
+    int ret = 0, i = 0;
+    size_t nvalues = 0, nneighbours = 0;
+    double radiusInKm;
+    grib_iterator* iter = NULL;
+    double lat = 0, lon = 0;
+
+    /* array of candidates for nearest neighbours */
+    PointStore* neighbours = NULL;
+
+    inlon = normalise_longitude_in_degrees(inlon);
+
+    if ((ret = grib_get_size(h, values_keyname, &nvalues)) != GRIB_SUCCESS)
+        return ret;
+    nearest->values_count = nvalues;
+
+    if ((ret = grib_nearest_get_radius(h, &radiusInKm)) != GRIB_SUCCESS)
+        return ret;
+
+    neighbours = (PointStore*)grib_context_malloc(nearest->context, nvalues * sizeof(PointStore));
+    for (i = 0; i < nvalues; ++i) {
+        neighbours[i].m_dist  = 1e10; /* set all distances to large number to begin with */
+        neighbours[i].m_lat   = 0;
+        neighbours[i].m_lon   = 0;
+        neighbours[i].m_value = 0;
+        neighbours[i].m_index = 0;
+    }
+
+    /* GRIB_NEAREST_SAME_GRID not yet implemented */
+    {
+        double the_value = 0;
+        double min_dist  = 1e10;
+        size_t the_index = 0;
+        int ilat = 0, ilon = 0;
+        size_t idx_upper = 0, idx_lower = 0;
+        double lat1 = 0, lat2 = 0;     /* inlat will be between these */
+        const double LAT_DELTA = 10.0; /* in degrees */
+
+        /* Note: If this is being called for a REDUCED grid, its Ni will be missing */
+
+        if (grib_is_missing(h, Nj_keyname, &ret)) {
+            grib_context_log(h->context, GRIB_LOG_DEBUG, "Key '%s' is missing", Nj_keyname);
+            return ret ? ret : GRIB_GEOCALCULUS_PROBLEM;
+        }
+
+        *out_lons_count = nvalues; /* Maybe overestimate but safe */
+        *out_lats_count = nvalues;
+
+        if (*out_lats)
+            grib_context_free(nearest->context, *out_lats);
+        *out_lats = (double*)grib_context_malloc(nearest->context, nvalues * sizeof(double));
+        if (!*out_lats)
+            return GRIB_OUT_OF_MEMORY;
+
+        if (*out_lons)
+            grib_context_free(nearest->context, *out_lons);
+        *out_lons = (double*)grib_context_malloc(nearest->context, nvalues * sizeof(double));
+        if (!*out_lons)
+            return GRIB_OUT_OF_MEMORY;
+
+        iter = grib_iterator_new(h, 0, &ret);
+        if (ret)
+            return ret;
+        /* First pass: collect all latitudes and longitudes */
+        while (grib_iterator_next(iter, &lat, &lon, &the_value)) {
+            ++the_index;
+            Assert(ilat < *out_lats_count);
+            Assert(ilon < *out_lons_count);
+            (*out_lats)[ilat++] = lat;
+            (*out_lons)[ilon++] = lon;
+        }
+
+        /* See between which 2 latitudes our point lies */
+        qsort(*out_lats, nvalues, sizeof(double), &compare_doubles_ascending);
+        grib_binary_search(*out_lats, *out_lats_count - 1, inlat, &idx_upper, &idx_lower);
+        lat2 = (*out_lats)[idx_upper];
+        lat1 = (*out_lats)[idx_lower];
+        Assert(lat1 <= lat2);
+
+        /* Second pass: Iterate again and collect candidate neighbours */
+        grib_iterator_reset(iter);
+        the_index = 0;
+        i         = 0;
+        while (grib_iterator_next(iter, &lat, &lon, &the_value)) {
+            if (lat > lat2 + LAT_DELTA || lat < lat1 - LAT_DELTA) {
+                /* Ignore latitudes too far from our point */
+            }
+            else {
+                double dist = geographic_distance_spherical(radiusInKm, inlon, inlat, lon, lat);
+                if (dist < min_dist)
+                    min_dist = dist;
+                /*printf("Candidate: lat=%.5f lon=%.5f dist=%f Idx=%ld Val=%f\n",lat,lon,dist,the_index,the_value);*/
+                /* store this candidate point */
+                neighbours[i].m_dist  = dist;
+                neighbours[i].m_index = the_index;
+                neighbours[i].m_lat   = lat;
+                neighbours[i].m_lon   = lon;
+                neighbours[i].m_value = the_value;
+                i++;
+            }
+            ++the_index;
+        }
+        nneighbours = i;
+        /* Sort the candidate neighbours in ascending order of distance */
+        /* The first 4 entries will now be the closest 4 neighbours */
+        qsort(neighbours, nneighbours, sizeof(PointStore), &compare_points);
+
+        grib_iterator_delete(iter);
+    }
+    nearest->h = h;
+
+    /* Sanity check for sorting */
+#ifdef DEBUG
+    for (i = 0; i < nneighbours - 1; ++i) {
+        Assert(neighbours[i].m_dist <= neighbours[i + 1].m_dist);
+    }
+#endif
+
+    /* GRIB_NEAREST_SAME_XXX not yet implemented */
+    if (!*out_distances) {
+        *out_distances = (double*)grib_context_malloc(nearest->context, 4 * sizeof(double));
+    }
+    (*out_distances)[0] = neighbours[0].m_dist;
+    (*out_distances)[1] = neighbours[1].m_dist;
+    (*out_distances)[2] = neighbours[2].m_dist;
+    (*out_distances)[3] = neighbours[3].m_dist;
+
+    for (i = 0; i < 4; ++i) {
+        distances[i] = neighbours[i].m_dist;
+        outlats[i]   = neighbours[i].m_lat;
+        outlons[i]   = neighbours[i].m_lon;
+        indexes[i]   = neighbours[i].m_index;
+        values[i]    = neighbours[i].m_value;
+        /*printf("(%f,%f)  i=%d  d=%f  v=%f\n",outlats[i],outlons[i],indexes[i],distances[i],values[i]);*/
+    }
+
+    free(neighbours);
+    return GRIB_SUCCESS;
+}
 
 
 

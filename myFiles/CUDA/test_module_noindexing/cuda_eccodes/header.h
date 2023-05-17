@@ -118,9 +118,12 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_MUTEX_LOCK(a)
 #define GRIB_MUTEX_UNLOCK(a)
 #define GRIB_MY_BUFFER 0
+#define GRIB_NEAREST_SAME_GRID (1 << 0)
+#define GRIB_NEAREST_SAME_POINT (1 << 2)
 #define GRIB_NO_DEFINITIONS -38
 #define GRIB_NOT_FOUND -10
 #define GRIB_NOT_IMPLEMENTED -4
+#define GRIB_OUT_OF_AREA -35
 #define GRIB_OUT_OF_MEMORY -17
 #define GRIB_PREMATURE_END_OF_FILE -45
 #define GRIB_READ_ONLY -18
@@ -236,7 +239,10 @@ typedef struct grib_vsarray grib_vsarray;
 typedef struct grib_viarray grib_viarray;
 typedef struct grib_virtual_value grib_virtual_value;
 typedef struct reader reader;
-typedef struct table_entry table_entry;
+typedef struct iterator_table_entry iterator_table_entry;
+typedef struct nearest_table_entry nearest_table_entry;
+typedef struct Fraction_type Fraction_type;
+typedef struct PointStore PointStore;
 
 
 
@@ -1159,10 +1165,33 @@ struct reader
 
 };
 
-struct table_entry
+struct iterator_table_entry
 {
     const char* type;
     grib_iterator_class** cclass;
+};
+
+struct nearest_table_entry
+{
+    const char* type;
+    grib_nearest_class** cclass;
+};
+
+typedef long long Fraction_value_type;
+
+struct Fraction_type
+{
+    Fraction_value_type top_;
+    Fraction_value_type bottom_; 
+};
+
+struct PointStore
+{
+    double m_lat;
+    double m_lon;
+    double m_dist;
+    double m_value;
+    int m_index;
 };
 
 
@@ -10833,7 +10862,8 @@ static grib_handle* grib_handle_new_from_file_no_multi(grib_context*, FILE*, int
 static grib_handle* grib_handle_new_from_file_multi(grib_context* c, FILE* f, int* error);
 grib_handle* grib_new_handle(grib_context* c);
 
-
+void grib_get_reduced_row(long pl, double lon_first, double lon_last, long* npoints, long* ilon_first, long* ilon_last);
+void grib_get_reduced_row_legacy(long pl, double lon_first, double lon_last, long* npoints, long* ilon_first, long* ilon_last);
 grib_iterator* grib_iterator_factory(grib_handle* h, grib_arguments* args, unsigned long flags, int* ret);
 grib_iterator* grib_iterator_new(const grib_handle*, unsigned long flags, int*);
 static grib_multi_support* grib_get_multi_support(grib_context* c, FILE* f);
@@ -11247,7 +11277,7 @@ typedef const char* string;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 39 "griby.y"
+// #line 39 "griby.y"
 
     char                    *str;
     long                    lval;
@@ -11265,7 +11295,7 @@ union YYSTYPE
   grib_rule               *rules;
   grib_rule_entry         *rule_entry;
 
-#line 327 "y.tab.h"
+// #line 327 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -11753,12 +11783,45 @@ grib_iarray* grib_iarray_new(grib_context* c, size_t size, size_t incsize);
 void* grib_context_realloc(const grib_context* c, void* p, size_t size);
 
 
+int grib_get_double_element_set_internal(grib_handle* h, const char* name, const size_t* index_array, size_t len, double* val_array);
+int grib_get_double_element_set(const grib_handle* h, const char* name, const size_t* index_array, size_t len, double* val_array);
+static void gaussian_reduced_row(
+    long long Ni_globe,    /*plj*/
+    const Fraction_type w, /*lon_first*/
+    const Fraction_type e, /*lon_last*/
+    long long* pNi,        /*npoints*/
+    double* pLon1,
+    double* pLon2);
+grib_nearest* grib_nearest_factory(grib_handle* h, grib_arguments* args);
+void grib_dump_label(grib_dumper* d, grib_accessor* a, const char* comment);
+int grib_nearest_delete(grib_nearest* i);
+static int init_nearest(grib_nearest_class* c, grib_nearest* i, grib_handle* h, grib_arguments* args);
+int grib_nearest_init(grib_nearest* i, grib_handle* h, grib_arguments* args);
+int grib_nearest_find_generic(
+    grib_nearest* nearest, grib_handle* h,
+    double inlat, double inlon, unsigned long flags,
+
+    const char* values_keyname,
+    const char* Ni_keyname,
+    const char* Nj_keyname,
+    double** out_lats,
+    int* out_lats_count,
+    double** out_lons,
+    int* out_lons_count,
+    double** out_distances,
+
+    double* outlats, double* outlons,
+    double* values, double* distances, int* indexes, size_t* len);
+double geographic_distance_spherical(double radius, double lon1, double lat1, double lon2, double lat2);
+void grib_binary_search(const double xx[], size_t n, double x, size_t* ju, size_t* jl);
 
 
 
 
+typedef struct accessor_class_hash accessor_class_hash;
+struct accessor_class_hash { char *name; grib_accessor_class **cclass;};
 
-grib_accessor_classes_hash (register const char *str, register size_t len);
+accessor_class_hash * grib_accessor_classes_hash (register const char *str, register size_t len);
 grib_accessor* grib_accessor_factory(grib_section* p, grib_action* creator,
                                      const long len, grib_arguments* params);
 grib_concept_value* grib_parse_concept_file(grib_context* gc, const char* filename);
