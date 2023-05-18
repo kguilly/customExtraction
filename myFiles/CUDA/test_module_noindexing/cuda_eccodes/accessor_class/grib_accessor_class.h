@@ -3,6 +3,7 @@
 #define GRIB_ACCESSOR_CLASS_H
 
 struct grib_accessor_class;
+struct grib_accessor;
 
 #include "../header.h"
 

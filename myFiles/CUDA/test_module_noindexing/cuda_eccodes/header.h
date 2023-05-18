@@ -145,10 +145,17 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define GRIB_WRONG_GRID -42
 #define HDF5 0x89484446
 #define ITRIE_SIZE 40
+#ifndef MAX
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 #define MAX_ACCESSOR_NAMES 20
 #define MAX_ACCESSOR_ATTRIBUTES 20
 #define MAX_HASH_VALUE 32422
 #define MAXINCLUDE 10
+#define MAXITER 10
 #define MAX_NAMESPACE_LEN 64
 #define MAX_NUM_CONCEPTS 2000
 #define MAX_NUM_HASH_ARRAY 2000
@@ -165,6 +172,11 @@ static const size_t NUM_MAPPINGS = sizeof(mapping) / sizeof(mapping[0]);
 #define TRIE_SIZE 39
 #define UINT3(a, b, c) (size_t)((a << 16) + (b << 8) + c);
 #define WRAP 0x57524150
+#define GRIB_WRONG_TYPE -39
+#define GRIB_MISSING_DOUBLE -1e+100
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 /* structs & enums */
 typedef enum ProductKind
@@ -11270,6 +11282,8 @@ extern int grib_yydebug;
 #define FLOAT 381
 #define DEG2RAD 0.01745329251994329576  /* pi over 180 */
 #define RAD2DEG 57.29577951308232087684 /* 180 over pi */
+#define RADIAN(x) ((x)*acos(0.0) / 90.0)
+
 typedef const char* string;
 
 
@@ -11814,14 +11828,17 @@ int grib_nearest_find_generic(
     double* values, double* distances, int* indexes, size_t* len);
 double geographic_distance_spherical(double radius, double lon1, double lat1, double lon2, double lat2);
 void grib_binary_search(const double xx[], size_t n, double x, size_t* ju, size_t* jl);
-
+void rotate(const double inlat, const double inlon,
+            const double angleOfRot, const double southPoleLat, const double southPoleLon,
+            double* outlat, double* outlon);
+int grib_nearest_get_radius(grib_handle* h, double* radiusInKm);
 
 
 
 typedef struct accessor_class_hash accessor_class_hash;
 struct accessor_class_hash { char *name; grib_accessor_class **cclass;};
 
-accessor_class_hash * grib_accessor_classes_hash (register const char *str, register size_t len);
+static const struct accessor_class_hash * grib_accessor_classes_hash (register const char *str, register size_t len);
 grib_accessor* grib_accessor_factory(grib_section* p, grib_action* creator,
                                      const long len, grib_arguments* params);
 grib_concept_value* grib_parse_concept_file(grib_context* gc, const char* filename);
@@ -12216,6 +12233,63 @@ static void destroy_length(grib_context* c, grib_expression* g);
 static void add_dependency_length(grib_expression* g, grib_accessor* observer);
 static int native_type_length(grib_expression* g, grib_handle* h);
 
+
+int _grib_get_long_array_internal(const grib_handle* h, grib_accessor* a, long* val, size_t buffer_len, size_t* decoded_length);
+int grib_get_long_array_internal(grib_handle* h, const char* name, long* val, size_t* length);
+int grib_get_long_array(const grib_handle* h, const char* name, long* val, size_t* length);
+int grib_get_double_element_internal(grib_handle* h, const char* name, int i, double* val);
+int is_gaussian_global(
+    double lat1, double lat2, double lon1, double lon2, /* bounding box*/
+    long num_points_equator,                            /* num points on latitude at equator */
+    const double* latitudes,                            /* array of Gaussian latitudes (size 2*N) */
+    double angular_precision                            /* tolerance for angle comparison */
+);
+int grib_get_gaussian_latitudes(long trunc, double* lats);
+void grib_get_reduced_row_p(long pl, double lon_first, double lon_last, long* npoints, double* olon_first, double* olon_last);
+size_t sum_of_pl_array(const long* pl, size_t plsize);
+int grib_get_double_element(const grib_handle* h, const char* name, int i, double* val);
+int grib_iterator_reset(grib_iterator* i);
+int grib_unpack_double_element(grib_accessor* a, size_t i, double* v);
+static Fraction_type fraction_construct_from_double(double x);
+static int _grib_get_gaussian_latitudes(long trunc, double* lats);
+static int get_precomputed_latitudes_N640(double* lats);
+static int get_precomputed_latitudes_N1280(double* lats);
+static Fraction_value_type fraction_gcd(Fraction_value_type a, Fraction_value_type b);
+static void gauss_first_guess(long, double*);
+static int compare_points(const void* a, const void* b);
+static int compare_doubles_ascending(const void* a, const void* b);
+int grib_unpack_double_element_set(grib_accessor* a, const size_t* index_array, size_t len, double* val_array);
+static int compare_doubles(const void* a, const void* b, int ascending);
+static double fraction_operator_double(Fraction_type self);
+static Fraction_value_type get_min(Fraction_value_type a, Fraction_value_type b);
+static int fraction_operator_greater_than(Fraction_type self, Fraction_type other);
+static Fraction_value_type fraction_mul(int* overflow, Fraction_value_type a, Fraction_value_type b);
+static int fraction_operator_less_than(Fraction_type self, Fraction_type other);
+static Fraction_type fraction_operator_multiply_n_Frac(Fraction_value_type n, Fraction_type f);
+static Fraction_value_type fraction_integralPart(const Fraction_type frac);
+static Fraction_type fraction_construct_from_long_long(long long n);
+static Fraction_type fraction_operator_multiply(Fraction_type self, Fraction_type other);
+static Fraction_type fraction_construct(Fraction_value_type top, Fraction_value_type bottom);
+static Fraction_type fraction_operator_divide(Fraction_type self, Fraction_type other);
+
+int grib_action_notify_change(grib_action* a, grib_accessor* observer, grib_accessor* observed);
+void grib_dependency_remove_observer(grib_accessor* observer);
+void grib_dependency_remove_observed(grib_accessor* observed);
+void grib_buffer_replace(grib_accessor* a, const unsigned char* data,
+                         size_t newsize, int update_lengths, int update_paddings);
+long grib_byte_count(grib_accessor* a);
+void grib_dump_bytes(grib_dumper* d, grib_accessor* a, const char* comment);
+void grib_dump_long(grib_dumper* d, grib_accessor* a, const char* comment);
+void grib_dump_double(grib_dumper* d, grib_accessor* a, const char* comment);
+void grib_dump_string(grib_dumper* d, grib_accessor* a, const char* comment);
+void grib_update_paddings(grib_section* s);
+grib_accessor* find_paddings(grib_section* s);
+void grib_update_size(grib_accessor* a, size_t len);
+static void update_offsets(grib_accessor* a, long len);
+static void update_offsets_after(grib_accessor* a, long len);
+size_t grib_preferred_size(grib_accessor* a, int from_handle);
+void grib_resize(grib_accessor* a, size_t new_size);
+void grib_buffer_set_ulength(const grib_context* c, grib_buffer* b, size_t length);
 
 
 #endif /* HEADER_H */
