@@ -867,7 +867,7 @@ void get_nearest_indexes(std::vector<std::string> strCurrentDay, double* grib_la
                 std::free(grib_lons);
                 exit(0);
             }
-            CODES_CHECK(    (h, grib_lats, grib_lons, grib_values), 0);
+            CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
 
             index_extraction(stationArr, grib_lats, grib_lons, numStations, num_points);
 
