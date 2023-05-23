@@ -7,22 +7,8 @@ of a grib2 file.
 
 #include <stdio.h>
 #include <stdlib.h>
-// #include "eccodes.h"
-// it. is. time.
-// #include "src/eccodes.h"
-#include "src/grib_api_internal.h"
-
-// all the .h files from eccodes
-/*
-#include "./src/grib_box_class.h"
-#include "./src/eccodes_prototypes.h"
-#include "./src/grib_optimize_decimal_factor.h"
-#include "./src/grib_nearest_factory.h"
-#include "./src/grib_accessor_factory.h"
-#include "./src/grib_emoslib.h"
-#include "./src/md5.h"
-#include "./src/grib_box_class.h"
-*/
+ // #include "eccodes.h"
+#include <eccodes.h>
 
 int main(){
 
