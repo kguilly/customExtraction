@@ -48,6 +48,8 @@ int intHourRange;
 string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. File expects structure to be:
                                         // .../data/<year>/<yyyyMMdd>/hrrr.<yyyyMMdd>.<hh>.00.grib2
                                         // for every hour of every day included. be sure to include '/' at end
+string precip_file_path = "/media/kaleb/extraSpace/precip_data/"; // path to the 1 hour prediction WRF files that have the precipitation
+                                // data
 
 string writePath = "/home/kaleb/Desktop/WRFextract_2-3/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
@@ -149,6 +151,9 @@ void get_station_indexes(vector<string>);
 
 /* function to read the data from a passed grib file */
 void *readData(void*);
+
+/* function to read the data from the 1 hour prediction grib file */
+void read_precipitation_data(vector<string>, string, int, int);
 
 /*Function to find the standard deviation of the values for each week,
 takes an array of the values for the week and their average, outputs a stdDev*/
@@ -258,17 +263,6 @@ int main(int argc, char*argv[]){
     }
     delete [] blnParamArr;
 
-//    string strcmd; int status;
-//    strcmd = "cd " + repositoryPath + "myFiles/ ; python processWRF_cpp.py --repo_path ";
-//    strcmd += repositoryPath+" --wrf_path " + writePath;
-//    // status = system(strcmd.c_str());
-//    // if(status==-1)std::cerr << "Call to python formatting data error: " << strerror(errno) << endl;
-//
-//    strcmd = "cd " + repositoryPath + "myFiles/pythonPygrib/ ; python gribMessages.py --repo_path ";
-//    strcmd += repositoryPath + " --wrf_path " + writePath + " --grib2_path " + filePath;
-//    // status = system(strcmd.c_str());
-//    // if(status==-1)std::cerr << "Call to python grib messages error: " << strerror(errno) << endl;
-
 
     garbageCollection();
     clock_gettime(CLOCK_MONOTONIC, &endTotal);
@@ -285,7 +279,7 @@ int main(int argc, char*argv[]){
         h = int (m) / 60;
         m = m - (h*60);
     }
-    printf("\n\nRuntime:\nHours: %s, Minutes: %s, Seconds %f\n", to_string(h).c_str(), to_string(m).c_str(), sec);
+    printf("\n\nRuntime:\nTotal Seconds: %s\nHours: %s, Minutes: %s, Seconds %f\n", to_string(sec).c_str(), to_string(h).c_str(), to_string(m).c_str(), sec);
 
 
     return 0;
@@ -862,7 +856,7 @@ void get_station_indexes(vector<string> currDay) {
     month = currDay.at(1);
     day = currDay.at(2);
 
-    fullfilepath = filePath + year + "/" + ymd + "/" + "hrrr." + to_string(arrHourRange[0]) +\
+    fullfilepath = filePath + year + "/" + ymd + "/" + "hrrr." + ymd + "." + hours[0] +\
                    ".00.grib2";
     try {
         f = fopen(fullfilepath.c_str(), "rb");
@@ -918,6 +912,10 @@ void get_station_indexes(vector<string> currDay) {
         }
         strHeader = strnametosendout + " " + strUnits;
         vctrHeader.push_back(strHeader);
+
+        if (precip_flag) {
+            vctrHeader.push_back("Precipitation (kg m**-2)");
+        }
         
         // if this flag is set, then grab the nearest indexes
         if (flag) {
@@ -953,17 +951,19 @@ void get_station_indexes(vector<string> currDay) {
                 int closestIdx = 0;
                 for (int j=0; j<num_points;j++){
                     double distance = pow(grib_lats[j]- avglat, 2) + pow(grib_lons[j]-avglon, 2);
-                    double closestDistance = pow(lats[closestIdx] - avglat, 2) + pow(lons[closestIdx] - avglon,2);
+                    double closestDistance = pow(grib_lats[closestIdx] - avglat, 2) + pow(grib_lons[closestIdx] - avglon,2);
                     if(distance < closestDistance) closestIdx = j;
                 }
                 station->closestPoint = closestIdx;
             }
             
             std::free(grib_values);
+            std::free(grib_lats);
+            std::free(grib_lons);
         }
         codes_handle_delete(h);
     }
-
+    fclose(f);
     
 
 }
@@ -1064,9 +1064,144 @@ void *readData(void *args){
     }
     sem_post(&hProtection);
     fclose(f);
-    // call the mapData function to map the hour's parameter's to each station's map
+    
+    // now check if the precipitation flag is set and read precip_data
+    if (precip_flag) read_precipitation_data(strCurrentDay, hour, threadIndex, curParamIdx);
+
     pthread_exit(0);
 
+}
+
+void read_precipitation_data(vector<string> strCurrentDay, string hour, int threadIndex, int currParamIdx) {
+    
+    string year = strCurrentDay.at(0);
+    string month = strCurrentDay.at(1);
+    string day = strCurrentDay.at(2);
+    string ymd = strCurrentDay.at(3);
+
+    if (dirExists(precip_file_path) == false) {
+        fprintf(stderr, "Error: could not find wrf precipitation file directory %s", precip_file_path.c_str());
+            exit(1);
+    }
+
+    string fullfilepath = precip_file_path + "hrrr/" + ymd + "/";
+    string searchString = "hrrr.t" + hour;
+    string fileName;
+
+    // search through the directory to find the corresponding file
+    bool filenotfound = true;
+    for (const auto& entry : std::filesystem::directory_iterator(fullfilepath)) {
+        if (entry.is_regular_file()) {
+            fileName = entry.path().filename().string();
+            if (fileName.find(searchString) != string::npos) {
+                    filenotfound = false;
+                    break;
+                }
+        }
+    }
+
+    if (filenotfound) {
+        fprintf(stderr, "Error: precip file not found in directory %s", fullfilepath.c_str());
+        exit(1);
+    }
+
+    fullfilepath += fileName;
+
+    // now open the file and use eccodes to read the data from it
+    FILE* f;
+    try {
+        f = fopen(fullfilepath.c_str(), "rb");
+        if (!f) throw(fullfilepath);
+    } catch (string file) {
+        printf("Error: could not open file %s\n", fullfilepath.c_str());
+    }
+    
+    codes_handle * h = NULL; // use to unpack each layer of the file
+    const double missing = 1.0e36;        // placeholder for when the value cannot be found in the grib file
+    int msg_count = 0;  // KEY: will match with the layer of the passed parameters
+    int err = 0;
+    size_t vlen = MAX_VAL_LEN;
+    char value_1[MAX_VAL_LEN];
+    bool flag = true; 
+    // numberOfPoints=0;
+    double *grib_values, *grib_lats, *grib_lons;
+    std::string name_space = "parameter";
+    unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
+                                              CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
+    
+    while((h = codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err)) != NULL){
+        msg_count++;
+
+
+        // add the information to the header
+        codes_keys_iterator* kiter = codes_keys_iterator_new(h, key_iterator_filter_flags, name_space.c_str());
+        if (!kiter) {
+            fprintf(stderr, "Error: unable to create keys iterator while reading params\n");
+            exit(1);
+        }
+        std::string strUnits, strName, strValue, strHeader, strnametosendout;
+        while(codes_keys_iterator_next(kiter)){
+            const char*name = codes_keys_iterator_get_name(kiter);
+            vlen = MAX_VAL_LEN;
+            memset(value_1, 0, vlen);
+            CODES_CHECK(codes_get_string(h, name, value_1, &vlen), name);
+            strName = name;
+            strValue = value_1;
+            if(strName.find("name")!=std::string::npos){
+                // strValue.erase(remove(strValue.begin(), strValue.end(), ','), strValue.end());
+                //strHeader.append(to_std::string(msg_count)+"_"+strValue);
+                strnametosendout = strValue;
+            }
+            else if(strName.find("units")!=std::string::npos){
+                //strHeader.append("("+strValue+")");
+                strUnits = "(" + strValue + ")";
+            }
+        }
+        strHeader = strnametosendout + " " + strUnits;
+
+        // 
+        if (strHeader.find("Total Precipitation") != string::npos) {
+
+            long num_points = 0;
+            CODES_CHECK(codes_get_long(h, "numberOfPoints", &num_points), 0);
+            CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
+            grib_lats = (double*)malloc(num_points * sizeof(double));
+            if(!grib_lats){
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(num_points * sizeof(double)));
+                exit(0);
+            }
+            grib_lons = (double*)malloc(num_points * sizeof(double));
+            if (!grib_lons){
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(num_points * sizeof(double)));
+                std::free(grib_lats);
+                exit(0);
+            }
+            grib_values = (double*)malloc(num_points * sizeof(double));
+            if(!grib_values){
+                fprintf(stderr, "Error: unable to allocate %ld bytes\n", (long)(num_points * sizeof(double)));
+                std::free(grib_lats);
+                std::free(grib_lons);
+                exit(0);
+            }
+            CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
+
+            Station *station;
+            for (int i=0; i<numStations; i++) {
+                station = &stationArr[i];
+                double dblCurrVal = grib_values[station->closestPoint];
+                sem_wait(&valuesProtection[i]);
+                station->values[threadIndex][currParamIdx] = dblCurrVal;
+                sem_post(&valuesProtection[i]);
+            }
+            
+            currParamIdx++;
+            free(grib_values);
+            free(grib_lats);
+            free(grib_lons);
+        }
+        codes_handle_delete(h);
+    }
+    fclose(f);
 }
 
 void createPath(){

@@ -16,6 +16,34 @@ The test will encompass:
 
     - One month: January 2022
 
+Profiling stats:
+    C:
+        - one file
+            time: 
+            mem: 
+
+        - one day
+            time: 
+            mem: 229.2 MB
+
+        - one month
+            time: 
+            mem: 
+
+
+    Python:
+        -one file
+            time:
+            mem:
+
+        - one day
+            time:
+            mem:
+
+        - one month 
+            time:
+            mem:
+
 
 The information in the GRIB2 files will only be decompressed, the data will not be sorted
 or further processed 
@@ -25,7 +53,7 @@ Modifications:
       all louisiana counties. 
     C:
         - add precip_flag and code to extract precipitation files
-        - compile: g++ -std=c++17 -w c_extraction_timingTest.cpp -leccodes
+        - compile: g++ -std=c++17 -w c_extraction_timingTest.cpp -leccodes -lpthread
             - run: ./a.out --param 9 36 37 71 75 123  --precip_flag --begin_date 20200101 --end_date 20200201
         - modify the output files
             - accomodate the header to include the precipitation

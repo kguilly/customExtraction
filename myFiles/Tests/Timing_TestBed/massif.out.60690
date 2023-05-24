@@ -1,0 +1,2425 @@
+desc: (none)
+cmd: ./a.out --param 9 36 37 71 75 123 --precip_flag --begin_date 20200101 --end_date 20200102
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=1757027694
+mem_heap_B=111062412
+mem_heap_extra_B=1113196
+mem_stacks_B=0
+heap_tree=detailed
+n6: 111062412 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 55957583 0x4A038C6: default_malloc (grib_context.c:128)
+  n5: 55957583 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n1: 15241128 0x4A305F5: init_sphere (grib_iterator_class_lambert_conformal.c:205)
+    n1: 15241128 0x4A305F5: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n1: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x113C21: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n0: 15241128 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n1: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x113C21: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n0: 15241128 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n1: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x113C21: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n0: 15241128 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n2: 10229712 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 9791040 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 9486624 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 9252432 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 9252432 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 9252432 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 9252432 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 9252432 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n0: 318192 in 1 place, below massif's threshold (1.00%)
+      n0: 234192 in 1 place, below massif's threshold (1.00%)
+     n0: 304416 in 7 places, all below massif's threshold (1.00%)
+    n0: 438672 in 14 places, all below massif's threshold (1.00%)
+   n0: 4487 in 3 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x113ADE: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n0: 15241128 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+ n1: 15241128 0x113B35: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n0: 15241128 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+ n1: 15241128 0x113B9B: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n0: 15241128 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+ n1: 8166425 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 8166425 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n2: 7657520 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6365952 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6365952 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1647216 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 30960 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n0: 1291568 in 26 places, all below massif's threshold (1.00%)
+   n0: 508905 in 1 place, below massif's threshold (1.00%)
+ n0: 1215020 in 29 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=2
+#-----------
+time=16825814161
+mem_heap_B=50097804
+mem_heap_extra_B=1113060
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=20925316876
+mem_heap_B=109132181
+mem_heap_extra_B=4070939
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=4
+#-----------
+time=24405077473
+mem_heap_B=125277498
+mem_heap_extra_B=4071062
+mem_stacks_B=0
+heap_tree=detailed
+n6: 125277498 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 65962908 0x4A038C6: default_malloc (grib_context.c:128)
+  n4: 65962908 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34270360 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33723312 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 418320 in 7 places, all below massif's threshold (1.00%)
+    n0: 547048 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+   n0: 1210292 in 6 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13054603 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13054603 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11279560 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6372144 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6372144 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1653408 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 37152 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907528 in 25 places, all below massif's threshold (1.00%)
+   n2: 1775043 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 393118 in 41 places, all below massif's threshold (1.00%)
+ n0: 536603 in 35 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=5
+#-----------
+time=28062590374
+mem_heap_B=124214824
+mem_heap_extra_B=4071136
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=6
+#-----------
+time=29500182937
+mem_heap_B=110094809
+mem_heap_extra_B=4070807
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=7
+#-----------
+time=32999000203
+mem_heap_B=126132377
+mem_heap_extra_B=4070847
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=8
+#-----------
+time=36787735399
+mem_heap_B=109122077
+mem_heap_extra_B=4074755
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=9
+#-----------
+time=39183435706
+mem_heap_B=110040149
+mem_heap_extra_B=4074459
+mem_stacks_B=0
+heap_tree=detailed
+n6: 110040149 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 50693360 0x4A038C6: default_malloc (grib_context.c:128)
+  n4: 50693360 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34275600 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33738768 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 433776 in 7 places, all below massif's threshold (1.00%)
+    n0: 536832 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 1170759 0x4A14ABD: grib2_build_message (grib_handle.c:1562)
+    n1: 1170759 0x4A160EA: grib_handle_new_from_file_multi (grib_handle.c:755)
+     n2: 1170759 0x4A160EA: grib_new_from_file (grib_handle.c:826)
+      n1: 1170759 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+       n1: 1170759 0x4869608: start_thread (pthread_create.c:477)
+        n0: 1170759 0x4FBE132: clone (clone.S:95)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n0: 5873 in 6 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 560541 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=10
+#-----------
+time=41397360472
+mem_heap_B=125253098
+mem_heap_extra_B=4074806
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=11
+#-----------
+time=44071021718
+mem_heap_B=109027174
+mem_heap_extra_B=4074810
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=12
+#-----------
+time=47417655441
+mem_heap_B=124868598
+mem_heap_extra_B=4074610
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=13
+#-----------
+time=51155668390
+mem_heap_B=109067454
+mem_heap_extra_B=4074818
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=14
+#-----------
+time=54768985099
+mem_heap_B=110123904
+mem_heap_extra_B=4074872
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=15
+#-----------
+time=57259698582
+mem_heap_B=109338407
+mem_heap_extra_B=4074905
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=16
+#-----------
+time=61858683233
+mem_heap_B=125509822
+mem_heap_extra_B=4074930
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=17
+#-----------
+time=65684836996
+mem_heap_B=110377378
+mem_heap_extra_B=4074670
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=18
+#-----------
+time=68137026946
+mem_heap_B=111717844
+mem_heap_extra_B=4074676
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=19
+#-----------
+time=71699167766
+mem_heap_B=110422653
+mem_heap_extra_B=4074659
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=20
+#-----------
+time=74204505289
+mem_heap_B=111268617
+mem_heap_extra_B=4074663
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=21
+#-----------
+time=77630899406
+mem_heap_B=124896183
+mem_heap_extra_B=4075057
+mem_stacks_B=0
+heap_tree=detailed
+n6: 124896183 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 65507802 0x4A038C6: default_malloc (grib_context.c:128)
+  n4: 65507802 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34285216 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33738768 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 433776 in 7 places, all below massif's threshold (1.00%)
+    n0: 546448 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n0: 740330 in 6 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 602133 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=22
+#-----------
+time=80042363067
+mem_heap_B=125763733
+mem_heap_extra_B=4074787
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=23
+#-----------
+time=82550138878
+mem_heap_B=126491375
+mem_heap_extra_B=4074793
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=24
+#-----------
+time=86092172957
+mem_heap_B=125183499
+mem_heap_extra_B=4075101
+mem_stacks_B=0
+heap_tree=detailed
+n6: 125183499 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 65794802 0x4A038C6: default_malloc (grib_context.c:128)
+  n4: 65794802 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34285216 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33738768 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 433776 in 7 places, all below massif's threshold (1.00%)
+    n0: 546448 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n0: 1027330 in 6 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 602449 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=25
+#-----------
+time=88578072983
+mem_heap_B=126089134
+mem_heap_extra_B=4075106
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=26
+#-----------
+time=91390722568
+mem_heap_B=111072534
+mem_heap_extra_B=4075010
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=27
+#-----------
+time=93956980807
+mem_heap_B=111363769
+mem_heap_extra_B=4074823
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=28
+#-----------
+time=97464526144
+mem_heap_B=189910184
+mem_heap_extra_B=4084376
+mem_stacks_B=0
+heap_tree=detailed
+n9: 189910184 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 83915144 0x4A038C6: default_malloc (grib_context.c:128)
+  n6: 83915144 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34621448 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33749520 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 444528 in 7 places, all below massif's threshold (1.00%)
+    n0: 871928 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A305F5: init_sphere (grib_iterator_class_lambert_conformal.c:205)
+    n1: 15241128 0x4A305F5: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 2611460 0x4A14ABD: grib2_build_message (grib_handle.c:1562)
+    n1: 2611460 0x4A160EA: grib_handle_new_from_file_multi (grib_handle.c:755)
+     n2: 2611460 0x4A160EA: grib_new_from_file (grib_handle.c:826)
+      n1: 2135174 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+       n1: 2135174 0x4869608: start_thread (pthread_create.c:477)
+        n0: 2135174 0x4FBE132: clone (clone.S:95)
+      n0: 476286 in 1 place, below massif's threshold (1.00%)
+   n0: 958852 in 4 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115348: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x11539F: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115405: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n3: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n2: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n0: 3232512 in 2 places, all below massif's threshold (1.00%)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 2672800 in 3 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n0: 2227792 in 26 places, all below massif's threshold (1.00%)
+   n0: 1777088 in 1 place, below massif's threshold (1.00%)
+ n0: 1485408 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=29
+#-----------
+time=99983131595
+mem_heap_B=110031448
+mem_heap_extra_B=4075464
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=30
+#-----------
+time=104585535516
+mem_heap_B=126292825
+mem_heap_extra_B=4075527
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=31
+#-----------
+time=107082099603
+mem_heap_B=125827609
+mem_heap_extra_B=4075263
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=32
+#-----------
+time=109398555190
+mem_heap_B=50302731
+mem_heap_extra_B=4073285
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=33
+#-----------
+time=111851954768
+mem_heap_B=126330783
+mem_heap_extra_B=4075521
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=34
+#-----------
+time=115508083647
+mem_heap_B=50086783
+mem_heap_extra_B=4069833
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=35
+#-----------
+time=117966074401
+mem_heap_B=126472029
+mem_heap_extra_B=4075643
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=36
+#-----------
+time=120513478501
+mem_heap_B=126317340
+mem_heap_extra_B=4075412
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=37
+#-----------
+time=122830496849
+mem_heap_B=50445103
+mem_heap_extra_B=4071281
+mem_stacks_B=0
+heap_tree=detailed
+n3: 50445103 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 36779536 0x4A038C6: default_malloc (grib_context.c:128)
+  n4: 36779536 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34161792 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33749520 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n3: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n1: 566496 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+             n1: 566496 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 566496 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 318192 in 1 place, below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 444528 in 7 places, all below massif's threshold (1.00%)
+    n0: 412272 in 16 places, all below massif's threshold (1.00%)
+   n1: 1428954 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 1428954 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 1428942 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 1428942 0x4869608: start_thread (pthread_create.c:477)
+       n0: 1428942 0x4FBE132: clone (clone.S:95)
+     n0: 12 in 1 place, below massif's threshold (1.00%)
+   n1: 1182973 0x4A14ABD: grib2_build_message (grib_handle.c:1562)
+    n1: 1182973 0x4A160EA: grib_handle_new_from_file_multi (grib_handle.c:755)
+     n2: 1182973 0x4A160EA: grib_new_from_file (grib_handle.c:826)
+      n1: 1182973 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+       n1: 1182973 0x4869608: start_thread (pthread_create.c:477)
+        n0: 1182973 0x4FBE132: clone (clone.S:95)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n0: 5817 in 6 places, all below massif's threshold (1.00%)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n5: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n3: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n1: 1087584 0x497CD9F: get_concept_impl (action_class_concept.c:274)
+         n1: 1087584 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1087584 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1087584 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1087584 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n1: 546016 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n0: 546016 in 2 places, all below massif's threshold (1.00%)
+             n0: 541568 in 1 place, below massif's threshold (1.00%)
+        n0: 3520 in 1 place, below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 789824 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 789824 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 789824 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 789824 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 789824 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 728192 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 714816 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 714816 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 13376 in 2 places, all below massif's threshold (1.00%)
+             n0: 61632 in 1 place, below massif's threshold (1.00%)
+        n0: 523760 in 2 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n1: 754176 0x4980E50: grib_concept_value_new (grib_concept.c:15)
+     n1: 754176 0x4A450F8: grib_yyparse (griby.y:749)
+      n2: 754176 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 750272 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 750272 in 3 places, all below massif's threshold (1.00%)
+       n0: 3904 in 1 place, below massif's threshold (1.00%)
+    n0: 153376 in 24 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n3: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 747872 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 747872 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 747872 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 747872 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 747872 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 690092 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 677264 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 677264 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 12828 in 2 places, all below massif's threshold (1.00%)
+             n0: 57780 in 1 place, below massif's threshold (1.00%)
+        n1: 626521 0x497CD9F: get_concept_impl (action_class_concept.c:274)
+         n1: 626521 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 626521 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 626521 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n1: 626521 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n0: 626521 in 2 places, all below massif's threshold (1.00%)
+        n0: 2694 in 1 place, below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 602703 in 52 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=38
+#-----------
+time=125290587331
+mem_heap_B=126818036
+mem_heap_extra_B=4075636
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=39
+#-----------
+time=129020399449
+mem_heap_B=126825521
+mem_heap_extra_B=4075831
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=40
+#-----------
+time=131356716836
+mem_heap_B=50478000
+mem_heap_extra_B=4068736
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=41
+#-----------
+time=135093244599
+mem_heap_B=127941673
+mem_heap_extra_B=4075823
+mem_stacks_B=0
+heap_tree=detailed
+n6: 127941673 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 68561292 0x4A038C6: default_malloc (grib_context.c:128)
+  n6: 68561292 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34297664 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33760272 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 455280 in 7 places, all below massif's threshold (1.00%)
+    n0: 537392 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 1905252 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 1905252 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 1905234 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 1905234 0x4869608: start_thread (pthread_create.c:477)
+       n0: 1905234 0x4FBE132: clone (clone.S:95)
+     n0: 18 in 1 place, below massif's threshold (1.00%)
+   n1: 1870185 0x4A14ABD: grib2_build_message (grib_handle.c:1562)
+    n1: 1870185 0x4A160EA: grib_handle_new_from_file_multi (grib_handle.c:755)
+     n2: 1870185 0x4A160EA: grib_new_from_file (grib_handle.c:826)
+      n1: 1870185 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+       n1: 1870185 0x4869608: start_thread (pthread_create.c:477)
+        n0: 1870185 0x4FBE132: clone (clone.S:95)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n0: 5935 in 4 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n1: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n0: 1320240 in 2 places, all below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 594133 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=42
+#-----------
+time=138957247865
+mem_heap_B=128480315
+mem_heap_extra_B=4075941
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=43
+#-----------
+time=142570626377
+mem_heap_B=111917580
+mem_heap_extra_B=4076756
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=44
+#-----------
+time=145056253623
+mem_heap_B=112751220
+mem_heap_extra_B=4076772
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=45
+#-----------
+time=148732477301
+mem_heap_B=112300953
+mem_heap_extra_B=4076807
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=46
+#-----------
+time=150867347378
+mem_heap_B=127753929
+mem_heap_extra_B=4077463
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=47
+#-----------
+time=153377440799
+mem_heap_B=111833582
+mem_heap_extra_B=4077650
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=48
+#-----------
+time=155777007695
+mem_heap_B=111333236
+mem_heap_extra_B=4077852
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=49
+#-----------
+time=159165755556
+mem_heap_B=127565102
+mem_heap_extra_B=4077674
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=50
+#-----------
+time=160678713534
+mem_heap_B=113037287
+mem_heap_extra_B=4077657
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=51
+#-----------
+time=162856842620
+mem_heap_B=127162470
+mem_heap_extra_B=4078418
+mem_stacks_B=0
+heap_tree=detailed
+n6: 127162470 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 67795354 0x4A038C6: default_malloc (grib_context.c:128)
+  n5: 67795354 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34383232 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33835536 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 530544 in 7 places, all below massif's threshold (1.00%)
+    n0: 547696 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+            n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+            n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 2381574 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 2381574 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 2381526 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 2381526 0x4869608: start_thread (pthread_create.c:477)
+       n0: 2381526 0x4FBE132: clone (clone.S:95)
+     n0: 48 in 1 place, below massif's threshold (1.00%)
+   n0: 548292 in 5 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x115348: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x11539F: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115405: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 580868 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=52
+#-----------
+time=165256368322
+mem_heap_B=127088560
+mem_heap_extra_B=4078664
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=53
+#-----------
+time=166767499014
+mem_heap_B=112095914
+mem_heap_extra_B=4078438
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=54
+#-----------
+time=168920313827
+mem_heap_B=126765292
+mem_heap_extra_B=4078652
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=55
+#-----------
+time=171311183288
+mem_heap_B=127883026
+mem_heap_extra_B=4078470
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=56
+#-----------
+time=172816964803
+mem_heap_B=112129190
+mem_heap_extra_B=4078426
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=57
+#-----------
+time=174990820990
+mem_heap_B=127447727
+mem_heap_extra_B=4078665
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=58
+#-----------
+time=177286022889
+mem_heap_B=128057456
+mem_heap_extra_B=4079072
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=59
+#-----------
+time=178749766776
+mem_heap_B=112263445
+mem_heap_extra_B=4079059
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=60
+#-----------
+time=181034112850
+mem_heap_B=128286283
+mem_heap_extra_B=4078941
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=61
+#-----------
+time=182475758245
+mem_heap_B=113758429
+mem_heap_extra_B=4079315
+mem_stacks_B=0
+heap_tree=detailed
+n6: 113758429 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 54392486 0x4A038C6: default_malloc (grib_context.c:128)
+  n5: 54392486 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34406184 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33867792 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 562800 in 7 places, all below massif's threshold (1.00%)
+    n0: 538392 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 2619729 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 2619729 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 2619669 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 2619669 0x4869608: start_thread (pthread_create.c:477)
+       n0: 2619669 0x4FBE132: clone (clone.S:95)
+     n0: 60 in 1 place, below massif's threshold (1.00%)
+   n1: 2119050 0x4A14ABD: grib2_build_message (grib_handle.c:1562)
+    n1: 2119050 0x4A160EA: grib_handle_new_from_file_multi (grib_handle.c:755)
+     n2: 2119050 0x4A160EA: grib_new_from_file (grib_handle.c:826)
+      n1: 2119050 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+       n1: 2119050 0x4869608: start_thread (pthread_create.c:477)
+        n0: 2119050 0x4FBE132: clone (clone.S:95)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n0: 6395 in 5 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 579695 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=62
+#-----------
+time=184613980033
+mem_heap_B=127190988
+mem_heap_extra_B=4079596
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=63
+#-----------
+time=187006098996
+mem_heap_B=127996106
+mem_heap_extra_B=4079342
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=64
+#-----------
+time=188521112152
+mem_heap_B=113524408
+mem_heap_extra_B=4079320
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=65
+#-----------
+time=190726426745
+mem_heap_B=127577320
+mem_heap_extra_B=4079824
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=66
+#-----------
+time=193003453375
+mem_heap_B=127938469
+mem_heap_extra_B=4079907
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=67
+#-----------
+time=195299644751
+mem_heap_B=127604929
+mem_heap_extra_B=4080231
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=68
+#-----------
+time=196615234957
+mem_heap_B=221039293
+mem_heap_extra_B=4089523
+mem_stacks_B=0
+heap_tree=detailed
+n9: 221039293 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 115421493 0x4A038C6: default_malloc (grib_context.c:128)
+  n7: 115421493 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34784328 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33910800 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 605808 in 7 places, all below massif's threshold (1.00%)
+    n0: 873528 in 16 places, all below massif's threshold (1.00%)
+   n1: 30482256 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 30482256 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 30482256 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 30482256 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 30482256 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n3: 30482256 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+            n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 15241128 0x49A2B36: unpack_double (grib_accessor_class_data_g22order_packing.c:549)
+    n1: 15241128 0x4A22B5C: _grib_get_double_array_internal (grib_value.c:1240)
+     n1: 15241128 0x4A22B5C: _grib_get_double_array_internal (grib_value.c:1233)
+      n1: 15241128 0x49CAF75: unpack_double (grib_accessor_class_data_apply_bitmap.c:202)
+       n1: 15241128 0x4A22B5C: _grib_get_double_array_internal (grib_value.c:1240)
+        n1: 15241128 0x4A22B5C: _grib_get_double_array_internal (grib_value.c:1233)
+         n1: 15241128 0x4A22C43: grib_get_double_array_internal (grib_value.c:1253)
+          n1: 15241128 0x4A3302E: init (grib_iterator_class_gen.c:206)
+           n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+            n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+             n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+              n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+               n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+                n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                 n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+                   n0: 15241128 0x4FBE132: clone (clone.S:95)
+                n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A305F5: init_sphere (grib_iterator_class_lambert_conformal.c:205)
+    n1: 15241128 0x4A305F5: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 15241128 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 2857878 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 2857878 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 2857806 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 2857806 0x4869608: start_thread (pthread_create.c:477)
+       n0: 2857806 0x4FBE132: clone (clone.S:95)
+     n0: 72 in 1 place, below massif's threshold (1.00%)
+   n0: 1573647 in 3 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115348: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x11539F: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115405: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n3: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n2: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n0: 3232512 in 2 places, all below massif's threshold (1.00%)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 2672800 in 3 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n0: 2227792 in 26 places, all below massif's threshold (1.00%)
+   n0: 1777088 in 1 place, below massif's threshold (1.00%)
+ n0: 1108168 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=69
+#-----------
+time=197609647853
+mem_heap_B=236280421
+mem_heap_extra_B=4089555
+mem_stacks_B=0
+heap_tree=peak
+n9: 236280421 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 130662621 0x4A038C6: default_malloc (grib_context.c:128)
+  n6: 130662621 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34784328 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33910800 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 605808 in 7 places, all below massif's threshold (1.00%)
+    n0: 873528 in 16 places, all below massif's threshold (1.00%)
+   n1: 30482256 0x4A305F5: init_sphere (grib_iterator_class_lambert_conformal.c:205)
+    n1: 30482256 0x4A305F5: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 30482256 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 30482256 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 30482256 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n3: 30482256 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+            n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 30482256 0x4A3060E: init_sphere (grib_iterator_class_lambert_conformal.c:210)
+    n1: 30482256 0x4A3060E: init (grib_iterator_class_lambert_conformal.c:471)
+     n1: 30482256 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 30482256 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 30482256 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n3: 30482256 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+            n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 30482256 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 30482256 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 30482256 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 30482256 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 30482256 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n3: 30482256 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n1: 15241128 0x11548B: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+           n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+            n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 1 place, below massif's threshold (1.00%)
+   n1: 2857878 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 2857878 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 2857806 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 2857806 0x4869608: start_thread (pthread_create.c:477)
+       n0: 2857806 0x4FBE132: clone (clone.S:95)
+     n0: 72 in 1 place, below massif's threshold (1.00%)
+   n0: 1573647 in 4 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115348: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x11539F: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x115405: read_precipitation_data(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, int, int) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x114887: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+   n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+    n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n3: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n2: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n0: 3232512 in 2 places, all below massif's threshold (1.00%)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 2672800 in 3 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n0: 2227792 in 26 places, all below massif's threshold (1.00%)
+   n0: 1777088 in 1 place, below massif's threshold (1.00%)
+ n0: 1108168 in 46 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=70
+#-----------
+time=199060209755
+mem_heap_B=113006946
+mem_heap_extra_B=4080830
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=71
+#-----------
+time=201344313388
+mem_heap_B=129007899
+mem_heap_extra_B=4080581
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=72
+#-----------
+time=203660411100
+mem_heap_B=127452189
+mem_heap_extra_B=4081427
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=73
+#-----------
+time=206004394265
+mem_heap_B=127402194
+mem_heap_extra_B=4081310
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=74
+#-----------
+time=208287492420
+mem_heap_B=126992492
+mem_heap_extra_B=4081604
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=75
+#-----------
+time=209778718102
+mem_heap_B=112654444
+mem_heap_extra_B=4081604
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=76
+#-----------
+time=212058763653
+mem_heap_B=128777495
+mem_heap_extra_B=4081305
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=77
+#-----------
+time=214373736429
+mem_heap_B=127423478
+mem_heap_extra_B=4082090
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=78
+#-----------
+time=216764253368
+mem_heap_B=128188296
+mem_heap_extra_B=4081656
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=79
+#-----------
+time=218274412204
+mem_heap_B=113742466
+mem_heap_extra_B=4081670
+mem_stacks_B=0
+heap_tree=detailed
+n6: 113742466 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 54435521 0x4A038C6: default_malloc (grib_context.c:128)
+  n5: 54435521 0x4A03A21: grib_context_malloc (grib_context.c:933)
+   n2: 34503672 0x4A03BAD: grib_context_malloc_clear (grib_context.c:967)
+    n2: 33964560 0x4A1C491: grib_trie_new (grib_trie.c:333)
+     n2: 33304992 0x4A1C816: grib_trie_insert_no_replace (grib_trie.c:464)
+      n1: 33051648 0x497CCF4: get_concept_impl (action_class_concept.c:297)
+       n1: 33051648 0x497CEA0: get_concept (action_class_concept.c:311)
+        n1: 33051648 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+         n1: 33051648 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+          n2: 33051648 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+           n2: 24117408 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+            n1: 23232720 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 23232720 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 884688 in 2 places, all below massif's threshold (1.00%)
+           n1: 8934240 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+            n0: 8934240 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n0: 253344 in 1 place, below massif's threshold (1.00%)
+     n0: 659568 in 7 places, all below massif's threshold (1.00%)
+    n0: 539112 in 16 places, all below massif's threshold (1.00%)
+   n1: 15241128 0x4A33018: init (grib_iterator_class_gen.c:204)
+    n1: 15241128 0x4A3155A: init_iterator (grib_iterator.c:131)
+     n1: 15241128 0x4A317D2: grib_iterator_init (grib_iterator.c:147)
+      n1: 15241128 0x4A319DA: grib_iterator_factory (grib_iterator_class.c:46)
+       n1: 15241128 0x49AFEEC: grib_iterator_new (grib_accessor_class_iterator.c:163)
+        n2: 15241128 0x4A3189A: grib_get_data (grib_iterator.c:53)
+         n1: 15241128 0x1146AE: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+          n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+           n0: 15241128 0x4FBE132: clone (clone.S:95)
+         n0: 0 in 2 places, all below massif's threshold (1.00%)
+   n1: 2619735 0x4A15EFC: grib_handle_new_from_file_multi (grib_handle.c:746)
+    n2: 2619735 0x4A15EFC: grib_new_from_file (grib_handle.c:826)
+     n1: 2619645 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n1: 2619645 0x4869608: start_thread (pthread_create.c:477)
+       n0: 2619645 0x4FBE132: clone (clone.S:95)
+     n0: 90 in 1 place, below massif's threshold (1.00%)
+   n1: 2064177 0x4A14ABD: grib2_build_message (grib_handle.c:1562)
+    n1: 2064177 0x4A160EA: grib_handle_new_from_file_multi (grib_handle.c:755)
+     n2: 2064177 0x4A160EA: grib_new_from_file (grib_handle.c:826)
+      n1: 2064177 0x114462: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+       n1: 2064177 0x4869608: start_thread (pthread_create.c:477)
+        n0: 2064177 0x4FBE132: clone (clone.S:95)
+      n0: 0 in 1 place, below massif's threshold (1.00%)
+   n0: 6809 in 5 places, all below massif's threshold (1.00%)
+ n1: 15241128 0x11456B: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x1145C2: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 15241128 0x114628: readData(void*) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+  n1: 15241128 0x4869608: start_thread (pthread_create.c:477)
+   n0: 15241128 0x4FBE132: clone (clone.S:95)
+ n1: 13062864 0x4A03806: default_long_lasting_malloc (grib_context.c:85)
+  n2: 13062864 0x4A03921: grib_context_malloc_persistent (grib_context.c:900)
+   n4: 11285776 0x4A039DD: grib_context_malloc_clear_persistent (grib_context.c:919)
+    n1: 6378336 0x499A380: load_table (grib_accessor_class_codetable.c:378)
+     n3: 6378336 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+      n1: 3145824 0x4A1EEEF: grib_recompose_name (grib_parse_utils.c:128)
+       n1: 3145824 0x497BFCC: create_accessor (action_class_template.c:153)
+        n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+         n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+          n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 3145824 0x497C02D: create_accessor (action_class_template.c:178)
+            n1: 3145824 0x4978E06: create_accessor (action_class_if.c:168)
+             n1: 3145824 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+              n1: 3145824 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+               n1: 3145824 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                n1: 3145824 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                 n1: 3145824 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                  n0: 3145824 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+      n2: 1659600 0x4A224AA: grib_get_long (grib_value.c:996)
+       n2: 1616256 0x4A22523: grib_get_long_internal (grib_value.c:945)
+        n2: 1597680 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+         n1: 1591488 0x4978DAA: create_accessor (action_class_if.c:148)
+          n2: 1591488 0x497C02D: create_accessor (action_class_template.c:178)
+           n1: 1585296 0x4978E06: create_accessor (action_class_if.c:168)
+            n2: 1585296 0x497C02D: create_accessor (action_class_template.c:178)
+             n1: 1579104 0x497C02D: create_accessor (action_class_template.c:178)
+              n1: 1579104 0x4978E06: create_accessor (action_class_if.c:168)
+               n1: 1579104 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                n1: 1579104 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                 n1: 1579104 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                  n1: 1579104 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                   n1: 1579104 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                    n0: 1579104 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+             n0: 6192 in 1 place, below massif's threshold (1.00%)
+           n0: 6192 in 1 place, below massif's threshold (1.00%)
+         n0: 6192 in 1 place, below massif's threshold (1.00%)
+        n0: 18576 in 3 places, all below massif's threshold (1.00%)
+       n0: 43344 in 2 places, all below massif's threshold (1.00%)
+      n1: 1572912 0x499A521: unpack_string (grib_accessor_class_codetable.c:624)
+       n1: 1572912 0x4A1EF42: grib_recompose_name (grib_parse_utils.c:119)
+        n1: 1572912 0x499A20F: load_table (grib_accessor_class_codetable.c:330)
+         n1: 1572912 0x499AD5C: unpack_long (grib_accessor_class_codetable.c:802)
+          n1: 1572912 0x4A224AA: grib_get_long (grib_value.c:996)
+           n1: 1572912 0x4A22523: grib_get_long_internal (grib_value.c:945)
+            n1: 1572912 0x4A25889: evaluate_long (grib_expression_class_binop.c:117)
+             n1: 1572912 0x4A25B91: evaluate_long (grib_expression_class_logical_and.c:102)
+              n1: 1572912 0x4978DAA: create_accessor (action_class_if.c:148)
+               n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                 n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                  n1: 1572912 0x497C02D: create_accessor (action_class_template.c:178)
+                   n1: 1572912 0x4978E06: create_accessor (action_class_if.c:168)
+                    n1: 1572912 0x4A14EAA: grib_handle_create (grib_handle.c:235)
+                     n1: 1572912 0x4A15358: grib_handle_new_from_message (grib_handle.c:482)
+                      n1: 1572912 0x4A15B6E: grib_handle_new_from_file_no_multi (grib_handle.c:1140)
+                       n1: 1572912 0x4A15B6E: grib_new_from_file (grib_handle.c:828)
+                        n1: 1572912 0x1135C7: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+                         n0: 1572912 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+    n1: 2679648 0x4980EA1: grib_concept_condition_new (grib_concept.c:35)
+     n1: 2679648 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 2679648 0x4A1E719: parse (grib_parse_utils.c:734)
+       n2: 2672800 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n1: 1581696 0x497CD3B: get_concept_impl (action_class_concept.c:262)
+         n1: 1581696 0x497CEA0: get_concept (action_class_concept.c:311)
+          n1: 1581696 0x497CEA0: action_concept_get_concept (action_class_concept.c:127)
+           n1: 1581696 0x499301B: concept_evaluate (grib_accessor_class_concept.c:261)
+            n2: 1581696 0x4993339: unpack_string (grib_accessor_class_concept.c:633)
+             n2: 1458432 0x4A22923: grib_get_string_internal (grib_value.c:1147)
+              n1: 1431680 0x113745: get_station_indexes(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >) (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+               n0: 1431680 0x10E6C5: main (in /home/kaleb/Documents/GitHub/customExtraction/myFiles/Tests/Timing_TestBed/a.out)
+              n0: 26752 in 2 places, all below massif's threshold (1.00%)
+             n0: 123264 in 1 place, below massif's threshold (1.00%)
+        n0: 1091104 in 2 places, all below massif's threshold (1.00%)
+       n0: 6848 in 1 place, below massif's threshold (1.00%)
+    n1: 1320240 0x4A28401: new_long_expression (grib_expression_class_long.c:119)
+     n1: 1320240 0x4A44DBC: grib_yyparse (griby.y:780)
+      n2: 1320240 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1313584 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1313584 in 3 places, all below massif's threshold (1.00%)
+       n0: 6656 in 1 place, below massif's threshold (1.00%)
+    n0: 907552 in 25 places, all below massif's threshold (1.00%)
+   n2: 1777088 0x4A039A4: grib_context_strdup_persistent (grib_context.c:911)
+    n1: 1381925 0x4980EAF: grib_concept_condition_new (grib_concept.c:36)
+     n1: 1381925 0x4A44FBB: grib_yyparse (griby.y:762)
+      n2: 1381925 0x4A1E719: parse (grib_parse_utils.c:734)
+       n1: 1377087 0x4A1E7E9: grib_parse_concept_file (grib_parse_utils.c:777)
+        n0: 1377087 in 3 places, all below massif's threshold (1.00%)
+       n0: 4838 in 1 place, below massif's threshold (1.00%)
+    n0: 395163 in 41 places, all below massif's threshold (1.00%)
+ n0: 520697 in 49 places, all below massif's threshold (1.00%)
+#-----------
+snapshot=80
+#-----------
+time=220441945915
+mem_heap_B=127574307
+mem_heap_extra_B=4082349
+mem_stacks_B=0
+heap_tree=empty
