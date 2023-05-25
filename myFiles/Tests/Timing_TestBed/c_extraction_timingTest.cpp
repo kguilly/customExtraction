@@ -582,7 +582,7 @@ void readCountycsv(){
     map<string, Station> tmpStationMap;
     string strLine;
     ifstream filewrfdata;
-    string path_to_data_file = repositoryPath + "myFiles/countyInfo/WRFoutput/wrfOutput.csv";
+    string path_to_data_file = repositoryPath + "myFiles/Tests/Timing_TestBed/WRFoutput/wrfOutput.csv";
     filewrfdata.open(path_to_data_file);
     if(!filewrfdata){
         cerr << "Error: the WRFOUTPUT file could not be opened.\n";

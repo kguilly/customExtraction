@@ -26,17 +26,29 @@ The test will encompass:
 Profiling stats:
     C:
         - one file
-            time: 
+            time: 4.2807 seconds
             mem: 
 
         - one day
-            time: 
+            time: 44.643 seconds
             mem: 
 
-        - one month
-            time: 
+        - one month 
+            time: 2241.5258 seconds = 37 minutes, 21 seconds
             mem: 
 
+    Puru Python:
+        -one file
+            time:
+            mem:
+
+        - one day
+            time:
+            mem:
+
+        - one month 
+            time:
+            mem:
 
     Python:
         -one file

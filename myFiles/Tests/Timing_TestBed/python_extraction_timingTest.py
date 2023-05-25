@@ -20,7 +20,7 @@ class PreprocessWRF:
         self.herbie_path = "/home/kaleb/Desktop/herbie_data/"
 
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
-        self.wrfOutput_path = self.repository_path + "myFiles/pythonPygrib/WRFoutput/wrfOutput.csv"
+        self.wrfOutput_path = self.repository_path + "myFiles/Tests/Timing_TestBed/WRFoutput/wrfOutput.csv"
 
         self.max_workers = 500
 
