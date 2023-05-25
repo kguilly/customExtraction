@@ -248,6 +248,7 @@ int main(int argc, char*argv[]){
             
             currHourIdx++;
         }
+        intcurrentDay = getNextDay(intcurrentDay);
     }
 
     for (int i=0; i<numDays * intHourRange; i++) {
