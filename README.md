@@ -27,10 +27,10 @@
       ```
    - Choose a folder to install into. For the purposes of this README, /usr/src/ will be used
       ```
-      sudo mkdir /usr/src/eccodes
-      cmake -DCMAKE_INSTALL_PREFIX=/usr/src/eccodes -DENABLE_JPG=ON -DENABLE_ECCODES_THREADS=ON -DENABLE_FORTRAN=OFF ../eccodes-2.27.0-Source
-      make
-      ctest
+      sudo mkdir /usr/src/eccodes;
+      cmake -DCMAKE_INSTALL_PREFIX=/usr/src/eccodes -DENABLE_JPG=ON -DENABLE_ECCODES_THREADS=ON -DENABLE_FORTRAN=OFF ../eccodes-2.27.0-Source;
+      make;
+      ctest;
       ```
    - Ensure all tests are passed before installing with:
       ```
