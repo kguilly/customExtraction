@@ -24,8 +24,8 @@ class PreprocessWRF:
 
         self.max_workers = 500
 
-        self.begin_date = "20200101"  # format as "yyyymmdd"
-        self.end_date = "20200102"
+        self.begin_date = "20220101"  # format as "yyyymmdd"
+        self.end_date = "20220102"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
@@ -59,24 +59,24 @@ class PreprocessWRF:
         self.read_data(df=every_county_df, st_dict=param_dict_arr, state_abbrev_df=state_abbrev_df)
 
         # the data is read into hourly, stately files, now read them into daily / monthly files
-        csvFiles = self.reopen_files()
-        break_flag = False
-        csvFile_idx = -1
-        while not break_flag:
-            tasks = []
-            for i in range(0, self.max_workers):
-                csvFile_idx += 1
-                if csvFile_idx >= len(csvFiles):
-                    break_flag = True
-                    break
-                file = csvFiles[csvFile_idx]
-                t = threading.Thread(target=self.monthly_file_threading, args=(file,))
-                # t = multiprocessing.Process(target=self.monthly_file_threading, args=(file,))
-                tasks.append(t)
-                t.start()
+        # csvFiles = self.reopen_files()
+        # break_flag = False
+        # csvFile_idx = -1
+        # while not break_flag:
+        #     tasks = []
+        #     for i in range(0, self.max_workers):
+        #         csvFile_idx += 1
+        #         if csvFile_idx >= len(csvFiles):
+        #             break_flag = True
+        #             break
+        #         file = csvFiles[csvFile_idx]
+        #         t = threading.Thread(target=self.monthly_file_threading, args=(file,))
+        #         # t = multiprocessing.Process(target=self.monthly_file_threading, args=(file,))
+        #         tasks.append(t)
+        #         t.start()
 
-            for t in tasks:
-                t.join()
+        #     for t in tasks:
+        #         t.join()
 
         finish = time.time()
         print("\n\n------------- %s seconds ---------------" % (finish - start_time))
@@ -181,7 +181,7 @@ class PreprocessWRF:
         :return: df:: cols = ['stname', 'st', 'stusps'] where stname = full state name,
                      st = state fips and stusps = state abbreviation
         """
-        state_file_path = "../countyInfo/us-state-ansi-fips2.csv"
+        state_file_path = self.repository_path + "myFiles/countyInfo/us-state-ansi-fips2.csv"
         state_abbrev_df = pd.read_csv(state_file_path, dtype=str)
         return state_abbrev_df
 
@@ -255,36 +255,31 @@ class PreprocessWRF:
         date_range = (end_day_dt - begin_day_dt).days
 
         prev_month = ''
-
+        tasks = []
+        hour_idx = -1
         for i in range(0, date_range):
-            proc_start_time = time.time()
-            break_flag = False
-            hour_idx = -1
-            while not break_flag:
-                tasks = []
-                for j in range(0, self.max_workers):
-                    hour_idx += 1
-                    if hour_idx >= hour_range:
-                        break_flag = True
-                        break
 
-                    dtobj = begin_day_dt + timedelta(days=i, hours=hour_idx)
-                    # if a new month is hit, we need to find the indexes of the closest points and
-                    # store them in self.lat_dict and self.lon_dict
-                    if dtobj.month != prev_month:
-                        prev_month = dtobj.month
-                        print("Getting Indexes for date %s" % dtobj.date())
-                        self.get_nearest_indexes(dtobj, lon_lats)
+            for j in range(hour_range):
+                hour = begin_day_dt + timedelta(hours=j)
+                hour = int(hour.hour)
+                dtobj = begin_day_dt + timedelta(days=i, hours=hour)
+                if dtobj.month != prev_month:
+                    prev_month = dtobj.month
+                    print("Getting Indexes for date %s" % dtobj.date())
+                    self.get_nearest_indexes(dtobj, lon_lats)
 
-                    t = multiprocessing.Process(target=self.r_w_weather_values, args=(dtobj, lon_lats, grid_names,
-                                                                                      state_abbrev_df, df))
-                    tasks.append(t)
-                    t.start()
+                print("Openening file for date %s" %dtobj.date() + ' hour ' + str(dtobj.hour))
+                t = threading.Thread(target=self.r_w_weather_values, args=(dtobj, lon_lats, grid_names,
+                                                                        state_abbrev_df, df))
+                tasks.append(t)
+                t.start()
 
-                for t in tasks:
-                    t.join()
+        for t in tasks:
+            t.join()
 
-            print("------------------ Day's time = %s seconds --------------" % (time.time() - proc_start_time))
+            
+
+            
 
     def get_nearest_indexes(self, dtobj, lon_lats):
         # make ten tries, if no worky, exit

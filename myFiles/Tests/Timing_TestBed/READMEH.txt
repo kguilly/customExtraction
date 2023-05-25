@@ -17,6 +17,11 @@ The test will encompass:
     - One month: January 2022
 
     - workstation: canpc39
+        cpu stats: 
+            32 cpus 
+            2 threads per core 
+            max MHz = 3200
+            L3 = 40 MiB
 
 Profiling stats:
     C:
@@ -25,7 +30,7 @@ Profiling stats:
             mem: 
 
         - one day
-            time: 55.136 seconds
+            time: 
             mem: 
 
         - one month

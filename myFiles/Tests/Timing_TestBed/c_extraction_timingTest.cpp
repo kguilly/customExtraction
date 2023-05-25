@@ -267,6 +267,7 @@ int main(int argc, char*argv[]){
     int h=0, m=0;
     double sec;
     sec = totalTime / 1000;
+    double total_sec = sec;
     if(sec/60 > 1){
         m = int (sec) / 60;
         sec = sec - (m*60);
@@ -275,7 +276,7 @@ int main(int argc, char*argv[]){
         h = int (m) / 60;
         m = m - (h*60);
     }
-    printf("\n\nRuntime:\nTotal Seconds: %s\nHours: %s, Minutes: %s, Seconds %f\n", to_string(sec).c_str(), to_string(h).c_str(), to_string(m).c_str(), sec);
+    printf("\n\nRuntime:\nTotal Seconds: %s\nHours: %s, Minutes: %s, Seconds %f\n", to_string(total_sec).c_str(), to_string(h).c_str(), to_string(m).c_str(), sec);
 
 
     return 0;
