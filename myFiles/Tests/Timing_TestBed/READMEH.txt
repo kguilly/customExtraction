@@ -16,6 +16,8 @@ The test will encompass:
 
     - One month: January 2022
 
+    - workstation: canpc39
+
 Profiling stats:
     C:
         - one file
@@ -23,8 +25,8 @@ Profiling stats:
             mem: 
 
         - one day
-            time: 
-            mem: 229.2 MB
+            time: 55.136 seconds
+            mem: 
 
         - one month
             time: 
@@ -53,8 +55,9 @@ Modifications:
       all louisiana counties. 
     C:
         - add precip_flag and code to extract precipitation files
+        - if on canpc39: export TMPDIR=/home/kaleb/tmp
         - compile: g++ -std=c++17 -w c_extraction_timingTest.cpp -leccodes -lpthread
-            - run: ./a.out --param 9 36 37 71 75 123  --precip_flag --begin_date 20200101 --end_date 20200201
+            - run: ./a.out --param 9 36 37 71 75 123  --precip_flag --begin_date 20220101 --end_date 20220201
         - modify the output files
             - accomodate the header to include the precipitation
             - monthly file for each state (one file)

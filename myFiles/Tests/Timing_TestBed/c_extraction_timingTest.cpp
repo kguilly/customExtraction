@@ -34,10 +34,10 @@ struct timespec startTotal;
 struct timespec endTotal;
 double totalTime;
 
-vector<int> beginDay = {2023, 1, 31}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
+vector<int> beginDay = {2022, 1, 1}; // arrays for the begin days and end days. END DAY IS NOT INCLUSIVE.
                                      // when passing a single day, pass the day after beginDay for endDay
                                      // FORMAT: {yyyy, mm, dd}
-vector<int> endDay = {2023, 2, 3};   // NOT INCLUSIVEe
+vector<int> endDay = {2022, 1, 2};   // NOT INCLUSIVEe
 
 vector<int> arrHourRange = {0,23}; // array for the range of hours one would like to extract from
                                    // FORMAT: {hh, hh} where the first hour is the lower hour, second is the higher
@@ -51,7 +51,7 @@ string filePath = "/media/kaleb/extraSpace/wrf/";  // path to "data" folder. Fil
 string precip_file_path = "/media/kaleb/extraSpace/precip_data/"; // path to the 1 hour prediction WRF files that have the precipitation
                                 // data
 
-string writePath = "/home/kaleb/Desktop/WRFextract_2-3/"; // path to write the extracted data to,
+string writePath = "/home/kaleb/Desktop/profiling_5-24/"; // path to write the extracted data to,
                                                     // point at a WRFData folder
 string repositoryPath = "/home/kaleb/Documents/GitHub/customExtraction/";//PATH OF THE CURRENT REPOSITORY
                                                                           // important when passing args                                                    
@@ -68,8 +68,6 @@ struct Station{
     float lonll; // the lower left and upper right corners
     float latur;
     float lonur;
-    double **values; // holds the values of the parameters. Index of this array will 
-                    // correspond to index if the Parameter array. This will be a single hour's data
     int closestPoint;
 
 };
@@ -93,8 +91,7 @@ bool *blnParamArr;
                         // this will be used to quickly index whether a parameter needs to be 
                         // extracted or not. Putting 149 spaces for 148 parameters because the
                         // layers of the parameters start at 1 rather than 0
-vector<string> vctrHeader;
-int numStations, numParams;
+int numStations, numTotalParams, numPassedParams;
 bool precip_flag; // boolean flag to extract the "total precipitation" layer. 
                   // This will call to another file, which is the previous
                   // hour's prediction of the current hour.
@@ -106,7 +103,6 @@ string *hours;
 sem_t hProtection; // protect when creating the handle object for each layer
 sem_t *mapProtection; // protect when writing to the maps
 sem_t pathCreationSem; // protect when writeData makes new file paths
-sem_t *valuesProtection; // protect when writing values to the values array
 sem_t writeProtection; // only one thread should be able to write to a file at a time
 sem_t headerProtection; // only one thread can read the header flag at a time
 
@@ -153,7 +149,10 @@ void get_station_indexes(vector<string>);
 void *readData(void*);
 
 /* function to read the data from the 1 hour prediction grib file */
-void read_precipitation_data(vector<string>, string, int, int);
+void read_precipitation_data(vector<vector<double>>, vector<string>, string, int, int);
+
+/* function that writes the file's data to output immediately after extraction */
+void write_file_data(vector<string>, vector<vector<double>>, string);
 
 /*Function to find the standard deviation of the values for each week,
 takes an array of the values for the week and their average, outputs a stdDev*/
@@ -164,9 +163,6 @@ void createPath();
 
 /*functions to help create paths by finding length of string and splitting strnig on delimeter*/
 int len(string); vector<string> splitonDelim(string, char);
-
-/*function to write the data after each day is extracted*/
-void writeHourlyData(bool, vector<string>);
 
 void garbageCollection();
 
@@ -189,11 +185,31 @@ int main(int argc, char*argv[]){
     createPath();
     vector<int> intcurrentDay = beginDay;
     std::string prevMonth = "";
-    bool header_flag = true; // want to make a header for the files that we write out
-    bool*ptrHeader_flag = &header_flag; // want all threads to point to the same one
-    bool header_write_flag = false; // has the header been written out to the file yet? 
+
+    ///////////////////////////////////////////////////////////////
+    // new
+    int numDays = 0;
+    while(checkDateRange(intcurrentDay, endDay)) {
+        numDays++;
+        intcurrentDay = getNextDay(intcurrentDay);
+    }
+    intcurrentDay = beginDay;
+
     // for each day
-    while(checkDateRange(intcurrentDay, endDay)){
+        // for each hour
+            // spawn a thread
+    
+    pthread_t *threads = (pthread_t*)malloc(intHourRange * numDays * sizeof(pthread_t));
+    if (!threads) {
+        fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(intHourRange*numDays*sizeof(pthread_t)));
+        exit(0);
+    }
+
+    FILE* f[intHourRange*numDays];
+    threadArgs *arrThreadArgs = new threadArgs[intHourRange*numDays];
+    int threaderr;
+    int currHourIdx = 0;
+    for (int i=0; i<numDays; i++) {
         vector<string> strCurrentDay = formatDay(intcurrentDay);
         std::string currMonth = strCurrentDay.at(1);
         if (currMonth != prevMonth) {
@@ -210,57 +226,36 @@ int main(int argc, char*argv[]){
             exit(1);
         }
 
-        // Thread the hours 
-        // allocate the threads and do some error checking
-        pthread_t *threads = (pthread_t*)malloc(intHourRange * sizeof(pthread_t)); // will be freed at the end of this iteration
-        if(!threads){
-            fprintf(stderr, "Error: unable to allocate %ld bytes for threads.\n", (long)(intHourRange*sizeof(pthread_t)));
-            exit(0);
-        }
-        
-         
-        FILE* f[intHourRange]; // use to open the file for each hour
-        threadArgs *arrThreadArgs = new threadArgs[intHourRange];
-        
-
-        int threaderr; // keep track if the threading runs into an error
-        for(int i=0;i<intHourRange;i++){ // for each hour, thread the file and filename
-            f[i] = NULL;
-            string hour = hours[i];
+        for (int j=0; j<intHourRange; j++) {
+            f[currHourIdx] = NULL;
+            string hour = hours[j];
             string fileName = "hrrr."+strCurrentDay.at(3)+"."+hour+".00.grib2";
             string filePath2 = filePath1 + fileName;
             
-            arrThreadArgs[i].f = f[i];
-            arrThreadArgs[i].fileName = fileName;
-            arrThreadArgs[i].pathName = filePath2;
-            arrThreadArgs[i].threadIndex = i;
-            arrThreadArgs[i].hour = hour;
-            arrThreadArgs[i].strCurrentDay = strCurrentDay; 
-            arrThreadArgs[i].header_flag = ptrHeader_flag;
-            arrThreadArgs[i].thread_header_flag = false;           
-            threaderr = pthread_create(&threads[i], NULL, &readData, &arrThreadArgs[i]);
+            arrThreadArgs[currHourIdx].f = f[currHourIdx];
+            arrThreadArgs[currHourIdx].fileName = fileName;
+            arrThreadArgs[currHourIdx].pathName = filePath2;
+            arrThreadArgs[currHourIdx].threadIndex = currHourIdx;
+            // TODO: change instances of threadIndex
+            arrThreadArgs[currHourIdx].hour = hour;
+            arrThreadArgs[currHourIdx].strCurrentDay = strCurrentDay; 
+            threaderr = pthread_create(&threads[currHourIdx], NULL, &readData, &arrThreadArgs[currHourIdx]);
+            
             if(threaderr){
                 assert(0);
                 return 1;
             }
-
+            
+            currHourIdx++;
         }
-        for(int i=0;i<intHourRange;i++){
-            pthread_join(threads[i], NULL);
-        }
-        std::free(threads);
-
-        writeHourlyData(header_write_flag, strCurrentDay);
-        header_write_flag = true;
-
-        if(formatDay(getNextDay(intcurrentDay)).at(1)!=strCurrentDay.at(1)){
-            *ptrHeader_flag = true;
-            header_write_flag = false;
-        }
-        intcurrentDay = getNextDay(intcurrentDay);
-
-        delete [] arrThreadArgs;
     }
+
+    for (int i=0; i<numDays * intHourRange; i++) {
+        pthread_join(threads[i], NULL);
+    }
+    
+    free(threads);
+    delete [] arrThreadArgs;
     delete [] blnParamArr;
 
 
@@ -347,11 +342,13 @@ void handleInput(int argc, char* argv[]){
     }
     if(param_flag){
         blnParamArr = new bool[200]; 
+        numPassedParams = 0;
         for(int i=param_index+1;i<argc;i++){
             string arg = argv[i];
             if(arg.substr(0,1)=="-"){
                 break;
             }
+            numPassedParams++;
             try{
                 int selectedParam = stoi(arg);
                 blnParamArr[selectedParam] = true;
@@ -447,6 +444,8 @@ void handleInput(int argc, char* argv[]){
         status = system(command.c_str());
         if(status==-1) std::cerr << "Python call error: " <<strerror(errno) << endl;
     }
+    if (precip_flag) numPassedParams ++;
+    
 
     
     buildHours();
@@ -484,13 +483,13 @@ void defaultParams(bool param_flag){
             countParams++;
         }
     }
-    numParams = countParams;
+    numTotalParams = countParams;
 
 
     // build the boolean param array
     if(!param_flag){
-        blnParamArr = new bool[numParams+1];
-        for (int i = 0; i<numParams; i++){
+        blnParamArr = new bool[numTotalParams+1];
+        for (int i = 0; i<numTotalParams; i++){
             blnParamArr[i+1] = true;
         }    
     }
@@ -622,12 +621,6 @@ void readCountycsv(){
     // for each station, allocate some memory for each values array
     // **values = size of hour range
     // *values[i] = size of numparams
-    for (int i=0; i<numStations;i++){
-        stationArr[i].values = new double*[intHourRange];
-        for(int j=0; j<intHourRange; j++){
-            stationArr[i].values[j] = new double[numParams];
-        }
-    }
 }
 
 void matchState(){
@@ -707,13 +700,6 @@ void semaphoreInit(){
     if(sem_init(&hProtection, 0, 1) == -1){
         perror("sem_init");
         exit(EXIT_FAILURE);
-    }
-    valuesProtection = (sem_t*)malloc(sizeof(sem_t)*numStations);
-    for(int i =0;i<numStations;i++){
-        if(sem_init(&valuesProtection[i], 0, 1)==-1){
-            perror("sem_init");
-            exit(EXIT_FAILURE);
-        }
     }
     if(sem_init(&writeProtection, 0, 1) == -1){
         perror("sem_init");
@@ -863,6 +849,7 @@ void get_station_indexes(vector<string> currDay) {
         if (!f) throw(fullfilepath);
     } catch (string file) {
         printf("Error: could not open file %s while finding station indexes\n", fullfilepath.c_str());
+        exit(0);
 
     }
 
@@ -878,6 +865,8 @@ void get_station_indexes(vector<string> currDay) {
     std::string name_space = "parameter";
     unsigned long key_iterator_filter_flags = CODES_KEYS_ITERATOR_ALL_KEYS |
                                               CODES_KEYS_ITERATOR_SKIP_DUPLICATES;
+    vector<string> vctrHeader = {"Year", "Month", "Day", "Hour", "Daily/Monthly", "State", "County", "FIPS Code", "Grid Index", \
+                                 "Lat (llcrnr)", "Lon (llcrnr)", "Lat (urcrnr)", "Lon (urcrnr)"};
     
     while((h = codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err)) != NULL){
         msg_count++;
@@ -912,10 +901,6 @@ void get_station_indexes(vector<string> currDay) {
         }
         strHeader = strnametosendout + " " + strUnits;
         vctrHeader.push_back(strHeader);
-
-        if (precip_flag) {
-            vctrHeader.push_back("Precipitation (kg m**-2)");
-        }
         
         // if this flag is set, then grab the nearest indexes
         if (flag) {
@@ -965,6 +950,35 @@ void get_station_indexes(vector<string> currDay) {
     }
     fclose(f);
     
+    if (precip_flag) {
+            vctrHeader.push_back("Precipitation (kg m**-2)");
+    }
+    
+    
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //clear the file and write the header out
+    string filepathout = writePath + "daily_data/" + year + "/";
+
+    // loop through the stations, every time a new state is hit, write out to the state's file
+    vector<string> vctrStates;
+    Station station;
+    string state;
+    for (int i=0; i<numStations; i++) {
+        station = stationArr[i];
+        state = station.state;
+        if (find(vctrStates.begin(), vctrStates.end(), state) == vctrStates.end()) {
+            // the state is not found in vctrstates, add the state to it and write header out to file
+            vctrStates.push_back(state);
+            string state_file_path = filepathout + station.stateAbbrev + "/HRRR." + station.stateAbbrev + \
+                                     "_" + year + "-" + month + ".csv";
+            ofstream outputfile (state_file_path, std::ios::trunc);
+            for (int j=0; j<vctrHeader.size(); j++) {
+                outputfile << vctrHeader.at(j) << ",";
+            }
+            outputfile << "\n";
+            outputfile.close();
+        }
+    }
 
 }
 
@@ -1013,6 +1027,11 @@ void *readData(void *args){
     double *lats, *lons, *values; // lats, lons, and values returned from extracted grib file
     int curParamIdx =0; // the index which we will place the value into each station's 
                         // values array
+    vector<vector<double>> extracted_val_arr;
+    int rows = numStations;
+    int cols = numPassedParams;
+    extracted_val_arr.resize(rows, vector<double>(cols));
+
     sem_wait(&hProtection);
     while((h=codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!=NULL) // loop through every layer of the file
     {
@@ -1046,9 +1065,7 @@ void *readData(void *args){
             for (int i=0; i<numStations; i++) {
                 Station* station = &stationArr[i];
                 double dblCurrVal = values[station->closestPoint];
-                sem_wait(&valuesProtection[i]);
-                station->values[threadIndex][curParamIdx] = dblCurrVal;
-                sem_post(&valuesProtection[i]);
+                extracted_val_arr[i][curParamIdx] = dblCurrVal;
             }
             
             curParamIdx++;
@@ -1066,13 +1083,16 @@ void *readData(void *args){
     fclose(f);
     
     // now check if the precipitation flag is set and read precip_data
-    if (precip_flag) read_precipitation_data(strCurrentDay, hour, threadIndex, curParamIdx);
+    if (precip_flag) read_precipitation_data(extracted_val_arr, strCurrentDay, hour, threadIndex, curParamIdx);
 
+    // now write the hour's data to file
+    write_file_data(strCurrentDay, extracted_val_arr, hour);
     pthread_exit(0);
 
 }
 
-void read_precipitation_data(vector<string> strCurrentDay, string hour, int threadIndex, int currParamIdx) {
+void read_precipitation_data(vector<vector<double>> extracted_val_arr, vector<string> strCurrentDay, string hour, \
+                             int threadIndex, int currParamIdx) {
     
     string year = strCurrentDay.at(0);
     string month = strCurrentDay.at(1);
@@ -1185,13 +1205,10 @@ void read_precipitation_data(vector<string> strCurrentDay, string hour, int thre
             }
             CODES_CHECK(codes_grib_get_data(h, grib_lats, grib_lons, grib_values), 0);
 
-            Station *station;
             for (int i=0; i<numStations; i++) {
-                station = &stationArr[i];
+                Station* station = &stationArr[i];
                 double dblCurrVal = grib_values[station->closestPoint];
-                sem_wait(&valuesProtection[i]);
-                station->values[threadIndex][currParamIdx] = dblCurrVal;
-                sem_post(&valuesProtection[i]);
+                extracted_val_arr[i][currParamIdx] = dblCurrVal;
             }
             
             currParamIdx++;
@@ -1204,12 +1221,44 @@ void read_precipitation_data(vector<string> strCurrentDay, string hour, int thre
     fclose(f);
 }
 
+
+void write_file_data (vector<string> strCurrentDay, vector<vector<double>> extracted_val_arr, string hour) {
+    
+    string year = strCurrentDay.at(0);
+    string month = strCurrentDay.at(1);
+    string day = strCurrentDay.at(2);
+
+    string filepathout = writePath + "daily_data/" + year + "/";
+
+    for (int i=0; i<numStations; i++) {
+        Station station = stationArr[i];
+        string state_file_path = filepathout + station.stateAbbrev + "/HRRR." + station.stateAbbrev + \
+                                     "_" + year + "-" + month + ".csv";
+        
+        sem_wait(&writeProtection);
+        ofstream outputfile (state_file_path, std::ios::app);
+
+        // first write all the location and date information to the file
+        outputfile << year << "," << month << "," << day << "," << hour << ", Daily, " << station.state << "," << station.county << ",";
+        outputfile << station.fipsCode << "," << station.name << "," << station.latll << "," << station.lonll << ",";
+        outputfile << station.latur << "," << station.lonur << ",";
+
+        // now write the values to the file
+        for (int j=0; j<extracted_val_arr[i].size(); j++) {
+            outputfile << extracted_val_arr[i][j] << ",";
+        }
+        outputfile << "\n";
+        outputfile.close();
+        sem_post(&writeProtection);
+    }
+
+}
 void createPath(){
 
     // separate the write path by slashes, pass each hypen to the dirExists function,
     // if it doesnt exist, keep appending toa new fielpath
-    writePath += "Hourly/"; // the data we'll be extracting will be separate from the daily/monthly format
-    vector<string> splittedWritePath = splitonDelim(writePath, '/');
+    string writePath_2 = writePath + "daily_data/"; // the data we'll be extracting will be separate from the daily/monthly format
+    vector<string> splittedWritePath = splitonDelim(writePath_2, '/');
     string writePath_1;
     for(int i=0; i<splittedWritePath.size(); i++){
         writePath_1.append("/" + splittedWritePath[i]);
@@ -1231,103 +1280,31 @@ void createPath(){
         // append all years needed to the vector, including the first day
         allyearspassed.push_back(beginDay[0]+i);
     }
-    Station station;
-    for(int i=0; i<numStations;i++){
-        station=stationArr[i];
-        string fips = station.fipsCode;
-        string writePath_2 = writePath+fips+"/";
-        if(!dirExists(writePath_2)){
-            if(mkdir(writePath_2.c_str(), 0777)==-1){
-                printf("Unable to create fips directory to write files: %s\n", writePath_2.c_str());
+    
+    for(int j=0;j<allyearspassed.size();j++){
+        string writePath_3 = writePath_2 + to_string(allyearspassed[j]) + "/";
+        if(!dirExists(writePath_3)){
+            if(mkdir(writePath_3.c_str(), 0777) == -1){
+                printf("Unable to create year directories to write to files %s\n", writePath_3.c_str());
                 exit(0);
             }
         }
-        // now the fips directory for the station has been created, now make the 
-        // year directories
-        for(int j=0;j<allyearspassed.size();j++){
-            string writePath_3 = writePath_2 + to_string(allyearspassed[j]) + "/";
-            if(!dirExists(writePath_3)){
-                if(mkdir(writePath_3.c_str(),0777)==-1){
-                    printf("Unable to create year directories to write to files %s\n", writePath_3.c_str());
+        vector<string> vctrStates;
+        string state;
+        for (int k=0; k<numStations; k++) {
+            Station station = stationArr[k];
+            state = station.state;
+            if (find(vctrStates.begin(), vctrStates.end(), state) == vctrStates.end()) {
+                vctrStates.push_back(state);
+                string state_file_path = writePath_3 + station.stateAbbrev + "/";
+                if (!dirExists(state_file_path)) {
+                    if (mkdir(state_file_path.c_str(), 0777) == -1) {
+                        printf("Unable to create year directories to write to files %s\n", state_file_path.c_str());
+                        exit(0);
+                    }
                 }
             }
         }
-    }
-}
-
-void writeHourlyData(bool header_write_flag, vector<string>formattedDay){
-
-
-    if(!header_write_flag){
-        // grab the station fips code, if the current station fips cannot be found
-        // in the vector, write out the header and append the current fips code
-        // to the vector
-        string fips = ""; Station station;
-        vector<string> fipsCodes;
-        for (int i=0; i<numStations; i++){
-            station = stationArr[i];
-            fips = station.fipsCode;
-            if(find(fipsCodes.begin(), fipsCodes.end(), fips)==fipsCodes.end()){
-                // the header for this file has not been written to yet,
-                // find the directory of the file, clear it, and write the header
-                // to it
-                fipsCodes.push_back(fips);
-                string year = formattedDay.at(0); string month = formattedDay.at(1);
-                string fipsDir = writePath+fips+"/";
-                string yearDir = fipsDir+year+"/";
-                string fileName = "HRRR_"+fips+"_"+station.stateAbbrev+"_"+year+month+".csv";
-                ofstream outputFile(yearDir+fileName);
-                for(int j=0; j<vctrHeader.size();j++){
-                    outputFile << vctrHeader.at(j) << ",";
-                }
-                outputFile << "\n";
-                outputFile.close();
-
-                
-            }
-        }
-    }
-
-    string year = formattedDay.at(0); string month = formattedDay.at(1);
-    string fipsDir;
-    Station station;
-    for(int i=0;i<numStations;i++){
-        station = stationArr[i];
-        string fips = station.fipsCode;
-        fipsDir = writePath+fips+"/";
-        
-        string yearDir = fipsDir+year+"/";
-        string fileName = "HRRR_"+fips+"_"+station.stateAbbrev+"_"+year+month+".csv";
-        string strOutput;
-        // loop through the station's values array
-        int currHour = arrHourRange.at(0);
-        for(int j=0; j<intHourRange; j++){
-            // append the init info to strOutput:
-            // Year, Month, Day, Daily/Monthly, State, County, Grid Index, FIPS code, lat, lon
-            strOutput.append(year+","+month+","+formattedDay.at(2)+","+to_string(currHour)+","+station.state+","); 
-            strOutput.append(station.county+","+station.name+","+station.fipsCode+","+to_string(station.latll)+","+to_string(station.lonll)+",");
-            strOutput.append(to_string(station.latur)+","+to_string(station.lonur)+",");
-            for(int k=0; k< numParams; k++){
-                // write out station.values[j][k]
-                // outputFile << station.values[j][k] << ",";
-                // append the value and the comma to the output string
-                if(k>=vctrHeader.size()-12){
-                    break;
-                }
-                strOutput.append(to_string(station.values[j][k])+",");
-            }
-            // strOutput.append("\n");
-            // append strOutput to the file and clear the string
-            string strCommand; int status;
-            strCommand = "cd " + yearDir + "; echo \"" + strOutput + "\" >> "+fileName;
-            status = system(strCommand.c_str());
-            if(status==-1) std::cerr << "\nWrite to file error in writeHourlyData: " << strerror(errno) << endl;
-            strOutput = "";
-            currHour++;
-        }
-        
-        
-        
     }
 
 }
@@ -1359,13 +1336,7 @@ vector<string> splitonDelim(string str, char sep){
 }
 
 void garbageCollection(){
-    for(int i =0; i<numStations;i++){
-        // delete each station's value array
-        for(int j=0; j<intHourRange;j++){
-            delete [] stationArr[i].values[j];
-        }
-        delete [] stationArr[i].values;
-    }
+
     delete [] stationArr;
     delete [] hours;
     if(sem_destroy(&hProtection)==-1){

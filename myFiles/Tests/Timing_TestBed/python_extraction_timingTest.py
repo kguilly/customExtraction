@@ -5,10 +5,10 @@ from datetime import date, timedelta, datetime
 import time
 import sys
 import os
-import geo_grid_recent as gg
+# import geo_grid_recent as gg
 from pathlib import Path
 import threading
-import multiprocessing
+import threading
 import logging
 import warnings
 import pygrib
@@ -22,7 +22,7 @@ class PreprocessWRF:
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
         self.wrfOutput_path = self.repository_path + "myFiles/pythonPygrib/WRFoutput/wrfOutput.csv"
 
-        self.max_workers = 5
+        self.max_workers = 500
 
         self.begin_date = "20200101"  # format as "yyyymmdd"
         self.end_date = "20200102"
@@ -32,9 +32,9 @@ class PreprocessWRF:
         self.passedFips = []
         self.timeout_time = 800
 
-        self.lock = multiprocessing.Lock()
-        self.herb_lock = multiprocessing.Lock()
-        self.precip_lock = multiprocessing.Lock()
+        self.lock = threading.Lock()
+        self.herb_lock = threading.Lock()
+        self.precip_lock = threading.Lock()
 
         self.extract_flag = True
         self.lat_dict = {}
@@ -70,8 +70,8 @@ class PreprocessWRF:
                     break_flag = True
                     break
                 file = csvFiles[csvFile_idx]
-                # t = threading.Thread(target=self.monthly_file_threading, args=(file,))
-                t = multiprocessing.Process(target=self.monthly_file_threading, args=(file,))
+                t = threading.Thread(target=self.monthly_file_threading, args=(file,))
+                # t = multiprocessing.Process(target=self.monthly_file_threading, args=(file,))
                 tasks.append(t)
                 t.start()
 
@@ -114,42 +114,46 @@ class PreprocessWRF:
                       "                    Ex. --fips \"state=LA, MS, IL\"")
 
             if fips_flag:
-                self.passedFips = []
-                for i in range(fips_index, len(sys.argv)):
-                    arg = sys.argv[i]
-                    if arg.upper().rfind("STATE") != -1:
-                        sep = arg.split('=')
-                        states = sep[1].split(',')
-                        for j in range(len(states)):
-                            states[j] = states[j].strip()
-                            states[j] = states[j].upper()
-                            # print(states[j])
-                        all_county_df = pd.read_csv("../countyInfo/countyFipsandCoordinates.csv", dtype=str)
-                        state_abbrev_df = pd.read_csv("../countyInfo/us-state-ansi-fips2.csv", dtype=str)
-                        county_fips = []
-                        for state in states:
-                            this_state_fips = \
-                                state_abbrev_df['st'].where(state_abbrev_df['stusps'] == state).dropna().values[0]
-                            county_fips_from_state = all_county_df[
-                                all_county_df['fips_code'].str.startswith(this_state_fips)]
-                            county_fips_from_state = county_fips_from_state['fips_code'].dropna().values
-                            county_fips.append(county_fips_from_state)
-                        for arr in county_fips:
-                            for val in arr:
-                                self.passedFips.append(val)
+                print("don't pass fips flag for this code")
+                exit()
+                # self.passedFips = []
+                # for i in range(fips_index, len(sys.argv)):
+                #     arg = sys.argv[i]
+                #     if arg.upper().rfind("STATE") != -1:
+                #         sep = arg.split('=')
+                #         states = sep[1].split(',')
+                #         for j in range(len(states)):
+                #             states[j] = states[j].strip()
+                #             states[j] = states[j].upper()
+                #             # print(states[j])
+                #         all_county_df = pd.read_csv("../countyInfo/countyFipsandCoordinates.csv", dtype=str)
+                #         state_abbrev_df = pd.read_csv("../countyInfo/us-state-ansi-fips2.csv", dtype=str)
+                #         county_fips = []
+                #         for state in states:
+                #             this_state_fips = \
+                #                 state_abbrev_df['st'].where(state_abbrev_df['stusps'] == state).dropna().values[0]
+                #             county_fips_from_state = all_county_df[
+                #                 all_county_df['fips_code'].str.startswith(this_state_fips)]
+                #             county_fips_from_state = county_fips_from_state['fips_code'].dropna().values
+                #             county_fips.append(county_fips_from_state)
+                #         for arr in county_fips:
+                #             for val in arr:
+                #                 self.passedFips.append(val)
 
-                    else:
-                        if len(arg) == 5:
-                            # the correct length for a fips code
-                            self.passedFips.append(arg)
-                        else:
-                            print("Error, the incorrect length of fips argument passed, please try again")
-                            exit(0)
-                gg.county(fips=self.passedFips)
+                #     else:
+                #         if len(arg) == 5:
+                #             # the correct length for a fips code
+                #             self.passedFips.append(arg)
+                #         else:
+                #             print("Error, the incorrect length of fips argument passed, please try again")
+                #             exit(0)
+                # gg.county(fips=self.passedFips)
             else:
                 # we're either just gonna read the WRFoutput file or read the self.passedFips arg
                 if len(self.passedFips) > 1:
-                    gg.county(fips=self.passedFips)
+                    print("no passed fips")
+                    exit()
+                    # gg.county(fips=self.passedFips)
 
     def separate_by_state(self, df=pd.DataFrame()):
         """
