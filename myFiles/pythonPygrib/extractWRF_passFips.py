@@ -1,4 +1,4 @@
-'''
+/home/kaleb/Desktop'''
 This script will function alike the scripts to download each county's data,
 excpet I will pass the argument for fips codes that will call sentinel hub
 to run the data, then read the outputted csv 

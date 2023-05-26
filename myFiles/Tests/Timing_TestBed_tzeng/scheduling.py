@@ -1,16 +1,6 @@
 import sys
 import os
 import psutil
-
-
-# def main():
-
-
-
-
-# if __name__ == "__main__":
-#     main()
-
 import subprocess
 import time
 
@@ -39,3 +29,6 @@ print("Max mem used during process %s" % max_percent_usage)
 # def main() :
     # probe to see what percentage a single file takes up
     # 
+
+
+    

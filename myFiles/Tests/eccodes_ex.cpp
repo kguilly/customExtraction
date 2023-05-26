@@ -15,11 +15,13 @@ int main() {
     }
 
     int err = 0; long num_points = 0;
+    const double missing = 1.0e36;
     double *grib_lats, *grib_lons, *grib_values;
     codes_handle *h = NULL;
 
     while ((h = codes_handle_new_from_file(0, f, PRODUCT_GRIB, &err))!= NULL) {
         CODES_CHECK(codes_get_long(h, "numberOfPoints", &num_points), 0);
+        CODES_CHECK(codes_set_double(h, "missingValue", missing), 0);
         
         grib_lats = (double*)malloc(num_points * sizeof(double));
         if(!grib_lats){
