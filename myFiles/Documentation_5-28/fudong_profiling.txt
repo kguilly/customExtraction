@@ -1,0 +1,12 @@
+Timed execution of full_preproc_pygrib_threaded.py 
+
+Timing was performed on canpc40 on the entire state of Louisiana for: 
+    one file: 20220101 hour 00
+    one day: 20220101
+    one month: 202201
+
+Results:
+    One file: 38.526 seconds
+    One day: 57.987 seconds
+    One month: 1013.095 seconds 
+
