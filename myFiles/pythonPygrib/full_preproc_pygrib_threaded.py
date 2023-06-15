@@ -15,17 +15,17 @@ import pygrib
 # from queue import Queue
 class PreprocessWRF:
     def __init__(self):
-        self.write_path = "/home/kaleb/Desktop/Testing_thread_thread/"
+        self.write_path = "/home/kaleb/Desktop/pygrib_threaded_output/"
         self.grib_path = "/media/kaleb/extraSpace/wrf/"
-        self.herbie_path = "/home/kaleb/Desktop/herbie_data/"
+        self.herbie_path = "/media/kaleb/extraSpace/precip_data/"
 
         self.repository_path = "/home/kaleb/Documents/GitHub/customExtraction/"
         self.wrfOutput_path = self.repository_path + "myFiles/pythonPygrib/WRFoutput/wrfOutput.csv"
 
         self.max_workers = 5
 
-        self.begin_date = "20200101"  # format as "yyyymmdd"
-        self.end_date = "20200102"
+        self.begin_date = "20220101"  # format as "yyyymmdd"
+        self.end_date = "20220102"
         self.begin_hour = "00:00"
         self.end_hour = "23:00"
         self.county_df = pd.DataFrame()
@@ -177,7 +177,7 @@ class PreprocessWRF:
         :return: df:: cols = ['stname', 'st', 'stusps'] where stname = full state name,
                      st = state fips and stusps = state abbreviation
         """
-        state_file_path = "../countyInfo/us-state-ansi-fips2.csv"
+        state_file_path = self.repository_path + "myFiles/countyInfo/us-state-ansi-fips2.csv"
         state_abbrev_df = pd.read_csv(state_file_path, dtype=str)
         return state_abbrev_df
 
@@ -696,46 +696,36 @@ class PreprocessWRF:
         return dftoreturn
 
     def monthlyAvgs(self, df=pd.DataFrame()):
-        monthlyavgs = []
-        # for each column in df (not Year, Month, Day, State, County, GridIndex, FIPS Code, Lat, Lon(-180 to 180)), find avg and append to bottom
-        # for Year, Month, State, County, write the first Index, for day write 'Monthly Average'
+        """
+        This function will find the monthly average for each county.
+        """
+        df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'FIPS Code', 'Grid Index',
+                 'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
+                 'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
+                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
+                 'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
+                 'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)']]
 
-        # writeavgflag = False
-        for col in df:
-            # if col.rfind('Maximum/Composite') != -1:
-            #     writeavgflag = True
+        grouped_data = df.groupby('County')
+        county_averages = grouped_data.mean()
 
-            # if not writeavgflag:
-            #     # do sum
-            if col.rfind('Daily/Monthly') != -1:
-                monthlyavgs.append("Monthly")
-            elif col.rfind('Year') != -1 or col.rfind('Month') != -1 or col.rfind('State') != -1:
-                monthlyavgs.append(df[col].iloc[0])
-            elif (col.rfind('Lat (') != -1 or col.rfind('Lon (') != -1) and col.rfind('elative') == -1:
-                monthlyavgs.append('N/A')
-            elif col.rfind('Grid Index') != -1 or col.rfind('Day') != -1 or col.rfind('County') != -1 or \
-                    col.rfind('FIPS') != -1:
-                monthlyavgs.append('N/A')
-            elif col.rfind('recipitation') != -1 or col.rfind('adiation') != -1:
-                df_new = df.sort_values(by=['Day', 'Grid Index'])
-                last_day = df_new['Day'][len(df_new) - 1]
-                first_day = df_new['Day'][0]
-                total_grid_indexes = df_new['Grid Index'][len(df_new) - 1] + 1
-                sum = df[col].sum()
-                val = sum / ((int(last_day) - int(first_day) + 1) * total_grid_indexes)
-                monthlyavgs.append(val)
-            else:
-                # find the average of the column and append to the monthlyavg arr
-                try:
-                    monthlyavgs.append(df[col].mean())
-                    # monthlyavgs.append(df[col].values.mean())
-                except:
-                    monthlyavgs.append('NaN')
+        for index, row in county_averages.iterrows():
+            last_row = len(df.index)
+            df.loc[last_row] = None  # init a new row at the end of the df
+            for col in df:
+                if col == 'Day':
+                    df.loc[last_row, col] = 'N/A'
+                elif col == 'Daily/Monthly':
+                    df.loc[last_row, col] = 'Monthly'
+                elif col == 'County':
+                    df.loc[last_row, col] = index
+                elif col == 'Grid Index':
+                    df.loc[last_row, col] = 'N/A'
+                elif col == 'State':
+                    df.loc[last_row, col] = df.loc[1, 'State']
+                else:
+                    df.loc[last_row, col] = row[col]
 
-        # df = df.append(pd.Series(monthlyavgs, index=df.columns[:len(monthlyavgs)]), ignore_index=True)
-        # df = pd.concat([df, pd.Series(monthlyavgs)], ignore_index=True, axis=0, join='outer')
-        df.loc[len(df.index)] = monthlyavgs
-        # print(df)
         for col in df:
             if col.rfind('elative Hum') != -1:
                 df[col] = df[col].round(decimals=1)
@@ -744,12 +734,6 @@ class PreprocessWRF:
                 df[col] = df[col].round(decimals=3)
             except:
                 continue
-        df = df[['Year', 'Month', 'Day', 'Daily/Monthly', 'State', 'County', 'FIPS Code', 'Grid Index',
-                 'Lat (llcrnr)', 'Lon (llcrnr)', 'Lat (urcrnr)', 'Lon (urcrnr)',
-                 'Avg Temperature (K)', 'Max Temperature (K)', 'Min Temperature (K)', 'Precipitation (kg m**-2)',
-                 'Relative Humidity (%)', 'Wind Gust (m s**-1)', 'Wind Speed (m s**-1)',
-                 'U Component of Wind (m s**-1)', 'V Component of Wind (m s**-1)',
-                 'Downward Shortwave Radiation Flux (W m**-2)', 'Vapor Pressure Deficit (kPa)']]
 
         return df
 
