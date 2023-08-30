@@ -1,22 +1,14 @@
 /*
 NOTE:
-
 TODO: for every call to a file, make sure there is either an absolute path or the path
 is configured by the passed "repository path"
-
 Before running, please configure beginday, endday, arrhourrange, filePath, writepath, 
 repositoryPath
-
 If g++ version is outdated compile with flag -std=c++17
-
-
 This implementation is based on the first iteration of manyCountyInfo, except I will call
 to python to analyze the data rather than doing it in C
-
-
 Compile:
 g++ -Wall -threadedExtractWRFData1.cpp -leccodes -lpthread
-
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -717,7 +709,6 @@ void semaphoreInit(){
         perror("sem_init");
         exit(EXIT_FAILURE);
     }
-
 }
 
 void convertLatLons(){

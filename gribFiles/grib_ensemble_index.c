@@ -32,9 +32,9 @@ int main(int argc, char* argv[])
     codes_handle* h = NULL;
 
     // if (argc < 2) return 1;
-
+    const char * file_path = "/media/kaleb/extraSpace/wrf/2020/20200101/hrrr.20200101.00.00.grib2";
     /* create index of file contents for paramId and number */
-    index = codes_index_new_from_file(0, "/home/kalebg/Desktop/School/Y4S1/REU/customExtraction/UtilityTools/extractTools/data/2019/20190101/hrrr.20190101.00.00.grib2", "paramId,number", &ret);
+    index = codes_index_new_from_file(0, file_path, "paramId,number", &ret);
     CODES_CHECK(ret, 0);
 
     /* get size of "paramId" list */
@@ -44,10 +44,6 @@ int main(int argc, char* argv[])
     paramId = (char**)malloc(paramIdSize * sizeof(char*));
     /* get list of "paramId" */
     CODES_CHECK(codes_index_get_string(index, "paramId", paramId, &paramIdSize), 0);
-    for (int i =0; i < paramIdSize; i++){
-        printf("Param num: %s\n", paramId[i]);
-    }
-    
 
     /* get size of ensemble number list */
     CODES_CHECK(codes_index_get_size(index, "number", &numberSize), 0);

@@ -1,0 +1,19 @@
+Running on HP Victus:
+
+    Python:
+        - Using pygrib to iterate over the layers of the file and extract the values
+            - One file:
+                -time: 28.51 seconds
+                - mem: max = 216.4 MiB or 226.4924 MB
+
+
+When I come back:
+    - profile fudong's extraction code
+        - for a single file, single day, and single month
+        - for the state of louisiana
+
+    - Work on fudong's tutorial
+        - use herbie to download the data
+        - use pygrib to extract the data
+
+    - Build Figures for Fudong

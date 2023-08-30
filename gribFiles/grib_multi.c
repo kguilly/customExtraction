@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     int err                = 0;
     long parameterCategory = 0, parameterNumber = 0, discipline = 0;
     FILE* in             = NULL;
-    const char* filename = "/home/kalebg/Desktop/School/Y4S1/REU/customExtraction/UtilityTools/extractTools/data/2019/20190101/hrrr.20190101.00.00.grib2"; 
+    const char* filename = "/media/kaleb/extraSpace/wrf/2020/20200101/hrrr.20200101.00.00.grib2"; 
     codes_handle* h      = NULL;
     int mcount           = 0;
 
@@ -69,6 +69,7 @@ int main(int argc, char** argv)
             if (parameterNumber == 2) printf("-------- u -------\n");
             if (parameterNumber == 3) printf("-------- v -------\n");
         }
+        printf("\n");
         codes_handle_delete(h);
     }
     // assert(mcount == 56);

@@ -1,0 +1,28 @@
+Opening File: /home/kaleb/Desktop/2-7_hourly_data_FINAL/WRFextract_2-2/Hourly/17091/2020/HRRR_17091_IL_202001.csv
+
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 00:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+👨🏻‍🏭 Created directory: [/home/kaleb/Desktop/2-7_hourly_data_FINAL/WRFextract_2-2/Hourly/herbie_data/hrrr/20200101]
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 01:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 02:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 03:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 04:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 05:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 06:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+Herb obj not found for 20200101 06:00
+Herb obj not found for 20200101 07:00
+Herb obj not found for 20200101 08:00
+Herb obj not found for 20200101 09:00
+Herb obj not found for 20200101 10:00
+✅ Found ┊ model=hrrr ┊ [3mproduct=nat[0m ┊ [38;2;41;130;13m2020-Jan-01 11:00 UTC[92m F01[0m ┊ [38;2;255;153;0m[3mGRIB2 @ aws[0m ┊ [38;2;255;153;0m[3mIDX @ aws[0m
+Herb obj not found for 20200101 12:00
+Herb obj not found for 20200101 13:00
+Herb obj not found for 20200101 14:00
+Herb obj not found for 20200101 15:00
+Herb obj not found for 20200101 16:00
+Herb obj not found for 20200101 17:00
+Herb obj not found for 20200101 18:00
+Herb obj not found for 20200101 19:00
+Herb obj not found for 20200101 20:00
+Herb obj not found for 20200101 21:00
+Herb obj not found for 20200101 22:00
+Herb obj not found for 20200101 23:00

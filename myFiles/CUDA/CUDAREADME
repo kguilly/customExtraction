@@ -1,0 +1,30 @@
+Within this zip file contains the code that I attempted to edit to run on a GPU device using CUDA.
+
+After completing the steps contained in the README file of the main repository, you will want to now replace the eccodes.h and grib_api.h files contained in this zip with the ones you currently have set up on your machine.  The filepath for my files was /usr/src/include.  The only differences between these files is that some functions that are utilized in a CUDA thread function are now properly defined on the device by utilizing the '__device__' kernel.  If you would like to define another function from these header files to be used on the device, simply play '__device__' right before the function declaration.
+
+You can install the CUDA toolkit from here (MAKE SURE YOU INSTALL ON AN ENVIRONMENT OR IT WILL INTERFERE WITH YOUR OS): 
+https://developer.nvidia.com/cuda-downloads
+
+CUDA utilizes the nvcc compiler.  The command that you will most likely use to run a cuda file will be:
+
+nvcc <fileName> -g -leccodes -rdc=true -lcudadevrt
+
+
+CUDA tutorial (I would start here, this is the one I kept coming back to):
+https://developer.nvidia.com/blog/even-easier-introduction-cuda/
+
+Slightly more advanced CUDA tutorial:
+https://developer.nvidia.com/blog/easy-introduction-cuda-c-and-c/
+
+CUDA 'Quick Start Guide':
+https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html
+
+Full in-depth guide (there's a lot to learn from here):
+https://docs.nvidia.com/cuda/cuda-c-programming-guide/
+
+Forums for where people helped solve easy-to-run-into issues:
+
+https://forums.developer.nvidia.com/t/user-provided-copy-constructor/44610
+https://stackoverflow.com/questions/13511829/cuda-copy-constructor
+https://forums.developer.nvidia.com/t/how-to-use-class-in-cuda-c/61761
+https://stackoverflow.com/questions/4176762/passing-structs-to-cuda-kernels
